@@ -147,7 +147,7 @@ class Studio:
             seed=seed,
             sampler=plan.sampler,
             component_paths=paths,
-            extra_args=list(plan.preset.extra_args),
+            extra_args=list(plan.preset.extra_args) + (["--mmap"] if plan.low_memory else []),
             estimate_seconds=plan.estimate.seconds,
             estimate_basis=plan.estimate.basis,
             fit_note=plan.fit_note,

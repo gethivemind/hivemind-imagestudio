@@ -141,3 +141,14 @@ def test_advanced_overrides_apply_and_are_validated(settings):
     for bad in ({"steps": 0}, {"steps": 101}, {"cfg_scale": -1}, {"sampler": "magic"}):
         with pytest.raises(PlanError):
             planner.plan("flux-schnell", "best", **bad)
+
+
+def test_low_free_ram_turns_on_memory_mapping(settings):
+    hw = laptop()
+    hw.ram_available_bytes = 2 * GIB
+    planner, _ = make_planner(settings, hw)
+    plan = planner.plan("flux-schnell", "best")
+    assert plan.low_memory and any("memory-mapped" in w for w in plan.warnings)
+    hw.ram_available_bytes = 14 * GIB
+    planner, _ = make_planner(settings, hw)
+    assert not planner.plan("flux-schnell", "best").low_memory

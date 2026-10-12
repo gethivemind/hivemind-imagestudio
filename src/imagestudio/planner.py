@@ -68,6 +68,7 @@ class Plan:
     fit_note: str | None = None
     installed: bool = True
     warnings: list[str] = field(default_factory=list)
+    low_memory: bool = False  # weights exceed free RAM: engine memory-maps them
 
     def to_dict(self) -> dict:
         return {
@@ -83,6 +84,7 @@ class Plan:
             "fit_note": self.fit_note,
             "installed": self.installed,
             "warnings": list(self.warnings),
+            "low_memory": self.low_memory,
         }
 
 
@@ -229,6 +231,7 @@ class Planner:
         estimate = self.calibration.estimate(
             model, variant.name, variant.download_bytes, w, h, n_steps, cfg
         )
+        low_memory = False
         if (
             self.hw.ram_available_bytes < required_bytes(variant, w, h)
             and self.hw.usable_gpu is None
@@ -236,8 +239,10 @@ class Planner:
             warnings.append(
                 f"Only {self.hw.ram_available_bytes / GIB:.1f} GiB of RAM is free right now; "
                 f"the job needs about {required_bytes(variant, w, h) / GIB:.1f} GiB. Close "
-                "other programs or expect swapping to slow it down."
+                "other programs or expect swapping to slow it down. The weights will be "
+                "memory-mapped so the OS pages them from the model files instead of the swap file."
             )
+            low_memory = True
         if model.family == "flux" and n_steps > preset.steps:
             warnings.append(
                 f"{model.display_name} is step-distilled: {preset.steps} steps is its full "
@@ -257,6 +262,7 @@ class Planner:
             fit_note=fit_note,
             installed=variant.name in installed_names,
             warnings=warnings,
+            low_memory=low_memory,
         )
 
     def preset_table(self, model: ModelSpec) -> list[dict]:

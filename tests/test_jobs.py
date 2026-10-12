@@ -181,3 +181,19 @@ def test_seed_is_recorded_and_reproducible(studio: Studio):
     assert a.seed == b.seed == 42
     c = studio.generate("random")
     assert 0 <= c.seed < 2**31
+
+
+def test_low_memory_plan_passes_mmap_to_engine(settings: Settings):
+    from conftest import FLUX_SCHNELL, fake_install
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    hw = laptop()
+    hw.ram_available_bytes = 1024**3
+    engine = FakeEngine()
+    studio = Studio(settings=settings, engine=engine, hardware=hw)
+    try:
+        job = studio.generate("tight")
+        wait_done(studio, job.id)
+        assert "--mmap" in engine.calls[0].extra_args
+    finally:
+        studio.close()
