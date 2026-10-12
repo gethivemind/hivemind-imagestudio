@@ -70,6 +70,7 @@ class Job:
     over_budget: bool = False
     worker_pid: int | None = None  # process rendering this job; guards against duplicates
     cancel_requested: bool = False  # set by any process; honoured by the rendering one
+    live_preview: bool = True  # write a per-step preview image while rendering
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -391,7 +392,9 @@ class Worker:
             seed=job.seed,
             sampler=job.sampler,
             output=self.store.settings.out_dir / f"{job.id}.png",
-            preview_path=self.store.settings.out_dir / job.preview_name,
+            preview_path=(self.store.settings.out_dir / job.preview_name)
+            if job.live_preview
+            else None,
             component_paths={k: Path(v) for k, v in job.component_paths.items()},
             extra_args=tuple(job.extra_args),
             threads=job.threads,

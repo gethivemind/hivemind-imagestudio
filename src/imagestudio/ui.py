@@ -120,6 +120,12 @@ def build_app(studio: Studio) -> Starlette:
         except (StudioError, ValueError) as e:
             return JSONResponse({"error": str(e)}, status_code=404)
 
+    async def parse_prompt(request: Request) -> JSONResponse:
+        return JSONResponse(studio.parse_prompt(request.query_params.get("prompt", "")))
+
+    async def memory(_: Request) -> JSONResponse:
+        return JSONResponse(studio.memory_users())
+
     async def get_config(_: Request) -> JSONResponse:
         return JSONResponse(studio.get_config())
 
@@ -205,6 +211,8 @@ def build_app(studio: Studio) -> Starlette:
             Route("/api/download/{job_id}", download),
             Route("/api/export-size/{job_id}", export_size),
             Route("/api/config", get_config),
+            Route("/api/parse", parse_prompt),
+            Route("/api/memory", memory),
             Route("/api/config", set_config, methods=["POST"]),
             Route("/api/samples", samples),
             Route("/api/models/download", download_info),

@@ -33,6 +33,7 @@ from imagestudio.planner import (
     memory_budget as memory_budget_bytes,
 )
 from imagestudio.profile import MachineProfile, now_iso, recommend
+from imagestudio.promptparams import apply_aspect, parse, reproducible
 from imagestudio.registry import EXCLUDED_BY_POLICY, LICENCES, MODELS, SDCPP_TAG, ModelSpec
 
 MAX_SEED = 2**31 - 1
@@ -40,6 +41,19 @@ MAX_SEED = 2**31 - 1
 
 class StudioError(RuntimeError):
     pass
+
+
+def job_title(job: Job) -> str:
+    """A short generic title: when, which preset, which size. Prompts can be long."""
+    from datetime import datetime
+
+    try:
+        when = datetime.fromisoformat(job.finished_at or job.created_at).astimezone()
+        stamp = when.strftime("%b %d, %H:%M")
+    except (TypeError, ValueError):
+        stamp = job.id
+    size = f"{job.width}²" if job.width == job.height else f"{job.width}×{job.height}"
+    return f"{stamp} · {job.preset} · {size}"
 
 
 class BackgroundTask:
@@ -177,6 +191,28 @@ class Studio:
     ) -> Job:
         if not prompt or not prompt.strip():
             raise StudioError("prompt must not be empty")
+        parsed = parse(prompt)
+        if parsed.errors:
+            raise StudioError("; ".join(parsed.errors))
+        if not parsed.prompt:
+            raise StudioError("the prompt has only parameters and no words to draw")
+        p = parsed.params
+        if "aspect" in p:
+            base = self.plan(p.get("model", model), p.get("preset", preset), None, None)
+            apply_aspect(p, base.width, base.height)
+        prompt = parsed.prompt
+        preset = p.get("preset", preset)
+        width = p.get("width", width)
+        height = p.get("height", height)
+        seed = p.get("seed", seed)
+        negative_prompt = p.get("negative_prompt", negative_prompt)
+        model = p.get("model", model)
+        variant = p.get("variant", variant)
+        steps = p.get("steps", steps)
+        cfg_scale = p.get("cfg_scale", cfg_scale)
+        sampler = p.get("sampler", sampler)
+        threads = p.get("threads", threads)
+        vae_tiling = p.get("vae_tiling", vae_tiling)
         if not self.engine.available():
             raise StudioError(
                 "the image engine (stable-diffusion.cpp) is not installed. Run "
@@ -222,6 +258,7 @@ class Studio:
             + (["--vae-tiling"] if vae_tiling else []),
             threads=threads,
             over_budget=plan.over_budget,
+            live_preview=bool(self.settings.config().get("live_preview", True)),
             estimate_seconds=plan.estimate.seconds,
             estimate_basis=plan.estimate.basis,
             fit_note=plan.fit_note,
@@ -245,6 +282,8 @@ class Studio:
         return {
             "id": job.id,
             "prompt": job.prompt,
+            "reproducible_prompt": reproducible(job),
+            "title": job_title(job),
             "status": job.status,
             "phase": job.phase,
             "progress": round(job.progress_fraction(), 3),
@@ -398,6 +437,32 @@ class Studio:
             "height": round(job.height * s / 100) if s != 100 else job.height,
         }
 
+    # -- diagnostics ------------------------------------------------------------------------
+
+    def memory_users(self, limit: int = 8) -> dict[str, Any]:
+        """Top processes by resident memory, grouped by name, so the user knows what to close.
+        The studio cannot free another program's memory; it can only point at it."""
+        import psutil
+
+        by_name: dict[str, int] = {}
+        for proc in psutil.process_iter(["name", "memory_info"]):
+            try:
+                info = proc.info
+                name = (info["name"] or "?").lower().removesuffix(".exe")
+                by_name[name] = by_name.get(name, 0) + info["memory_info"].rss
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        vm = psutil.virtual_memory()
+        top = sorted(by_name.items(), key=lambda kv: kv[1], reverse=True)[:limit]
+        return {
+            "total_gib": round(vm.total / GIB, 1),
+            "available_gib": round(vm.available / GIB, 1),
+            "top": [{"name": n, "gib": round(b / GIB, 2)} for n, b in top],
+        }
+
+    def parse_prompt(self, text: str) -> dict[str, Any]:
+        return parse(text).to_dict()
+
     # -- config -----------------------------------------------------------------------------
 
     def get_config(self) -> dict[str, Any]:
@@ -406,6 +471,7 @@ class Studio:
             "allow_over_budget": self.settings.allow_over_budget,
             "allow_over_budget_from_env": bool(os.environ.get(ENV_ALLOW_OVER_BUDGET)),
             "default_threads": cfg.get("default_threads"),
+            "live_preview": bool(cfg.get("live_preview", True)),
             "data_dir": str(self.settings.data_dir),
             "config_file": str(self.settings.config_file),
         }
@@ -415,6 +481,8 @@ class Studio:
         cfg = self.settings.config()
         if "allow_over_budget" in changes:
             cfg["allow_over_budget"] = bool(changes["allow_over_budget"])
+        if "live_preview" in changes:
+            cfg["live_preview"] = bool(changes["live_preview"])
         if "default_threads" in changes:
             v = changes["default_threads"]
             cfg["default_threads"] = int(v) if v not in (None, "", 0) else None

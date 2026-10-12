@@ -12,7 +12,7 @@ from imagestudio.ui import build_app
 
 def test_ui_page_plan_generate_and_image(studio: Studio):
     client = TestClient(build_app(studio))
-    assert "Hivemind Image Studio" in client.get("/").text
+    assert "Image Studio" in client.get("/").text
     caps = client.get("/api/capabilities").json()
     assert caps["policy"]["default_preset"] == "best"
 
@@ -121,3 +121,13 @@ def test_export_formats_scale_and_config(studio: Studio):
     assert client.get("/api/plan", params={"variant": "q8"}).status_code == 200  # unlocked now
     client.post("/api/config", json={"allow_over_budget": False})
     assert client.get("/api/plan", params={"variant": "q8"}).status_code == 400
+
+
+def test_parse_and_memory_endpoints(studio: Studio):
+    client = TestClient(build_app(studio))
+    p = client.get("/api/parse", params={"prompt": "a dog --seed 5 --ar 4:3"}).json()
+    assert (
+        p["prompt"] == "a dog" and p["params"]["seed"] == 5 and p["params"]["aspect"] == [4.0, 3.0]
+    )
+    m = client.get("/api/memory").json()
+    assert m["total_gib"] > 0 and isinstance(m["top"], list) and m["top"][0]["gib"] >= 0

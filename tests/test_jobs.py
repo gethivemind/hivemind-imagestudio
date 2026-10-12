@@ -392,3 +392,39 @@ def test_cancel_from_another_process_stops_the_running_job(settings: Settings):
     finally:
         ui_side.close()
         worker_side.close()
+
+
+def test_prompt_params_win_over_arguments_and_are_reproducible(studio: Studio):
+    job = studio.generate("a teapot --seed 11 --size 512x256 --preset fast", preset="best", seed=1)
+    assert (job.prompt, job.seed, job.width, job.height, job.preset) == (
+        "a teapot",
+        11,
+        512,
+        256,
+        "fast",
+    )
+    st = wait_done(studio, job.id)
+    assert st["reproducible_prompt"].startswith("a teapot --preset fast --size 512x256 --seed 11")
+    assert st["title"].endswith("fast · 512×256")
+    again = studio.generate(st["reproducible_prompt"])
+    assert (again.prompt, again.seed, again.width, again.height, again.variant) == (
+        "a teapot",
+        11,
+        512,
+        256,
+        job.variant,
+    )
+    with pytest.raises(StudioError, match="--seed"):
+        studio.generate("x --seed nope")
+    with pytest.raises(StudioError, match="only parameters"):
+        studio.generate("--seed 4")
+
+
+def test_live_preview_can_be_switched_off(studio: Studio):
+    assert studio.generate("a").live_preview is True
+    studio.set_config({"live_preview": False})
+    job = studio.generate("b")
+    assert job.live_preview is False
+    wait_done(studio, job.id)
+    spec = studio.engine.calls[-1]
+    assert spec.preview_path is None
