@@ -198,4 +198,12 @@ Increment 1 (this release): `generate` with the queue, hardware detection, hash-
 model and engine downloads, calibration, CLI, MCP server.
 Increment 2: `remove_background` (BiRefNet / rembg, MIT), `upscale` (Real-ESRGAN, BSD),
 `edit` (inpaint), `variations`.
-Later: optional ComfyUI engine, GPU builds (CUDA, ROCm), the Hivemind catalogue entry.
+Later: optional ComfyUI engine, GPU builds (CUDA, ROCm), the Hivemind catalogue entry,
+and a three-tier model list (Hivemind-verified, compatible-but-unverified, bring your own
+model with a declared licence).
+
+Video (placeholder, scope only): `generate_video` (text to video) and `animate` (image to
+video) through the same engine and queue, with the same quality policy: the default is the
+strongest permissively licensed model at full resolution and full steps, faster presets only
+by explicit choice, and permissive licences only. Video needs a discrete GPU; on a CPU-only
+machine the studio will say so rather than attempt it.
