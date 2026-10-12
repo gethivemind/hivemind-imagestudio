@@ -44,11 +44,11 @@ class _Bar:
             return
         self._last = now
         pct = (done / total * 100) if total else 0
-        print(
-            f"\r  {name}: {done / GIB:6.2f}/{total / GIB:6.2f} GiB ({pct:5.1f}%)",
-            end="",
-            flush=True,
-        )
+        if total >= GIB:
+            amount = f"{done / GIB:6.2f}/{total / GIB:6.2f} GiB"
+        else:
+            amount = f"{done / 2**20:6.1f}/{total / 2**20:6.1f} MiB"
+        print(f"\r  {name}: {amount} ({pct:5.1f}%)", end="", flush=True)
         if done >= total:
             print()
 
