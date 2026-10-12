@@ -264,11 +264,15 @@ class SdCppEngine:
                 # sd.cpp redraws its progress bar with \r, so the start of this log line can
                 # be cut off ("...mpleted, taking 368.61s ... model_loader.cpp"); match the tail.
                 if ("tensors completed" in low or "model_loader" in low) and "taking" in low:
-                    mt = _TAKING_RE.search(line)
-                    if mt:
-                        load_seconds = float(mt.group(1))
-                    phase = "encoding"
-                    emit(Progress(phase, message=line[-120:]))
+                    # Each component (text encoders, diffusion model, VAE) logs this line;
+                    # only the first marks the end of loading. Later ones (VAE) must not
+                    # drag the phase back from decoding.
+                    if phase == "loading":
+                        mt = _TAKING_RE.search(line)
+                        if mt:
+                            load_seconds = float(mt.group(1))
+                        phase = "encoding"
+                        emit(Progress(phase, message=line[-120:]))
                 elif "sampling completed" in low:
                     mt = _TAKING_RE.search(line)
                     if mt:

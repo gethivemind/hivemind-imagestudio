@@ -47,9 +47,28 @@ touches the network, and there are no keys or accounts.
 
 | Machine | 1024 px image at `best` |
 | --- | --- |
-| Laptop, 16 GB RAM, integrated graphics (no CUDA) | 5 to 10 minutes |
-| Desktop CPU, 32 GB | 2 to 5 minutes |
+| Laptop, 16 GB RAM, integrated graphics (no CUDA), other apps open | about 2 hours (measured, below) |
+| Same laptop with 12+ GiB free | roughly 20 to 40 minutes (estimated; not swapping) |
+| Desktop CPU, 32 GB | 10 to 20 minutes (estimated) |
 | Mid-range discrete GPU (Vulkan or CUDA build) | seconds |
+
+### What to expect on a 16 GB laptop with no GPU
+
+Measured on an Intel i5-1235U (10 cores), 15.6 GiB RAM, Intel UHD integrated graphics,
+Windows 11, FLUX.1 schnell `q5` weights memory-mapped, same prompt and seed, while the owner
+kept working in a browser, an IDE and this app:
+
+| Preset | Size | Free RAM at start | Wall time | Sampling | Peak engine RSS |
+| --- | --- | --- | --- | --- | --- |
+| `fast` | 512 px | 1.7 GiB | 22 min 31 s | 20 min 43 s | 7.8 GiB |
+| `balanced` | 768 px | 7.3 GiB | 48 min 30 s | 44 min 48 s | 7.6 GiB |
+| `best` | 1024 px | 6.6 GiB | 1 h 56 min | 1 h 50 min | 7.6 GiB |
+
+The engine wants about 13 GiB for this set; with less free it pages weights from the model
+files all the way through, and the wall time is dominated by that paging, not by arithmetic.
+The same `fast` run without memory mapping took 37 min 32 s. Free memory matters more than
+preset: an overnight or lunch-break `best` is the realistic way to use this class of machine,
+and `imagestudio plan` tells you the expected time before you commit.
 
 Memory decides which quantisation fits. FLUX.1 schnell needs about 18.6 GiB for the 8-bit
 set, 13 GiB for 5-bit and 11 GiB for 4-bit at 1024 px (weights plus working memory); a 16 GB
