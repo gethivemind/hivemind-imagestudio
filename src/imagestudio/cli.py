@@ -287,6 +287,55 @@ def cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_benchmark(args: argparse.Namespace) -> int:
+    studio = Studio()
+    last = ""
+
+    def show(st: dict) -> None:
+        nonlocal last
+        line = (
+            f"{st['status']}/{st['phase']} step {st['step']}/{st['total_steps']} "
+            f"eta {st['eta_human']}"
+        )
+        if line != last:
+            print(f"\r  {line:<70}", end="", flush=True)
+            last = line
+
+    print(f"Benchmark: one {args.preset} image; target {args.target_minutes:g} min per image.")
+    try:
+        p = studio.benchmark(args.preset, args.target_minutes, wait=2.0, on_status=show)
+    except StudioError as e:
+        print(f"\nerror: {e}")
+        studio.close()
+        return 1
+    studio.close()
+    print()
+    if args.json:
+        print(json.dumps(p.to_dict(), indent=2))
+        return 0
+    print(
+        f"Machine: {p.cpu}, {p.physical_cores} cores, {p.ram_total_gib} GiB RAM, "
+        f"GPU {p.gpu or 'none usable'}; memory budget {p.budget_gib} GiB"
+    )
+    print(
+        f"Measured: {p.model} [{p.variant}] {p.width}x{p.height} {p.steps} steps in "
+        f"{human_duration(p.wall_seconds)} (sampling {human_duration(p.sampling_seconds)}), "
+        f"peak engine memory {p.peak_rss_gib} GiB, free RAM at start {p.free_ram_gib_at_start} GiB"
+    )
+    for note in p.notes:
+        print(f"  {note}")
+    print("Expected per preset now:")
+    for name, secs in p.preset_estimates.items():
+        mark = " <- recommended" if name == p.recommended_preset else ""
+        print(f"  {name:<9} {human_duration(secs)}{mark}")
+    if p.recommended_preset is None:
+        print(
+            f"No preset meets {p.target_minutes:g} min on this machine; best still runs, just slower."
+        )
+    print(f"Profile written to {studio.settings.profile_file}")
+    return 0
+
+
 def cmd_jobs(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
     rows = studio.list_jobs()
@@ -360,6 +409,12 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--sampler")
     pl.add_argument("--json", action="store_true")
     pl.set_defaults(fn=cmd_plan)
+
+    b = sub.add_parser("benchmark", help="run one image and write the machine profile")
+    b.add_argument("--preset", choices=PRESET_NAMES, default="fast")
+    b.add_argument("--target-minutes", type=float, default=15.0)
+    b.add_argument("--json", action="store_true")
+    b.set_defaults(fn=cmd_benchmark)
 
     j = sub.add_parser("jobs", help="list jobs")
     j.add_argument("--json", action="store_true")

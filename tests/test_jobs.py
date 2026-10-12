@@ -216,3 +216,24 @@ def test_config_file_unlocks_over_budget(settings: Settings):
     studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop(), start_worker=False)
     plan = studio.plan("flux-schnell", "best", None, None, "q8")
     assert plan.over_budget
+
+
+def test_benchmark_writes_profile_and_recommends(studio: Studio):
+    seen = []
+    profile = studio.benchmark("fast", target_minutes=15, wait=0.01, on_status=seen.append)
+    assert seen and seen[-1]["status"] == "done"
+    assert studio.settings.profile_file.exists()
+    assert profile.model == "flux-schnell" and profile.benchmark_preset == "fast"
+    assert set(profile.preset_estimates) == {"best", "balanced", "fast"}
+    assert profile.recommended_preset in ("best", "balanced", "fast", None)
+    caps = studio.capabilities()
+    assert caps["profile"]["measured_at"] == profile.measured_at
+
+
+def test_recommend_picks_highest_quality_within_target():
+    from imagestudio.profile import recommend
+
+    est = {"best": 900, "balanced": 400, "fast": 100}
+    assert recommend(est, 1000) == "best"
+    assert recommend(est, 500) == "balanced"
+    assert recommend(est, 50) is None

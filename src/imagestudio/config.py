@@ -76,6 +76,10 @@ class Settings:
         return bool(self.config().get("allow_over_budget", False))
 
     @property
+    def profile_file(self) -> Path:
+        return self.data_dir / "profile.json"
+
+    @property
     def manifest_file(self) -> Path:
         return self.models_dir / "manifest.json"
 

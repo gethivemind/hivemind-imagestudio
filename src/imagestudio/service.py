@@ -16,7 +16,18 @@ from imagestudio.engine.sdcpp import SdCppEngine
 from imagestudio.hardware import Hardware, detect
 from imagestudio.jobs import Job, JobStore, Worker
 from imagestudio.models import ModelStore
-from imagestudio.planner import GIB, Plan, PlanError, Planner, fit_variants
+from imagestudio.planner import (
+    GIB,
+    Plan,
+    PlanError,
+    Planner,
+    fit_variants,
+    required_bytes,
+)
+from imagestudio.planner import (
+    memory_budget as memory_budget_bytes,
+)
+from imagestudio.profile import MachineProfile, now_iso, recommend
 from imagestudio.registry import EXCLUDED_BY_POLICY, LICENCES, MODELS, SDCPP_TAG, ModelSpec
 
 MAX_SEED = 2**31 - 1
@@ -260,6 +271,86 @@ class Studio:
     def cancel(self, job_id: str) -> bool:
         return self.worker.cancel(job_id)
 
+    # -- benchmark ------------------------------------------------------------------------
+
+    def benchmark(
+        self,
+        preset: str = "fast",
+        target_minutes: float = 15.0,
+        wait: float = 0.5,
+        on_status=None,
+    ) -> MachineProfile:
+        """Run one real job and write the machine profile (detect-settings for this machine).
+
+        The job is a normal queued job so the calibration learns from it too. Blocks until
+        it finishes. The recommendation is the best preset whose calibrated estimate is
+        within ``target_minutes``; the user may always choose a slower one.
+        """
+        import time
+
+        free_start = self.hardware.ram_available_bytes
+        job = self.generate(
+            "benchmark: a lighthouse on a rocky coast at dusk", preset=preset, seed=7
+        )
+        while True:
+            st = self.job_status(job.id)
+            if on_status:
+                on_status(st)
+            if st["status"] in ("done", "failed", "cancelled"):
+                break
+            time.sleep(wait)
+        if st["status"] != "done":
+            raise StudioError(
+                f"benchmark job {job.id} {st['status']}: {st['error'] or st['message']}"
+            )
+        j = self.jobs.get(job.id)
+        assert j is not None
+        model = MODELS[j.model]
+        variant = model.variant(j.variant)
+        coeffs = self.calibration.coefficients(model, variant.name, variant.download_bytes)
+        estimates = {
+            p.name: self.calibration.estimate(
+                model, variant.name, variant.download_bytes, p.width, p.height, p.steps, p.cfg_scale
+            ).seconds
+            for p in model.presets.values()
+        }
+        needed = required_bytes(variant, j.width, j.height)
+        swapped = free_start < needed
+        gpu = self.hardware.usable_gpu
+        notes = []
+        if swapped:
+            notes.append(
+                f"Only {free_start / GIB:.1f} GiB was free at the start and the job needed about "
+                f"{needed / GIB:.1f} GiB, so this run swapped; with more free memory the same "
+                "settings run several times faster."
+            )
+        profile = MachineProfile(
+            measured_at=now_iso(),
+            cpu=self.hardware.cpu_name,
+            physical_cores=self.hardware.physical_cores,
+            ram_total_gib=round(self.hardware.ram_total_bytes / GIB, 1),
+            gpu=gpu.name if gpu else None,
+            budget_gib=round(memory_budget_bytes(self.hardware) / GIB, 1),
+            model=model.name,
+            variant=variant.name,
+            benchmark_preset=preset,
+            width=j.width,
+            height=j.height,
+            steps=j.steps,
+            wall_seconds=round(j.total_seconds or 0.0, 1),
+            sampling_seconds=round(j.sampling_seconds or 0.0, 1),
+            seconds_per_step_megapixel=round(coeffs.seconds_per_step_megapixel, 2),
+            peak_rss_gib=round(j.peak_rss_bytes / GIB, 2) if j.peak_rss_bytes else None,
+            free_ram_gib_at_start=round(free_start / GIB, 1),
+            swapped=swapped,
+            target_minutes=target_minutes,
+            recommended_preset=recommend(estimates, target_minutes * 60),
+            preset_estimates={k: round(v) for k, v in estimates.items()},
+            notes=notes,
+        )
+        profile.save(self.settings.profile_file)
+        return profile
+
     # -- capabilities ---------------------------------------------------------------------
 
     def model_report(self, model: ModelSpec) -> dict[str, Any]:
@@ -321,6 +412,9 @@ class Studio:
                 "models_dir": str(self.settings.models_dir),
                 "out_dir": str(self.settings.out_dir),
             },
+            "profile": (
+                p.to_dict() if (p := MachineProfile.load(self.settings.profile_file)) else None
+            ),
             "queue": {
                 "running": running.id if (running := self.jobs.running()) else None,
                 "queued": len(self.jobs.queued()),
