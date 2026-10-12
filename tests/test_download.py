@@ -102,3 +102,53 @@ def test_http_error_raises(tmp_path):
             SHA,
             client=httpx.Client(transport=httpx.MockTransport(handler)),
         )
+
+
+def test_transient_error_is_retried_with_resume(tmp_path, monkeypatch):
+    monkeypatch.setattr(dl, "RETRY_WAIT_SECONDS", 0.0)
+    monkeypatch.setattr(dl, "CHUNK", 1000)  # so bytes reach disk before the drop
+    target = tmp_path / "f.bin"
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.headers.get("range"))
+        if len(calls) == 1:
+            # first attempt: half the file, then the connection drops
+            return httpx.Response(200, content=_dropping_stream(PAYLOAD[:5000]))
+        start = int(calls[-1].split("=")[1].rstrip("-"))
+        return httpx.Response(
+            206,
+            content=PAYLOAD[start:],
+            headers={"content-range": f"bytes {start}-{len(PAYLOAD) - 1}/{len(PAYLOAD)}"},
+        )
+
+    dl.download(
+        "https://x/f",
+        target,
+        SHA,
+        len(PAYLOAD),
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert target.read_bytes() == PAYLOAD
+    assert calls[0] is None and calls[1] == "bytes=5000-"
+
+
+def _dropping_stream(data: bytes):
+    yield data
+    raise httpx.ReadTimeout("stalled")
+
+
+def test_gives_up_after_max_attempts(tmp_path, monkeypatch):
+    monkeypatch.setattr(dl, "RETRY_WAIT_SECONDS", 0.0)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("no route")
+
+    with pytest.raises(dl.DownloadError, match="gave up after 3 attempts"):
+        dl.download(
+            "https://x/f",
+            tmp_path / "f",
+            SHA,
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+            attempts=3,
+        )

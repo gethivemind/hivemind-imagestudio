@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -23,6 +24,8 @@ except ImportError:  # pragma: no cover
     pass
 
 CHUNK = 1024 * 1024
+MAX_ATTEMPTS = 8  # transient network errors resume from the .part file
+RETRY_WAIT_SECONDS = 5.0
 ProgressFn = Callable[[int, int], None]  # (bytes_done, bytes_total)
 
 
@@ -54,12 +57,14 @@ def download(
     size: int | None = None,
     progress: ProgressFn | None = None,
     client: httpx.Client | None = None,
+    attempts: int = MAX_ATTEMPTS,
 ) -> Path:
     """Fetch ``url`` into ``target``, resuming a ``.part`` file if present, verifying SHA-256.
 
-    Returns ``target``. If ``target`` already exists with the right hash it is returned
-    untouched (the hash is recomputed, which is slow for 10 GB files; callers cache the result
-    in the models manifest).
+    Transient network errors (timeouts, dropped connections) are retried up to ``attempts``
+    times, each time resuming from the bytes already on disk. Returns ``target``. If
+    ``target`` already exists with the right hash it is returned untouched (the hash is
+    recomputed, which is slow for 10 GB files; callers cache the result in the manifest).
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
@@ -68,33 +73,24 @@ def download(
         target.unlink()
 
     part = target.with_suffix(target.suffix + ".part")
-    have = part.stat().st_size if part.exists() else 0
     own_client = client is None
     client = client or httpx.Client(follow_redirects=True, timeout=httpx.Timeout(60.0))
     try:
-        headers = {"Range": f"bytes={have}-"} if have else {}
-        with client.stream("GET", url, headers=headers) as r:
-            if have and r.status_code == 200:
-                # Server ignored the range: start over.
-                have = 0
-            elif have and r.status_code != 206:
-                raise DownloadError(f"resume refused: HTTP {r.status_code} for {url}")
-            elif not have and r.status_code != 200:
-                raise DownloadError(f"HTTP {r.status_code} for {url}")
-            total = size
-            if total is None:
-                if r.status_code == 206 and "content-range" in r.headers:
-                    total = int(r.headers["content-range"].rsplit("/", 1)[-1])
-                elif "content-length" in r.headers:
-                    total = have + int(r.headers["content-length"])
-            mode = "ab" if have else "wb"
-            with part.open(mode) as f:
-                done = have
-                for chunk in r.iter_bytes(CHUNK):
-                    f.write(chunk)
-                    done += len(chunk)
-                    if progress:
-                        progress(done, total or done)
+        last_error: Exception | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                _fetch(client, url, part, size, progress)
+                break
+            except (httpx.TransportError, httpx.RemoteProtocolError) as e:
+                last_error = e
+                if attempt == attempts:
+                    raise DownloadError(
+                        f"{target.name}: gave up after {attempts} attempts: {e}. The partial "
+                        "file is kept; running the download again resumes it."
+                    ) from e
+                time.sleep(RETRY_WAIT_SECONDS)
+        else:  # pragma: no cover
+            raise DownloadError(str(last_error))
     finally:
         if own_client:
             client.close()
@@ -109,3 +105,33 @@ def download(
         )
     shutil.move(str(part), str(target))
     return target
+
+
+def _fetch(
+    client: httpx.Client, url: str, part: Path, size: int | None, progress: ProgressFn | None
+) -> None:
+    """One attempt: resume ``part`` with a Range request and stream to its end."""
+    have = part.stat().st_size if part.exists() else 0
+    headers = {"Range": f"bytes={have}-"} if have else {}
+    with client.stream("GET", url, headers=headers) as r:
+        if have and r.status_code == 200:
+            have = 0  # server ignored the range: start over
+        elif have and r.status_code == 416:
+            return  # already complete; the hash check decides
+        elif have and r.status_code != 206:
+            raise DownloadError(f"resume refused: HTTP {r.status_code} for {url}")
+        elif not have and r.status_code != 200:
+            raise DownloadError(f"HTTP {r.status_code} for {url}")
+        total = size
+        if total is None:
+            if r.status_code == 206 and "content-range" in r.headers:
+                total = int(r.headers["content-range"].rsplit("/", 1)[-1])
+            elif "content-length" in r.headers:
+                total = have + int(r.headers["content-length"])
+        with part.open("ab" if have else "wb") as f:
+            done = have
+            for chunk in r.iter_bytes(CHUNK):
+                f.write(chunk)
+                done += len(chunk)
+                if progress:
+                    progress(done, total or done)
