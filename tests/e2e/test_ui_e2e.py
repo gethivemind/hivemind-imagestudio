@@ -11,8 +11,8 @@ import threading
 import time
 
 import pytest
-from conftest import FLUX_SCHNELL, fake_install, laptop
 
+from conftest import FLUX_SCHNELL, fake_install, laptop
 from imagestudio.engine.fake import FakeEngine
 from imagestudio.service import Studio
 from imagestudio.ui import build_app
@@ -53,7 +53,7 @@ def page(site):
         with pw.sync_playwright() as p:
             try:
                 browser = p.chromium.launch()
-            except Exception as e:  # noqa: BLE001 - no browser installed on this machine
+            except Exception as e:
                 pytest.skip(f"chromium not available: {e}")
             pg = browser.new_page(viewport={"width": 1400, "height": 900})
             errors: list[str] = []
