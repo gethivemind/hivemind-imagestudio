@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Image Studio</title>
+<title>Hivemind Image Studio</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4 56 18v28L32 60 8 46V18z' fill='%23f0b429'/%3E%3Ccircle cx='32' cy='32' r='13' fill='%231d1d1b'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23f6f5f2'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -31,6 +31,7 @@
   .top { height: var(--top); display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--surface); flex: 0 0 auto; }
   .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; margin-right: 6px; }
   .brand svg { width: 24px; height: 24px; }
+  .brand small { font-weight: 500; color: var(--muted); font-size: 11.5px; margin-left: 4px; }
   .tabs { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--line); }
   .tabs button { padding: 5px 13px; border-radius: 8px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-weight: 500; }
   .tabs button.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
@@ -56,15 +57,22 @@
   .view.active { display: flex !important; }
 
   /* CREATE */
-  .ws { flex: 1; display: grid; grid-template-columns: var(--rail) 1fr var(--qrail); min-height: 0; }
-  .ws.rail-off { grid-template-columns: 0 1fr var(--qrail); } .ws.q-off { grid-template-columns: var(--rail) 1fr 0; } .ws.rail-off.q-off, .ws.focus { grid-template-columns: 0 1fr 0; }
-  .rail { background: var(--surface); border-right: 1px solid var(--line); overflow: auto; min-width: 0; }
-  .ws.rail-off .rail, .ws.focus .rail { display: none; }
+  .ws { flex: 1; display: grid; grid-template-columns: var(--rail) minmax(0, 1fr) var(--qrail); min-height: 0; position: relative; }
+  .ws.rail-off { --rail: 0px; } .ws.q-off { --qrail: 0px; } .ws.focus { --rail: 0px; --qrail: 0px; }
+  .rail { background: var(--surface); border-right: 1px solid var(--line); overflow: auto; min-width: 0; position: relative; }
+  .ws.rail-off .rail, .ws.focus .rail { overflow: hidden; border: 0; }
+  .handle { position: absolute; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 4; }
+  .handle:hover, .handle.drag { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+  .handle.left { left: calc(var(--rail) - 4px); } .handle.right { right: calc(var(--qrail) - 4px); }
+  .ws.rail-off .handle.left, .ws.focus .handle.left, .ws.q-off .handle.right, .ws.focus .handle.right { display: none; }
   .rail .in { padding: 14px 16px 90px; }
-  .sec { margin-top: 18px; } .sec:first-child { margin-top: 4px; }
+  .sec { margin-top: 24px; } .sec:first-child { margin-top: 6px; }
   .sec h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
-  .f label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink2); margin: 0 0 4px; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 14px; }
+  .f label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink2); margin: 0 0 5px; }
+  .f label .rst { margin-left: auto; width: 16px; height: 16px; border-radius: 50%; border: 0; background: var(--track); color: var(--muted); font-size: 10px; cursor: pointer; display: none; line-height: 1; }
+  .f.changed label .rst { display: inline-grid; place-items: center; }
+  .f.changed input[type=number], .f.changed select { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
   .help { width: 14px; height: 14px; display: inline-grid; place-items: center; border-radius: 50%; border: 1px solid var(--line2); color: var(--muted); font-size: 9.5px; cursor: help; font-style: normal; }
   input[type=text], input[type=number], select, textarea { width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface2); }
   input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 0; border-color: var(--accent); }
@@ -76,12 +84,14 @@
   .ar button { height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface2); color: var(--ink2); cursor: pointer; font-size: 12px; font-family: var(--mono); }
   .ar button.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
   .canvas { position: relative; min-width: 0; min-height: 0; background: var(--bg); }
-  .canvas > img { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); max-width: calc(100% - 48px); max-height: calc(100% - 210px); border-radius: 14px; box-shadow: var(--shadow); background: var(--surface); }
+  .canvas > img { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); max-width: calc(100% - 48px); max-height: calc(100% - 240px); border-radius: 14px; box-shadow: var(--shadow); background: var(--surface); }
   .canvas .empty { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); text-align: center; max-width: 440px; color: var(--muted); }
   .canvas .empty b { display: block; color: var(--ink); font-size: 17px; font-weight: 600; margin-bottom: 6px; }
   .canvas .empty code { font-family: var(--mono); font-size: 12px; background: var(--surface2); padding: 2px 6px; border-radius: 6px; }
   .ctools { position: absolute; top: 12px; right: 14px; display: flex; gap: 6px; }
-  .status { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 8px 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 12.5px; white-space: nowrap; }
+  .stwrap { display: flex; justify-content: center; margin-bottom: 8px; }
+  .stwrap:empty { display: none; }
+  .status { display: inline-flex; align-items: center; gap: 12px; height: 38px; padding: 0 8px 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 12.5px; white-space: nowrap; }
   .status .bar { width: 160px; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; } .status .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s; }
   .status .m { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
 
@@ -110,7 +120,7 @@
   .stytext { color: var(--muted); font-size: 11.5px; padding: 0 6px 4px; }
 
   .qrail { background: var(--surface); border-left: 1px solid var(--line); overflow: auto; min-width: 0; }
-  .ws.q-off .qrail, .ws.focus .qrail { display: none; }
+  .ws.q-off .qrail, .ws.focus .qrail { overflow: hidden; border: 0; }
   .qrail .in { padding: 14px 14px 24px; }
   .qrail h3 { margin: 0 0 10px; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
   .qcard { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface2); margin-bottom: 8px; cursor: pointer; }
@@ -198,7 +208,7 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="var(--honey)"/><circle cx="32" cy="32" r="13" fill="var(--ink)"/><circle cx="32" cy="32" r="6" fill="var(--bg)"/></svg>Image Studio</div>
+  <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="var(--honey)"/><circle cx="32" cy="32" r="13" fill="var(--ink)"/><circle cx="32" cy="32" r="6" fill="var(--bg)"/></svg><span>Image Studio <small>by Hivemind</small></span></div>
   <nav class="tabs" id="tabs"><button data-tab="create" class="active">Create</button><button data-tab="gallery">Gallery</button><button data-tab="machine">Machine</button></nav>
   <div class="grow"></div>
   <span class="chip" id="hwchip"><span class="dot" id="hwdot"></span><span id="hwtext">…</span></span>
@@ -211,27 +221,31 @@
 
 <section class="view active" id="create">
   <div class="ws" id="ws">
+    <div class="handle left" id="hL"></div><div class="handle right" id="hR"></div>
     <aside class="rail"><div class="in">
+      <datalist id="stepsTicks"><option value="4"></option><option value="20"></option><option value="50"></option></datalist>
+      <datalist id="cfgTicks"><option value="1"></option><option value="2.5"></option><option value="7"></option></datalist>
+      <datalist id="sizeTicks"><option value="512"></option><option value="768"></option><option value="1024"></option><option value="1536"></option><option value="2048"></option></datalist>
       <div class="sec"><h3>Size</h3>
         <div class="g2">
-          <div class="f"><label for="widthN">Width <i class="help" title="Pixels, 256 to 2048 in steps of 16. More pixels: more detail, more time, more memory.">?</i></label><div class="sl"><input type="range" id="widthR" min="256" max="2048" step="16"><input type="number" id="widthN" min="256" max="2048" step="16" placeholder="1024"></div></div>
-          <div class="f"><label for="heightN">Height <i class="help" title="Any aspect ratio. A tall or wide image costs the same as a square with the same pixel count.">?</i></label><div class="sl"><input type="range" id="heightR" min="256" max="2048" step="16"><input type="number" id="heightN" min="256" max="2048" step="16" placeholder="1024"></div></div>
+          <div class="f"><label for="widthN" data-f="widthN">Width <i class="help" title="Pixels, 256 to 2048 in steps of 16. More pixels: more detail, more time, more memory.">?</i></label><div class="sl"><input type="range" id="widthR" min="256" max="2048" step="16" list="sizeTicks"><input type="number" id="widthN" min="256" max="2048" step="16" placeholder="1024"></div></div>
+          <div class="f"><label for="heightN" data-f="heightN">Height <i class="help" title="Any aspect ratio. A tall or wide image costs the same as a square with the same pixel count.">?</i></label><div class="sl"><input type="range" id="heightR" min="256" max="2048" step="16" list="sizeTicks"><input type="number" id="heightN" min="256" max="2048" step="16" placeholder="1024"></div></div>
         </div>
         <div class="ar" id="ar"><button data-ar="1:1">1:1</button><button data-ar="4:3">4:3</button><button data-ar="3:4">3:4</button><button data-ar="3:2">3:2</button><button data-ar="16:9">16:9</button><button data-ar="9:16">9:16</button></div>
       </div>
       <div class="sec"><h3>Sampling</h3>
         <div class="g2">
-          <div class="f"><label for="stepsN">Steps <i class="help" title="Denoising passes. FLUX schnell is distilled to 4; more only costs time. Qwen-Image uses 50. Empty = preset.">?</i></label><div class="sl"><input type="range" id="stepsR" min="1" max="100" step="1"><input type="number" id="stepsN" min="1" max="100" placeholder="4"></div></div>
-          <div class="f"><label for="cfgN">Guidance <i class="help" title="How strongly the image follows the prompt (CFG). 1 = off for FLUX schnell; Qwen-Image uses 2.5. Above 1 the model runs twice per step.">?</i></label><div class="sl"><input type="range" id="cfgR" min="0" max="20" step="0.5"><input type="number" id="cfgN" min="0" max="20" step="0.1" placeholder="1"></div></div>
-          <div class="f"><label for="sampler">Sampler <i class="help" title="The method that walks from noise to image. euler is the tested default; Machine → Glossary explains the others.">?</i></label><select id="sampler"></select></div>
-          <div class="f"><label for="variant">Quantisation <i class="help" title="Bits per weight in the model file. q8 nearest the original, q4 smallest. Default: highest that fits memory. Changes memory, not speed.">?</i></label><select id="variant"><option value="">by memory fit</option><option value="q8">q8 · highest</option><option value="q6">q6</option><option value="q5">q5</option><option value="q4">q4 · smallest</option></select></div>
+          <div class="f"><label for="stepsN" data-f="stepsN">Steps <i class="help" title="Denoising passes. FLUX schnell is distilled to 4; more only costs time. Qwen-Image uses 50. Empty = preset.">?</i></label><div class="sl"><input type="range" id="stepsR" min="1" max="50" step="1" list="stepsTicks"><input type="number" id="stepsN" min="1" max="100" placeholder="4"></div></div>
+          <div class="f"><label for="cfgN" data-f="cfgN">Guidance <i class="help" title="How strongly the image follows the prompt (CFG). 1 = off for FLUX schnell; Qwen-Image uses 2.5. Above 1 the model runs twice per step.">?</i></label><div class="sl"><input type="range" id="cfgR" min="0" max="10" step="0.5" list="cfgTicks"><input type="number" id="cfgN" min="0" max="20" step="0.1" placeholder="1"></div></div>
+          <div class="f"><label for="sampler" data-f="sampler">Sampler <i class="help" title="The method that walks from noise to image. euler is the tested default; Machine → Glossary explains the others.">?</i></label><select id="sampler"></select></div>
+          <div class="f"><label for="variant" data-f="variant">Quantisation <i class="help" title="Bits per weight in the model file. q8 nearest the original, q4 smallest. Default: highest that fits memory. Changes memory, not speed.">?</i></label><select id="variant"><option value="">by memory fit</option><option value="q8">q8 · highest</option><option value="q6">q6</option><option value="q5">q5</option><option value="q4">q4 · smallest</option></select></div>
         </div>
-        <div class="f" style="margin-top:10px"><label for="negative">Negative prompt <i class="help" title="What to keep out. Little effect on FLUX schnell (no guidance); matters for Qwen-Image. Inline: --no blurry, text">?</i></label><input type="text" id="negative" placeholder="e.g. blurry, text, watermark"></div>
+        <div class="f" style="margin-top:10px"><label for="negative" data-f="negative">Negative prompt <i class="help" title="What to keep out. Little effect on FLUX schnell (no guidance); matters for Qwen-Image. Inline: --no blurry, text">?</i></label><input type="text" id="negative" placeholder="e.g. blurry, text, watermark"></div>
       </div>
       <div class="sec"><h3>Machine</h3>
         <div class="g2">
-          <div class="f"><label for="threadsN">Threads <i class="help" title="CPU threads for the engine. Default: all physical cores. Fewer keeps the laptop usable while it renders.">?</i></label><div class="sl"><input type="range" id="threadsR" min="1" max="32" step="1"><input type="number" id="threadsN" min="1" max="256" placeholder="cores"></div></div>
-          <div class="f"><label for="tiling">VAE tiling <i class="help" title="Decode the final image in tiles: saves memory on large images, slightly slower, no quality change.">?</i></label><select id="tiling"><option value="">off</option><option value="1">on · saves memory</option></select></div>
+          <div class="f"><label for="threadsN" data-f="threadsN">Threads <i class="help" title="CPU threads for the engine. Default: all physical cores. Fewer keeps the laptop usable while it renders.">?</i></label><div class="sl"><input type="range" id="threadsR" min="1" max="32" step="1"><input type="number" id="threadsN" min="1" max="256" placeholder="cores"></div></div>
+          <div class="f"><label for="tiling" data-f="tiling">VAE tiling <i class="help" title="Decode the final image in tiles: saves memory on large images, slightly slower, no quality change.">?</i></label><select id="tiling"><option value="">off</option><option value="1">on · saves memory</option></select></div>
         </div>
         <div style="margin-top:12px"><button class="btn sm ghost" id="resetBtn">Reset to preset defaults</button></div>
       </div>
@@ -241,6 +255,7 @@
       <div class="empty" id="empty"><b>Describe what you want to see</b>Type below and press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>. Parameters work inline: <code>--seed 7 --size 1024x768 --preset fast</code></div>
       <div class="ctools"><button class="ib" id="lpBtn" title="live preview while rendering">◉</button><button class="ib" id="focusBtn" title="focus mode (F)">⤢</button></div>
       <div class="capsule">
+        <div class="stwrap" id="stwrap"></div>
         <div class="alerts" id="alerts"></div>
         <div class="box">
           <textarea id="prompt" rows="1" placeholder="a red fox on a mossy log in a misty pine forest at sunrise, soft golden light, 35 mm photograph"></textarea>
@@ -352,6 +367,22 @@
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
   $("railBtn").onclick = () => $("ws").classList.toggle("rail-off");
   $("qBtn").onclick = () => $("ws").classList.toggle("q-off");
+  // resizable rails: drag the handles; widths are remembered in this browser
+  try { const w = JSON.parse(localStorage.getItem("rails") || "{}"); if (w.rail) $("ws").style.setProperty("--rail", w.rail + "px"); if (w.qrail) $("ws").style.setProperty("--qrail", w.qrail + "px"); } catch (e) {}
+  function drag(handle, side) {
+    handle.addEventListener("pointerdown", (e) => {
+      e.preventDefault(); handle.setPointerCapture(e.pointerId); handle.classList.add("drag");
+      const ws = $("ws"); const rect = ws.getBoundingClientRect();
+      const move = (ev) => { const px = side === "left" ? ev.clientX - rect.left : rect.right - ev.clientX; const v = Math.max(240, Math.min(560, Math.round(px))); ws.style.setProperty(side === "left" ? "--rail" : "--qrail", v + "px"); };
+      const up = () => { handle.classList.remove("drag"); handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); try { const cs = getComputedStyle(ws); localStorage.setItem("rails", JSON.stringify({ rail: parseInt(cs.getPropertyValue("--rail")), qrail: parseInt(cs.getPropertyValue("--qrail")) })); } catch (e) {} };
+      handle.addEventListener("pointermove", move); handle.addEventListener("pointerup", up);
+    });
+  }
+  drag($("hL"), "left"); drag($("hR"), "right");
+  // per-field reset marks
+  document.querySelectorAll(".f label[data-f]").forEach(l => { const b = document.createElement("button"); b.className = "rst"; b.type = "button"; b.title = "back to the preset value"; b.textContent = "×"; b.onclick = (e) => { e.preventDefault(); const id = l.dataset.f; const el = $(id); el.value = ""; const r = $(id.replace(/N$/, "R")); if (r && el !== r) r.value = el.placeholder || r.value; markChanged(); renderPresets(); markAr(); plan(); }; l.appendChild(b); });
+  function markChanged() { document.querySelectorAll(".f label[data-f]").forEach(l => { const el = $(l.dataset.f); l.closest(".f").classList.toggle("changed", el && el.value !== ""); }); }
+  document.querySelectorAll(".f input, .f select").forEach(el => el.addEventListener("input", markChanged));
   $("focusBtn").onclick = () => $("ws").classList.toggle("focus");
   $("actchip").onclick = (e) => { e.stopPropagation(); $("actpop").classList.toggle("open"); };
   document.addEventListener("click", (e) => { if (!e.target.closest("#actpop")) $("actpop").classList.remove("open"); });
@@ -359,8 +390,6 @@
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && S.tab === "create" && !$("go").disabled) { e.preventDefault(); generate(); return; }
     if ($("lb").open) { if (e.key === "ArrowLeft") lbStep(-1); if (e.key === "ArrowRight") lbStep(1); return; }
-    if (typing) return;
-    if (S.tab === "create") { if (e.key === "f") $("ws").classList.toggle("focus"); if (e.key === "s") $("ws").classList.toggle("rail-off"); if (e.key === "q") $("ws").classList.toggle("q-off"); }
   });
 
   function styleText() { const st = STYLES.find(s => s[0] === $("style").value); return st && st[2] ? st[2] : ""; }
@@ -387,6 +416,8 @@
     const c = await api("/api/capabilities"); S.caps = c; const hw = c.hardware;
     $("hwtext").textContent = `${hw.ram_available_gib} / ${hw.ram_total_gib} GiB free · ${c.queue.worker_in_this_process ? "worker here" : c.queue.worker_pid ? "worker " + c.queue.worker_pid : "no worker"}`;
     $("hwdot").className = "dot" + (c.engine.available ? "" : " warn");
+    S.workerOutdated = !!c.queue.worker_outdated;
+    if (S.workerOutdated) $("hwchip").title = "The rendering worker runs an older build (" + (c.queue.worker_version || "unknown") + "). Restart it to get live previews and cancel.";
     $("threadsR").max = Math.max(4, hw.logical_cores || 16);
     const sel = $("model"); sel.innerHTML = '<option value="auto">auto model</option>';
     for (const m of c.models) { const o = document.createElement("option"); o.value = m.name; o.textContent = m.display_name + (m.installed_variants.length ? "" : " · not downloaded"); sel.appendChild(o); }
@@ -421,6 +452,7 @@
     S.plan = d; const L = d.load; const cls = { "comfortable": "l-comfortable", "tight": "l-tight", "will swap": "l-swap", "over budget": "l-over" }[L.label];
     $("meterFill").style.width = Math.min(100, L.score) + "%"; $("meterFill").style.background = cls === "l-comfortable" ? "var(--ok)" : cls === "l-over" ? "var(--bad)" : "var(--warn)";
     $("etaText").innerHTML = `≈ ${d.estimate.human} · <span class="${cls}">${L.label}</span>`; $("eta").title = `${d.model} [${d.variant}] ${d.width}×${d.height} · ${d.steps} steps · cfg ${d.cfg_scale} · ${d.sampler}\nneeds ${L.required_gib} GiB · budget ${L.budget_gib} · free ${L.available_gib}\n${d.estimate.basis}`;
+    if (S.workerOutdated) A.appendChild(alertEl("warn", "The rendering worker is an older build", `It was started before this version (${S.caps.queue.worker_version || "unknown"} vs ${S.caps.studio_version}). Restart it (imagestudio serve or imagestudio ui) to get live previews and cancel for new jobs.`));
     if (d.fit_note) { const [t, r] = split(d.fit_note); A.appendChild(alertEl("info", t, r)); }
     for (const w of d.warnings || []) { const [t, r] = split(w); A.appendChild(alertEl("warn", t, r)); }
     if (!d.installed) { const b = document.createElement("button"); b.className = "btn sm primary"; b.textContent = `Download ${d.model} [${d.variant}]`; b.onclick = () => openDownload(d.model, d.variant); const a = alertEl("warn", `${d.model} [${d.variant}] is not downloaded`, "Generate is disabled until the weights are on this machine. The download asks for consent, resumes if interrupted and is hash-verified.", b); a.classList.add("open"); A.appendChild(a); }
@@ -452,17 +484,16 @@
     $("hwdot").className = "dot" + (active.some(j => j.status === "running") ? " busy" : "");
   }
   function renderCanvas(j) {
-    const c = $("canvas"); c.querySelectorAll(":scope > img, :scope > .status").forEach(n => n.remove());
+    const c = $("canvas"); c.querySelectorAll(":scope > img").forEach(n => n.remove()); $("stwrap").innerHTML = "";
     const emptyEl = $("empty");
     if (!j || !["running", "queued", "done"].includes(j.status)) { emptyEl.style.display = ""; emptyEl.innerHTML = `<b>Describe what you want to see</b>Type below and press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>. Parameters work inline: <code>--seed 7 --size 1024x768 --preset fast</code>`; return; }
     emptyEl.style.display = "none";
     if (j.status === "done") { const img = document.createElement("img"); img.src = `/api/image/${j.id}`; c.appendChild(img); }
     else if (j.has_preview) { const img = document.createElement("img"); img.src = `/api/preview/${j.id}?t=${Date.now()}`; img.title = "live preview: a rough projection of the image forming"; c.appendChild(img); }
     else { emptyEl.style.display = ""; emptyEl.innerHTML = `<b>${j.status === "queued" ? "Waiting in the queue…" : esc(j.phase[0].toUpperCase() + j.phase.slice(1)) + "…"}</b>${esc(j.prompt)}`; }
-    const st = document.createElement("div"); st.className = "status";
+    const st = document.createElement("div"); st.className = "status"; $("stwrap").appendChild(st);
     if (j.status === "done") st.innerHTML = `<span><b>Done</b> <span class="m">${esc(j.title)} · ${fmtDur(j.total_seconds)}</span></span><button class="btn sm" id="stOpen">Open in gallery</button>`;
     else st.innerHTML = `<span><b>${j.status === "running" ? "Rendering" : "Queued"}</b> <span class="m">${j.phase === "sampling" ? `step ${j.step}/${j.total_steps}` : j.phase} · ${fmtEta(j.eta_seconds)} left</span></span><span class="bar"><i style="width:${Math.round((j.progress || 0) * 100)}%"></i></span><button class="btn sm" id="stCancel">Cancel</button>`;
-    c.appendChild(st);
     const so = $("stOpen"); if (so) so.onclick = () => { showTab("gallery"); openLightbox(j.id); };
     const sc = $("stCancel"); if (sc) sc.onclick = async () => { sc.disabled = true; await post(`/api/jobs/${j.id}/cancel`); toast("Cancel requested."); setTimeout(refreshJobs, 1200); };
   }

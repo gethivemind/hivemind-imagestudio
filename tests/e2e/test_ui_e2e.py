@@ -1,0 +1,134 @@
+"""Browser tests for the page, against the fake engine. They run only when Playwright and
+its Chromium are installed (``pip install -e .[e2e] && playwright install chromium``); CI
+has a job for them. They catch what unit tests cannot: a broken layout, a JavaScript error,
+a button that does nothing.
+"""
+
+from __future__ import annotations
+
+import socket
+import threading
+import time
+
+import pytest
+from conftest import FLUX_SCHNELL, fake_install, laptop
+
+from imagestudio.engine.fake import FakeEngine
+from imagestudio.service import Studio
+from imagestudio.ui import build_app
+
+pw = pytest.importorskip("playwright.sync_api")
+uvicorn = pytest.importorskip("uvicorn")
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture
+def site(settings):
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(settings=settings, engine=FakeEngine(step_delay=0.05), hardware=laptop())
+    port = _free_port()
+    config = uvicorn.Config(build_app(studio), host="127.0.0.1", port=port, log_level="error")
+    server = uvicorn.Server(config)
+    t = threading.Thread(target=server.run, daemon=True)
+    t.start()
+    for _ in range(100):
+        if server.started:
+            break
+        time.sleep(0.05)
+    yield f"http://127.0.0.1:{port}", studio
+    server.should_exit = True
+    t.join(5)
+    studio.close()
+
+
+@pytest.fixture
+def page(site):
+    url, _ = site
+    try:
+        with pw.sync_playwright() as p:
+            try:
+                browser = p.chromium.launch()
+            except Exception as e:  # noqa: BLE001 - no browser installed on this machine
+                pytest.skip(f"chromium not available: {e}")
+            pg = browser.new_page(viewport={"width": 1400, "height": 900})
+            errors: list[str] = []
+            pg.on("pageerror", lambda err: errors.append(str(err)))
+            pg.goto(url)
+            pg.wait_for_selector("#presetSeg button")
+            pg.errors = errors  # type: ignore[attr-defined]
+            yield pg
+            browser.close()
+    except pw.Error as e:  # pragma: no cover
+        pytest.skip(str(e))
+
+
+def test_create_flow_renders_queues_and_shows_result(page):
+    assert page.errors == []
+    assert page.locator("#presetSeg button").count() == 3
+    page.fill("#prompt", "a teapot --seed 9 --size 512x256")
+    page.wait_for_selector(".pchip:has-text('seed 9')")
+    page.wait_for_function("!document.getElementById('go').disabled")
+    page.click("#go")
+    page.wait_for_selector(".qcard", timeout=10000)
+    page.wait_for_selector(".qcard img", timeout=15000)  # finished: thumbnail present
+    assert "Done" in page.inner_text("#stwrap")
+    # canvas shows the image, the status sits in the capsule stack, nothing overlaps the box
+    assert page.locator(".canvas > img").count() == 1
+    assert page.errors == []
+
+
+def test_rails_toggle_without_breaking_the_canvas(page):
+    width_before = page.evaluate("document.querySelector('.canvas').getBoundingClientRect().width")
+    page.click("#railBtn")
+    time.sleep(0.2)
+    width_rail_off = page.evaluate(
+        "document.querySelector('.canvas').getBoundingClientRect().width"
+    )
+    assert width_rail_off > width_before > 300
+    queue_x = page.evaluate("document.querySelector('.qrail').getBoundingClientRect().left")
+    canvas_x = page.evaluate("document.querySelector('.canvas').getBoundingClientRect().left")
+    assert queue_x > canvas_x  # the queue stays on the right
+    page.click("#railBtn")
+    page.click("#focusBtn")
+    time.sleep(0.2)
+    assert (
+        page.evaluate("document.querySelector('.canvas').getBoundingClientRect().width")
+        > width_rail_off
+    )
+    assert page.errors == []
+
+
+def test_gallery_lightbox_and_reproducible_prompt(page):
+    page.fill("#prompt", "a lighthouse --seed 3 --preset fast")
+    page.wait_for_function("!document.getElementById('go').disabled")
+    page.click("#go")
+    page.wait_for_selector(".qcard img", timeout=15000)
+    page.click("#tabs button[data-tab='gallery']")
+    page.wait_for_selector("#grid .card")
+    page.click("#grid .card")
+    page.wait_for_selector("#lb[open]")
+    text = page.inner_text("#lbPrompt")
+    assert "a lighthouse" in text and "--seed 3" in text and "--preset fast" in text
+    assert page.locator("#lbTitle").inner_text().count("·") == 2  # "Oct 13, 00:24 · fast · 512²"
+    page.keyboard.press("Escape")
+    page.wait_for_selector("#lb[open]", state="hidden")
+    assert page.errors == []
+
+
+def test_machine_tab_and_settings(page):
+    page.click("#tabs button[data-tab='machine']")
+    page.wait_for_selector("#strip .stat")
+    assert page.locator("#strip .stat").count() >= 5
+    page.wait_for_selector("#modelsPanel table")
+    page.check("#cfgOver")
+    time.sleep(0.3)
+    page.click("#tabs button[data-tab='create']")
+    page.select_option("#variant", "q8")
+    time.sleep(0.5)
+    assert "refused" not in page.inner_text("#etaText")  # unlocked
+    assert page.errors == []

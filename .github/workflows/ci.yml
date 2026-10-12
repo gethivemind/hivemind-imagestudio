@@ -26,4 +26,19 @@ jobs:
       - name: Ruff format
         run: ruff format --check src tests
       - name: Pytest
-        run: pytest -q
+        run: pytest -q --ignore=tests/e2e
+
+  e2e:
+    name: browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: uv pip install --system -e ".[dev,e2e]"
+      - name: Install Chromium
+        run: playwright install --with-deps chromium
+      - name: Browser tests
+        run: pytest -q tests/e2e

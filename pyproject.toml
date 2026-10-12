@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
+e2e = ["playwright>=1.45", "uvicorn>=0.30"]
 
 [project.scripts]
 imagestudio = "imagestudio.cli:main"
