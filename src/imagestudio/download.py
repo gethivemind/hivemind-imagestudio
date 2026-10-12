@@ -15,6 +15,13 @@ from pathlib import Path
 
 import httpx
 
+try:  # Trust the operating system's certificate store (corporate TLS proxies, Windows roots).
+    import truststore
+
+    truststore.inject_into_ssl()
+except ImportError:  # pragma: no cover
+    pass
+
 CHUNK = 1024 * 1024
 ProgressFn = Callable[[int, int], None]  # (bytes_done, bytes_total)
 
