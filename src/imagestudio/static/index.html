@@ -7,351 +7,332 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4 56 18v28L32 60 8 46V18z' fill='%23f0b429'/%3E%3Ccircle cx='32' cy='32' r='13' fill='%231d1d1b'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23f6f5f2'/%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #f3f2ee; --panel: #ffffff; --panel2: #faf9f6; --ink: #1c1c1a; --muted: #6d6c67; --line: #e2e0da;
-    --accent: #2f6fed; --accent-ink: #ffffff; --honey: #f0b429; --ok: #2e8b57; --warn: #c98a12; --bad: #c8463c;
-    --meter-bg: #e9e7e1; --radius: 14px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --shadow: 0 10px 30px rgba(0,0,0,.08);
+    --bg: #f4f3ef; --surface: #ffffff; --surface2: #f8f7f4; --ink: #1b1b19; --ink2: #4b4a46; --muted: #7a7873; --line: #e4e2dc; --line2: #d6d4cd;
+    --accent: #2f6fed; --on-accent: #fff; --honey: #f0b429; --ok: #2e8b57; --warn: #c98a12; --bad: #c8463c;
+    --track: #e7e5df; --r: 12px; --r-lg: 18px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --shadow: 0 1px 2px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.10); --shadow-lg: 0 24px 64px rgba(0,0,0,.28);
+    --rail: 360px; --qrail: 300px; --top: 52px;
   }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #111113; --panel: #1a1a1d; --panel2: #202024; --ink: #ececea; --muted: #9d9c97; --line: #2b2b30;
-      --accent: #6b9cff; --accent-ink: #0d1324; --ok: #4fbf7a; --warn: #e2b23a; --bad: #ef6b60; --meter-bg: #2a2a2f;
-      --shadow: 0 10px 30px rgba(0,0,0,.45);
-    }
-  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0f0f11; --surface: #18181b; --surface2: #1f1f23; --ink: #ededeb; --ink2: #c4c3be; --muted: #8e8d88; --line: #27272c; --line2: #35353b;
+    --accent: #7aa6ff; --on-accent: #0b1430; --ok: #52c17c; --warn: #e4b43c; --bad: #f06f63; --track: #2a2a30;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45); --shadow-lg: 0 24px 64px rgba(0,0,0,.6); } }
   :root[data-theme="dark"] {
-    --bg: #111113; --panel: #1a1a1d; --panel2: #202024; --ink: #ececea; --muted: #9d9c97; --line: #2b2b30;
-    --accent: #6b9cff; --accent-ink: #0d1324; --ok: #4fbf7a; --warn: #e2b23a; --bad: #ef6b60; --meter-bg: #2a2a2f;
-    --shadow: 0 10px 30px rgba(0,0,0,.45);
-  }
+    --bg: #0f0f11; --surface: #18181b; --surface2: #1f1f23; --ink: #ededeb; --ink2: #c4c3be; --muted: #8e8d88; --line: #27272c; --line2: #35353b;
+    --accent: #7aa6ff; --on-accent: #0b1430; --ok: #52c17c; --warn: #e4b43c; --bad: #f06f63; --track: #2a2a30;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45); --shadow-lg: 0 24px 64px rgba(0,0,0,.6); }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+  body { margin: 0; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font: 13.5px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
   button, input, select, textarea { font: inherit; color: inherit; }
   a { color: inherit; }
-  .topbar { display: flex; align-items: center; gap: 14px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; }
-  .brand svg { width: 28px; height: 28px; }
-  .brand small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; margin-top: -2px; }
-  .tabs { display: flex; gap: 4px; margin-left: 12px; }
-  .tabs button { padding: 7px 14px; border-radius: 999px; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; }
-  .tabs button.active { background: var(--bg); color: var(--ink); border-color: var(--line); }
-  .spacer { flex: 1; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); font-size: 12px; color: var(--muted); cursor: pointer; }
-  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
-  .chip .dot.busy { background: var(--accent); animation: pulse 1.2s infinite; }
-  .chip .dot.warn { background: var(--warn); }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
-  .iconbtn { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); cursor: pointer; color: var(--muted); }
-  .btn { padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: 13px; }
-  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; } ::-webkit-scrollbar-track { background: transparent; }
+
+  .top { height: var(--top); display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--surface); flex: 0 0 auto; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; margin-right: 6px; }
+  .brand svg { width: 24px; height: 24px; }
+  .tabs { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--line); }
+  .tabs button { padding: 5px 13px; border-radius: 8px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-weight: 500; }
+  .tabs button.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .grow { flex: 1; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface2); font-size: 12px; color: var(--ink2); white-space: nowrap; }
+  .chip.btn { cursor: pointer; } .chip.btn:hover { border-color: var(--line2); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: 0 0 auto; }
+  .dot.busy { background: var(--accent); animation: pulse 1.1s infinite; } .dot.warn { background: var(--warn); } .dot.off { background: var(--muted); }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+  .ib { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line); background: var(--surface2); color: var(--ink2); cursor: pointer; }
+  .ib:hover { border-color: var(--line2); color: var(--ink); } .ib.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .btn { height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { border-color: var(--line2); }
+  .btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 8px; }
   .btn.ghost { background: transparent; }
   .btn:disabled { opacity: .45; cursor: default; }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg); }
-  .seg button { padding: 8px 12px; border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: 13px; }
-  .seg button.active { background: var(--panel); color: var(--ink); font-weight: 600; }
+  .seg { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--surface2); border: 1px solid var(--line); }
+  .seg button { height: 26px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; font-size: 12.5px; font-weight: 500; }
+  .seg button.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
   .view { display: none !important; flex: 1; min-height: 0; }
   .view.active { display: flex !important; }
-  #machine.active { display: grid !important; }
 
-  /* ---------- Create ---------- */
-  #create { flex-direction: column; min-height: 0; }
-  .work { flex: 1; display: grid; grid-template-columns: 312px 1fr; min-height: 0; position: relative; }
-  .work.nodrawer { grid-template-columns: 0 1fr; }
-  .drawer { border-right: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 14px 16px 24px; }
-  .work.nodrawer .drawer { display: none; }
-  .drawer h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin: 16px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); }
-  .drawer h3:first-child { border-top: 0; padding-top: 0; margin-top: 4px; }
-  label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
-  .help { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--line); font-size: 10px; cursor: help; color: var(--muted); }
-  input[type=text], input[type=number], select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
-  input::placeholder, textarea::placeholder { color: var(--muted); opacity: .75; }
-  .slider { display: grid; grid-template-columns: 1fr 72px; gap: 8px; align-items: center; }
-  .slider input[type=range] { width: 100%; padding: 0; accent-color: var(--accent); }
-  .slider input[type=number] { padding: 6px 8px; font-family: var(--mono); font-size: 12px; }
-  .ar .btn { padding: 5px 8px; font-size: 12px; border-radius: 8px; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-  .stage { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--bg); }
-  .canvas { flex: 1; min-height: 0; position: relative; overflow: hidden; }
-  .canvas > img { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: calc(100% - 36px); max-height: calc(100% - 36px); border-radius: 14px; box-shadow: var(--shadow); background: var(--panel); }
-  .canvas > .empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-  .canvas .empty { text-align: center; color: var(--muted); max-width: 440px; }
-  .canvas .empty b { color: var(--ink); display: block; font-size: 18px; margin-bottom: 6px; }
-  .overlay { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: calc(100% - 36px); white-space: nowrap; background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; display: flex; gap: 14px; align-items: center; font-size: 13px; box-shadow: var(--shadow); }
-  .overlay .bar { width: 180px; height: 6px; border-radius: 3px; background: var(--meter-bg); overflow: hidden; }
-  .overlay .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s; }
-  .overlay .m { color: var(--muted); font-family: var(--mono); font-size: 12px; }
-  .strip { display: flex; gap: 10px; padding: 10px 18px; overflow-x: auto; border-top: 1px solid var(--line); background: var(--panel2); min-height: 56px; }
-  .strip .q { flex: 0 0 auto; display: grid; grid-template-columns: 56px 1fr; gap: 8px; width: 300px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 12px; cursor: pointer; }
-  .strip .q.sel { border-color: var(--accent); }
-  .strip .q img, .strip .q .ph { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: var(--meter-bg); display: grid; place-items: center; color: var(--muted); font-size: 10px; text-align: center; }
-  .strip .q .p { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .strip .q .m { color: var(--muted); font-family: var(--mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .strip .q .bar { height: 4px; border-radius: 2px; background: var(--meter-bg); margin-top: 5px; overflow: hidden; }
-  .strip .q .bar i { display: block; height: 100%; width: 0; background: var(--accent); }
-  .strip .none { color: var(--muted); align-self: center; font-size: 13px; }
-  .promptbar { border-top: 1px solid var(--line); background: var(--panel); padding: 12px 18px 14px; max-height: 46vh; overflow: auto; flex: 0 0 auto; }
-  .promptbar .inner { max-width: 1100px; margin: 0 auto; }
-  .prow { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: stretch; }
-  .pbox { border: 1px solid var(--line); border-radius: 14px; background: var(--bg); padding: 8px 10px; display: grid; grid-template-rows: auto auto; gap: 6px; }
-  .pbox textarea { border: 0; background: transparent; padding: 4px 6px; min-height: 48px; max-height: 160px; resize: none; font-size: 15px; }
-  .pbox textarea:focus { outline: none; }
-  .ptools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .ptools select, .ptools input { width: auto; padding: 6px 8px; border-radius: 8px; font-size: 12px; }
-  .ptools .seed { width: 130px; }
-  .ptools .styletext { color: var(--muted); font-size: 11px; }
-  .go { min-width: 150px; border-radius: 14px; font-size: 15px; display: grid; place-items: center; }
-  .go small { display: block; font-weight: 400; font-size: 11px; opacity: .85; }
-  .meterline { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
-  .meterline .bar { flex: 0 0 160px; height: 8px; border-radius: 4px; background: var(--meter-bg); overflow: hidden; }
-  .meterline .bar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s, background .3s; }
-  .lab-comfortable { color: var(--ok); font-weight: 600; } .lab-tight, .lab-swap { color: var(--warn); font-weight: 600; } .lab-over { color: var(--bad); font-weight: 600; }
-  .notices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .notice { display: grid; grid-template-columns: 16px 1fr; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; max-width: 100%; }
-  .notice .d { display: none; }
-  .notice.open { border-radius: 12px; grid-column: 1 / -1; }
-  .notice.open .d { display: block; margin-top: 2px; }
-  .notice .act { display: none; } .notice.open .act { display: block; }
-  .notice .t { font-weight: 600; }
-  .notice .d { color: var(--muted); }
-  .notice.warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
-  .notice.bad { border-color: color-mix(in srgb, var(--bad) 60%, var(--line)); }
-  .notice .ic { font-weight: 700; text-align: center; }
-  .notice.warn .ic { color: var(--warn); } .notice.bad .ic { color: var(--bad); } .notice.info .ic { color: var(--accent); }
-  .notice .act { margin-top: 6px; }
+  /* CREATE */
+  .ws { flex: 1; display: grid; grid-template-columns: var(--rail) 1fr var(--qrail); min-height: 0; }
+  .ws.rail-off { grid-template-columns: 0 1fr var(--qrail); } .ws.q-off { grid-template-columns: var(--rail) 1fr 0; } .ws.rail-off.q-off, .ws.focus { grid-template-columns: 0 1fr 0; }
+  .rail { background: var(--surface); border-right: 1px solid var(--line); overflow: auto; min-width: 0; }
+  .ws.rail-off .rail, .ws.focus .rail { display: none; }
+  .rail .in { padding: 14px 16px 90px; }
+  .sec { margin-top: 18px; } .sec:first-child { margin-top: 4px; }
+  .sec h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .f label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink2); margin: 0 0 4px; }
+  .help { width: 14px; height: 14px; display: inline-grid; place-items: center; border-radius: 50%; border: 1px solid var(--line2); color: var(--muted); font-size: 9.5px; cursor: help; font-style: normal; }
+  input[type=text], input[type=number], select, textarea { width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface2); }
+  input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 0; border-color: var(--accent); }
+  input::placeholder, textarea::placeholder { color: var(--muted); }
+  .sl { display: grid; grid-template-columns: 1fr 64px; gap: 8px; align-items: center; }
+  .sl input[type=range] { width: 100%; height: 34px; padding: 0; margin: 0; accent-color: var(--accent); background: transparent; border: 0; }
+  .sl input[type=number] { padding: 0 8px; font-family: var(--mono); font-size: 12px; text-align: right; }
+  .ar { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .ar button { height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface2); color: var(--ink2); cursor: pointer; font-size: 12px; font-family: var(--mono); }
+  .ar button.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .canvas { position: relative; min-width: 0; min-height: 0; background: var(--bg); }
+  .canvas > img { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); max-width: calc(100% - 48px); max-height: calc(100% - 210px); border-radius: 14px; box-shadow: var(--shadow); background: var(--surface); }
+  .canvas .empty { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); text-align: center; max-width: 440px; color: var(--muted); }
+  .canvas .empty b { display: block; color: var(--ink); font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+  .canvas .empty code { font-family: var(--mono); font-size: 12px; background: var(--surface2); padding: 2px 6px; border-radius: 6px; }
+  .ctools { position: absolute; top: 12px; right: 14px; display: flex; gap: 6px; }
+  .status { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 8px 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 12.5px; white-space: nowrap; }
+  .status .bar { width: 160px; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; } .status .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s; }
+  .status .m { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
 
-  /* ---------- Gallery ---------- */
+  .capsule { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(820px, calc(100% - 48px)); z-index: 3; }
+  .alerts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; justify-content: center; }
+  .alert { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px 0 8px; border-radius: 999px; font-size: 12px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); border: 1px solid var(--line); cursor: pointer; max-width: 100%; }
+  .alert i { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 700; font-size: 10px; color: #fff; flex: 0 0 auto; }
+  .alert.info i { background: var(--accent); } .alert.warn i { background: var(--warn); } .alert.bad i { background: var(--bad); }
+  .alert .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert.open { height: auto; padding: 8px 12px; border-radius: 12px; flex-basis: 100%; align-items: flex-start; } .alert.open .t { white-space: normal; }
+  .alert .d { display: none; color: var(--muted); margin-top: 2px; } .alert.open .d { display: block; }
+  .alert .act { display: none; margin-top: 6px; } .alert.open .act { display: block; }
+  .box { background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 10px 12px 10px; }
+  .box textarea { height: auto; min-height: 44px; max-height: 180px; border: 0; background: transparent; padding: 6px 6px 4px; resize: none; font-size: 15px; line-height: 1.4; }
+  .box textarea:focus { outline: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 6px 6px; }
+  .pchip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 6px; font-family: var(--mono); font-size: 11.5px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+  .pchip.bad { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); border-color: color-mix(in srgb, var(--bad) 30%, transparent); }
+  .tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 8px; }
+  .tools select, .tools input { height: 28px; width: auto; font-size: 12.5px; border-radius: 8px; padding: 0 8px; background: var(--surface2); }
+  .tools .seed { width: 112px; font-family: var(--mono); }
+  .tools .eta { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .tools .meter { width: 72px; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; } .tools .meter i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s, background .3s; }
+  .l-comfortable { color: var(--ok); } .l-tight, .l-swap { color: var(--warn); } .l-over { color: var(--bad); }
+  .tools .go { height: 32px; padding: 0 16px; border-radius: 9px; }
+  .stytext { color: var(--muted); font-size: 11.5px; padding: 0 6px 4px; }
+
+  .qrail { background: var(--surface); border-left: 1px solid var(--line); overflow: auto; min-width: 0; }
+  .ws.q-off .qrail, .ws.focus .qrail { display: none; }
+  .qrail .in { padding: 14px 14px 24px; }
+  .qrail h3 { margin: 0 0 10px; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .qcard { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface2); margin-bottom: 8px; cursor: pointer; }
+  .qcard.sel { border-color: var(--accent); }
+  .qcard img, .qcard .ph { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; background: var(--track); display: grid; place-items: center; color: var(--muted); font-size: 10.5px; text-align: center; padding: 4px; }
+  .qcard .t { font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qcard .m { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qcard .bar { height: 4px; border-radius: 2px; background: var(--track); margin: 6px 0; overflow: hidden; } .qcard .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s; }
+  .qempty { color: var(--muted); font-size: 12.5px; padding: 12px 4px; }
+
+  /* GALLERY */
   #gallery { flex-direction: column; }
-  .gtool { display: flex; gap: 10px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
-  .gtool input { width: 320px; }
-  .gbody { flex: 1; display: grid; grid-template-columns: 1fr; min-height: 0; }
-  .gbody.open { grid-template-columns: 1fr 460px; }
-  .grid { overflow: auto; padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; align-content: start; }
-  .grid.compare { grid-template-columns: repeat(3, 1fr); }
-  .card { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--panel); cursor: pointer; transition: transform .12s; }
-  .card:hover { transform: translateY(-2px); }
-  .card.sel { outline: 2px solid var(--accent); }
+  .gbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .gbar input { width: 320px; height: 32px; }
+  .grid { flex: 1; overflow: auto; padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; align-content: start; }
+  .grid.compare { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .card { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); cursor: pointer; transition: transform .15s, box-shadow .15s; }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
   .card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
-  .card .cap { padding: 8px 10px; font-size: 12px; }
-  .card .pr { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .card .mt { color: var(--muted); font-family: var(--mono); margin-top: 4px; font-size: 11px; }
-  .card .tag { position: absolute; }
-  .side { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 16px; display: none; }
-  .gbody.open .side { display: block; }
-  .side .head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
-  .side h3 { margin: 0 0 10px; font-size: 15px; line-height: 1.35; }
-  .side img { width: 100%; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); }
-  .kv { font-size: 12px; margin-top: 10px; }
-  .kv div { display: grid; grid-template-columns: 100px 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .card .cap { padding: 9px 11px 10px; }
+  .card .t { font-weight: 600; font-size: 12.5px; } .card .m { color: var(--muted); font-size: 11.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .tag { display: inline-block; margin-bottom: 4px; font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+
+  dialog.lb { border: 0; border-radius: 18px; padding: 0; background: var(--surface); color: var(--ink); width: min(1400px, 96vw); height: min(900px, 92vh); box-shadow: var(--shadow-lg); }
+  dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(4px); }
+  .lbwrap { display: grid; grid-template-columns: 1fr 420px; height: 100%; }
+  .lbimg { position: relative; background: #0b0b0d; display: grid; place-items: center; overflow: hidden; border-radius: 18px 0 0 18px; }
+  .lbimg img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.15); background: rgba(20,20,22,.7); color: #fff; cursor: pointer; display: grid; place-items: center; font-size: 18px; }
+  .nav.prev { left: 14px; } .nav.next { right: 14px; } .nav:disabled { opacity: .3; cursor: default; }
+  .lbside { padding: 18px 20px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+  .lbside .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .lbside h3 { margin: 0; font-size: 16px; font-weight: 650; }
+  .lbside .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .promptbox { border: 1px solid var(--line); border-radius: 12px; background: var(--surface2); padding: 10px 12px; }
+  .promptbox .lab { display: flex; justify-content: space-between; align-items: center; font-size: 11px; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+  .promptbox pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--ink2); max-height: 150px; overflow: auto; }
+  .promptbox pre .p { color: var(--accent); }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; font-size: 12.5px; }
+  .kv div { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); }
   .kv span:first-child { color: var(--muted); }
-  .export { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); }
-  .export h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
-  .export .size { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .export { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface2); }
+  .export .lab { font-size: 11px; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  .export .row { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--ink2); }
+  .export .row label { width: 110px; color: var(--muted); } .export .row input[type=range] { flex: 1; accent-color: var(--accent); height: 24px; border: 0; background: transparent; padding: 0; } .export .row b { width: 110px; text-align: right; font-weight: 500; font-family: var(--mono); font-size: 11.5px; }
+  .export .size { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; }
 
-  /* ---------- Machine ---------- */
-  #machine { overflow: auto; padding: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-content: start; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
-  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin: 0 0 12px; }
-  .panel p { margin: 6px 0; font-size: 13px; }
-  .muted { color: var(--muted); }
-  table.res { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
-  table.res td, table.res th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
-  .right { text-align: right; }
-  .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-  .switch .d { color: var(--muted); font-size: 12px; }
-  .switch input { width: 40px; height: 22px; accent-color: var(--accent); }
-  .vrow { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-  .vrow .m { color: var(--muted); font-size: 12px; }
-  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .pill.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, var(--line)); }
-  .task { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-  .task .bar { height: 6px; border-radius: 3px; background: var(--meter-bg); overflow: hidden; margin-top: 6px; }
-  .task .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .5s; }
-  dl.gloss dt { font-weight: 600; margin-top: 8px; font-size: 13px; } dl.gloss dd { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+  /* MACHINE */
+  #machine { flex-direction: column; overflow: auto; }
+  .dash { padding: 16px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; max-width: 1500px; width: 100%; margin: 0 auto; }
+  .strip { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+  .stat .k { font-size: 11px; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); font-weight: 600; } .stat .v { font-weight: 650; font-size: 15px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .stat .s { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pnl { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+  .pnl h2 { margin: 0 0 10px; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .c6 { grid-column: span 6; } .c4 { grid-column: span 4; } .c8 { grid-column: span 8; } .c12 { grid-column: 1 / -1; }
+  @media (max-width: 1100px) { .c6, .c4, .c8 { grid-column: 1 / -1; } }
+  table.t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.t th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; letter-spacing: .5px; text-transform: uppercase; padding: 6px 6px; border-bottom: 1px solid var(--line); }
+  table.t td { padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.t td.r, table.t th.r { text-align: right; } .mono { font-family: var(--mono); font-size: 12px; }
+  .pill { display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .pill.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, var(--line)); } .pill.acc { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .sw { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .sw .d { color: var(--muted); font-size: 12px; } .sw input[type=checkbox] { width: 36px; height: 20px; accent-color: var(--accent); }
+  .task { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; } .task .bar { height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; margin-top: 6px; } .task .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s; }
+  .muted { color: var(--muted); } .small { font-size: 12px; }
+  dl.gl { margin: 0; columns: 2; column-gap: 24px; } dl.gl dt { font-weight: 600; margin-top: 8px; break-after: avoid; } dl.gl dd { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
+  @media (max-width: 900px) { dl.gl { columns: 1; } }
+  details.gl summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+  .membar { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; } .membar i { display: block; height: 100%; background: var(--ink2); }
 
-  /* ---------- dialogs, toasts, activity ---------- */
-  dialog { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); color: var(--ink); padding: 0; width: min(640px, 94vw); box-shadow: var(--shadow); }
-  dialog::backdrop { background: rgba(0,0,0,.5); }
-  .dlg { padding: 18px 20px 20px; }
-  .dlg .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .dlg h3 { margin: 0; font-size: 16px; }
-  .filelist { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 8px 0; line-height: 1.6; }
-  .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
-  .toast { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 13px; box-shadow: var(--shadow); max-width: 360px; }
-  .activity { position: absolute; right: 18px; top: 56px; width: 360px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 12px 14px; z-index: 10; display: none; }
-  .activity.open { display: block; }
-  @media (max-width: 900px) { .work { grid-template-columns: 1fr; } .drawer { display: none; } .work.showdrawer .drawer { display: block; position: absolute; inset: 56px 0 0 0; z-index: 4; } .gbody.open { grid-template-columns: 1fr; } .side { position: fixed; inset: 56px 0 0 0; z-index: 6; } }
+  dialog.dl { border: 1px solid var(--line); border-radius: 16px; padding: 0; width: min(560px, 94vw); background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lg); }
+  .dlg { padding: 18px 20px 20px; } .dlg .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; } .dlg h3 { margin: 0; font-size: 15px; }
+  .files { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin: 8px 0; line-height: 1.6; }
+  .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+  .toast { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 12.5px; box-shadow: var(--shadow); max-width: 360px; }
+  .pop { position: absolute; right: 14px; top: calc(var(--top) + 6px); width: 360px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 12px 14px; z-index: 40; display: none; }
+  .pop.open { display: block; }
+  kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border: 1px solid var(--line2); border-bottom-width: 2px; border-radius: 5px; background: var(--surface2); }
+  @media (max-width: 1000px) { :root { --rail: 300px; --qrail: 240px; } }
+  @media (max-width: 760px) { .ws { grid-template-columns: 1fr !important; } .rail, .qrail { display: none !important; } .lbwrap { grid-template-columns: 1fr; } .lbimg { border-radius: 18px 18px 0 0; min-height: 50vh; } }
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div class="brand">
-    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="var(--honey)"/><circle cx="32" cy="32" r="13" fill="var(--ink)"/><circle cx="32" cy="32" r="6" fill="var(--bg)"/></svg>
-    <div>Image Studio<small>Hivemind · local, free, yours</small></div>
-  </div>
-  <div class="tabs" id="tabs">
-    <button data-tab="create" class="active">Create</button>
-    <button data-tab="gallery">Gallery</button>
-    <button data-tab="machine">Machine</button>
-  </div>
-  <div class="spacer"></div>
-  <span class="chip" id="hwchip" title="hardware and worker"><span class="dot" id="hwdot"></span><span id="hwtext">…</span></span>
-  <span class="chip" id="actchip" title="downloads and benchmark"><span class="dot" id="actdot"></span><span id="acttext">no activity</span></span>
-  <button class="iconbtn" id="drawerBtn" title="show or hide settings">⚙</button>
-  <button class="iconbtn" id="themeBtn" title="light / dark">◐</button>
-</div>
-<div class="activity" id="activity"></div>
+<header class="top">
+  <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="var(--honey)"/><circle cx="32" cy="32" r="13" fill="var(--ink)"/><circle cx="32" cy="32" r="6" fill="var(--bg)"/></svg>Image Studio</div>
+  <nav class="tabs" id="tabs"><button data-tab="create" class="active">Create</button><button data-tab="gallery">Gallery</button><button data-tab="machine">Machine</button></nav>
+  <div class="grow"></div>
+  <span class="chip" id="hwchip"><span class="dot" id="hwdot"></span><span id="hwtext">…</span></span>
+  <span class="chip btn" id="actchip" title="downloads and benchmark"><span class="dot off" id="actdot"></span><span id="acttext">idle</span></span>
+  <button class="ib" id="railBtn" title="settings rail (S)">⚙</button>
+  <button class="ib" id="qBtn" title="queue rail (Q)">☰</button>
+  <button class="ib" id="themeBtn" title="light / dark">◐</button>
+</header>
+<div class="pop" id="actpop"></div>
 
-<!-- ================= CREATE ================= -->
 <section class="view active" id="create">
-  <div class="work" id="work">
-    <aside class="drawer">
-      <h3>Model</h3>
-      <select id="model"><option value="auto">auto (strongest that fits)</option></select>
-      <div id="modelDl"></div>
-      <h3>Size</h3>
-      <label for="widthN">Width <span class="help" title="Pixels, 256 to 2048 in steps of 16. More pixels: more detail, more time (with the pixel count) and more memory.">?</span></label>
-      <div class="slider"><input type="range" id="widthR" min="256" max="2048" step="16"><input type="number" id="widthN" min="256" max="2048" step="16" placeholder="preset"></div>
-      <label for="heightN">Height <span class="help" title="Any aspect ratio works; a tall or wide image costs the same as a square with the same pixel count.">?</span></label>
-      <div class="slider"><input type="range" id="heightR" min="256" max="2048" step="16"><input type="number" id="heightN" min="256" max="2048" step="16" placeholder="preset"></div>
-      <div class="ptools ar" style="margin-top:6px"><button class="btn ghost" data-ar="1:1">1:1</button><button class="btn ghost" data-ar="4:3">4:3</button><button class="btn ghost" data-ar="3:4">3:4</button><button class="btn ghost" data-ar="16:9">16:9</button><button class="btn ghost" data-ar="9:16">9:16</button></div>
-      <h3>Sampling</h3>
-      <label for="stepsN">Steps <span class="help" title="Denoising passes. FLUX schnell is distilled to 4: more only costs time. Qwen-Image uses 50. Empty = preset.">?</span></label>
-      <div class="slider"><input type="range" id="stepsR" min="1" max="100" step="1"><input type="number" id="stepsN" min="1" max="100" placeholder="preset"></div>
-      <label for="cfgN">Guidance <span class="help" title="How strongly the image is pushed toward the prompt. 1 = off (FLUX schnell). Qwen-Image uses 2.5. Above 1 the model runs twice per step. Too high looks harsh.">?</span></label>
-      <div class="slider"><input type="range" id="cfgR" min="0" max="20" step="0.5"><input type="number" id="cfgN" min="0" max="20" step="0.1" placeholder="preset"></div>
-      <label for="sampler">Sampler <span class="help" title="The method that walks from noise to image. euler is the tested default. See Machine → Glossary for each one.">?</span></label>
-      <select id="sampler"></select>
-      <label for="negative">Negative prompt <span class="help" title="What to keep out. FLUX schnell runs without guidance so this barely affects it; it matters more for Qwen-Image.">?</span></label>
-      <input type="text" id="negative" placeholder="e.g. blurry, text, watermark, extra fingers">
-      <h3>Machine</h3>
-      <label for="variant">Quantisation <span class="help" title="Bits per weight in the model file. q8 is nearest the original; q4 is smallest. Default: the highest that fits memory. Changes memory, not speed.">?</span></label>
-      <select id="variant"><option value="">by memory fit</option><option value="q8">q8 · highest fidelity</option><option value="q6">q6</option><option value="q5">q5</option><option value="q4">q4 · smallest</option></select>
-      <label for="threadsN">Threads <span class="help" title="CPU threads for the engine. Default: all physical cores. Fewer keeps the laptop usable while it renders.">?</span></label>
-      <div class="slider"><input type="range" id="threadsR" min="1" max="32" step="1"><input type="number" id="threadsN" min="1" max="256" placeholder="cores"></div>
-      <label for="tiling">VAE tiling <span class="help" title="Decode the final image in tiles: saves memory on large images, slightly slower, no quality change.">?</span></label>
-      <select id="tiling"><option value="">off</option><option value="1">on · saves memory</option></select>
-      <div style="margin-top:14px"><button class="btn ghost" id="resetBtn">Reset to preset defaults</button></div>
-    </aside>
-    <div class="stage">
-      <div class="canvas" id="canvas">
-        <div class="empty"><b>Describe an image below</b>Your render appears here as it forms. The default preset is <b style="display:inline">best</b>: full resolution, full steps, however long this machine needs.</div>
+  <div class="ws" id="ws">
+    <aside class="rail"><div class="in">
+      <div class="sec"><h3>Size</h3>
+        <div class="g2">
+          <div class="f"><label for="widthN">Width <i class="help" title="Pixels, 256 to 2048 in steps of 16. More pixels: more detail, more time, more memory.">?</i></label><div class="sl"><input type="range" id="widthR" min="256" max="2048" step="16"><input type="number" id="widthN" min="256" max="2048" step="16" placeholder="1024"></div></div>
+          <div class="f"><label for="heightN">Height <i class="help" title="Any aspect ratio. A tall or wide image costs the same as a square with the same pixel count.">?</i></label><div class="sl"><input type="range" id="heightR" min="256" max="2048" step="16"><input type="number" id="heightN" min="256" max="2048" step="16" placeholder="1024"></div></div>
+        </div>
+        <div class="ar" id="ar"><button data-ar="1:1">1:1</button><button data-ar="4:3">4:3</button><button data-ar="3:4">3:4</button><button data-ar="3:2">3:2</button><button data-ar="16:9">16:9</button><button data-ar="9:16">9:16</button></div>
       </div>
-      <div class="strip" id="strip"><span class="none">Nothing in the queue.</span></div>
-    </div>
-  </div>
-  <div class="promptbar"><div class="inner">
-    <div class="prow">
-      <div class="pbox">
-        <textarea id="prompt" rows="2" placeholder="e.g. a red fox on a mossy log in a misty pine forest at sunrise, soft golden light, detailed fur, 35 mm photograph"></textarea>
-        <div class="ptools">
-          <div class="seg" id="presetSeg"></div>
-          <select id="style" title="Adds wording to your prompt; the exact text is shown here."></select>
-          <span class="styletext" id="styleText"></span>
-          <input type="number" class="seed" id="seed" placeholder="seed: random" title="Same prompt, settings and seed reproduce the image; empty = random.">
+      <div class="sec"><h3>Sampling</h3>
+        <div class="g2">
+          <div class="f"><label for="stepsN">Steps <i class="help" title="Denoising passes. FLUX schnell is distilled to 4; more only costs time. Qwen-Image uses 50. Empty = preset.">?</i></label><div class="sl"><input type="range" id="stepsR" min="1" max="100" step="1"><input type="number" id="stepsN" min="1" max="100" placeholder="4"></div></div>
+          <div class="f"><label for="cfgN">Guidance <i class="help" title="How strongly the image follows the prompt (CFG). 1 = off for FLUX schnell; Qwen-Image uses 2.5. Above 1 the model runs twice per step.">?</i></label><div class="sl"><input type="range" id="cfgR" min="0" max="20" step="0.5"><input type="number" id="cfgN" min="0" max="20" step="0.1" placeholder="1"></div></div>
+          <div class="f"><label for="sampler">Sampler <i class="help" title="The method that walks from noise to image. euler is the tested default; Machine → Glossary explains the others.">?</i></label><select id="sampler"></select></div>
+          <div class="f"><label for="variant">Quantisation <i class="help" title="Bits per weight in the model file. q8 nearest the original, q4 smallest. Default: highest that fits memory. Changes memory, not speed.">?</i></label><select id="variant"><option value="">by memory fit</option><option value="q8">q8 · highest</option><option value="q6">q6</option><option value="q5">q5</option><option value="q4">q4 · smallest</option></select></div>
+        </div>
+        <div class="f" style="margin-top:10px"><label for="negative">Negative prompt <i class="help" title="What to keep out. Little effect on FLUX schnell (no guidance); matters for Qwen-Image. Inline: --no blurry, text">?</i></label><input type="text" id="negative" placeholder="e.g. blurry, text, watermark"></div>
+      </div>
+      <div class="sec"><h3>Machine</h3>
+        <div class="g2">
+          <div class="f"><label for="threadsN">Threads <i class="help" title="CPU threads for the engine. Default: all physical cores. Fewer keeps the laptop usable while it renders.">?</i></label><div class="sl"><input type="range" id="threadsR" min="1" max="32" step="1"><input type="number" id="threadsN" min="1" max="256" placeholder="cores"></div></div>
+          <div class="f"><label for="tiling">VAE tiling <i class="help" title="Decode the final image in tiles: saves memory on large images, slightly slower, no quality change.">?</i></label><select id="tiling"><option value="">off</option><option value="1">on · saves memory</option></select></div>
+        </div>
+        <div style="margin-top:12px"><button class="btn sm ghost" id="resetBtn">Reset to preset defaults</button></div>
+      </div>
+    </div></aside>
+
+    <main class="canvas" id="canvas">
+      <div class="empty" id="empty"><b>Describe what you want to see</b>Type below and press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>. Parameters work inline: <code>--seed 7 --size 1024x768 --preset fast</code></div>
+      <div class="ctools"><button class="ib" id="lpBtn" title="live preview while rendering">◉</button><button class="ib" id="focusBtn" title="focus mode (F)">⤢</button></div>
+      <div class="capsule">
+        <div class="alerts" id="alerts"></div>
+        <div class="box">
+          <textarea id="prompt" rows="1" placeholder="a red fox on a mossy log in a misty pine forest at sunrise, soft golden light, 35 mm photograph"></textarea>
+          <div class="chips" id="chips"></div>
+          <div class="stytext" id="stytext"></div>
+          <div class="tools">
+            <select id="model" title="Which model paints. auto = strongest installed model that fits memory."><option value="auto">auto model</option></select>
+            <div class="seg" id="presetSeg"></div>
+            <select id="style" title="Adds wording to your prompt; the exact text is shown above."></select>
+            <input type="number" class="seed" id="seed" placeholder="seed: random" title="Same prompt, settings and seed reproduce the image; empty = random.">
+            <span class="eta" id="eta"><span class="meter"><i id="meterFill"></i></span><span id="etaText">…</span></span>
+            <button class="btn primary go" id="go" disabled>Generate</button>
+          </div>
         </div>
       </div>
-      <button class="btn primary go" id="go" disabled title="Ctrl+Enter"><span>Generate</span><small id="goSub">about …</small></button>
-    </div>
-    <div class="meterline">
-      <div class="bar"><i id="fill"></i></div>
-      <span id="load">load …</span>
-      <span id="loadnums"></span>
-      <span class="spacer"></span>
-      <span id="planText"></span>
-    </div>
-    <div class="notices" id="notices"></div>
-  </div></div>
+    </main>
+
+    <aside class="qrail"><div class="in">
+      <h3>Queue <span class="muted" id="qcount"></span></h3>
+      <div id="queue"><div class="qempty">Nothing queued. Finished work is in the gallery.</div></div>
+    </div></aside>
+  </div>
 </section>
 
-<!-- ================= GALLERY ================= -->
 <section class="view" id="gallery">
-  <div class="gtool">
+  <div class="gbar">
     <input type="text" id="search" placeholder="search prompts…">
-    <div class="seg" id="gmode"><button class="active" data-m="all">All images</button><button data-m="compare">Compare presets</button></div>
-    <span class="muted" id="gcount"></span>
+    <div class="seg" id="gmode"><button class="active" data-m="all">All</button><button data-m="compare">Compare presets</button></div>
+    <span class="muted small" id="gcount"></span>
   </div>
-  <div class="gbody" id="gbody">
-    <div class="grid" id="grid"></div>
-    <aside class="side" id="side">
-      <div class="head"><h3 id="sPrompt"></h3><button class="iconbtn" id="sClose" title="close">✕</button></div>
-      <img id="sImg" alt="">
-      <div class="actions"><a class="btn" id="sOpen" target="_blank">Open full size</a><button class="btn" id="sReuse">Use these settings</button></div>
-      <div class="kv" id="sKv"></div>
-      <div class="export">
-        <h4>Download</h4>
-        <div class="seg" id="fmtSeg"><button class="active" data-f="png">PNG</button><button data-f="jpg">JPEG</button><button data-f="webp">WebP</button></div>
-        <label for="scaleR">Output size <span class="help" title="Resizes the image for every format. 100% keeps every pixel.">?</span> <span id="scaleV" class="muted"></span></label>
-        <input type="range" id="scaleR" min="10" max="100" step="5" value="100" style="width:100%;accent-color:var(--accent)">
-        <div id="qualityRow">
-          <label for="qualityR">Compression quality <span class="help" title="Encoder quality for JPEG and WebP. PNG is lossless, so this does not apply to it.">?</span> <span id="qualityV" class="muted"></span></label>
-          <input type="range" id="qualityR" min="30" max="100" step="5" value="90" style="width:100%;accent-color:var(--accent)">
-        </div>
-        <div class="size" id="sizeText">…</div>
-        <div class="actions"><a class="btn primary" id="dlBtn" download>Download</a></div>
-      </div>
-    </aside>
-  </div>
+  <div class="grid" id="grid"></div>
 </section>
+<dialog class="lb" id="lb"><div class="lbwrap">
+  <div class="lbimg"><img id="lbImg" alt=""><button class="nav prev" id="lbPrev">‹</button><button class="nav next" id="lbNext">›</button></div>
+  <div class="lbside">
+    <div class="head"><div><h3 id="lbTitle"></h3><div class="sub" id="lbSub"></div></div><button class="ib" id="lbClose" title="close (Esc)">✕</button></div>
+    <div class="promptbox"><div class="lab"><span>Prompt · reproducible</span><button class="btn sm" id="lbCopy">Copy</button></div><pre id="lbPrompt"></pre></div>
+    <div class="acts"><button class="btn sm" id="lbReuse">Edit in Create</button><a class="btn sm" id="lbOpen" target="_blank">Open full size</a></div>
+    <div class="kv" id="lbKv"></div>
+    <div class="export">
+      <div class="lab">Download</div>
+      <div class="seg" id="fmtSeg"><button class="active" data-f="png">PNG</button><button data-f="jpg">JPEG</button><button data-f="webp">WebP</button></div>
+      <div class="row"><label>Output size</label><input type="range" id="scaleR" min="10" max="100" step="5" value="100"><b id="scaleV"></b></div>
+      <div class="row" id="qRow"><label>Quality</label><input type="range" id="qualityR" min="30" max="100" step="5" value="90"><b id="qualityV"></b></div>
+      <div class="size" id="sizeText">…</div>
+      <div class="acts" style="margin-top:10px"><a class="btn primary sm" id="dlBtn" download>Download</a></div>
+    </div>
+  </div>
+</div></dialog>
 
-<!-- ================= MACHINE ================= -->
-<section class="view" id="machine">
-  <div class="panel"><h2>This machine</h2><div id="hwPanel" class="muted">…</div></div>
-  <div class="panel" id="benchPanel"><h2>Benchmark</h2>
-    <p class="muted">Renders one real image through the normal queue and measures step time, memory and whether it swapped. Writes a profile with the expected time of every preset and the highest-quality preset that meets your target. A recommendation, not a cap: best stays the default.</p>
-    <div class="two"><div><label for="benchPreset">Preset to render</label><select id="benchPreset"><option value="fast">fast (quickest)</option><option value="balanced">balanced</option><option value="best">best</option></select></div><div><label for="benchTarget">Target minutes per image</label><input type="number" id="benchTarget" value="15" min="1"></div></div>
-    <div class="actions"><button class="btn primary" id="benchStart">Run benchmark</button></div>
-    <div id="benchResult"></div>
+<section class="view" id="machine"><div class="dash">
+  <div class="strip" id="strip"></div>
+  <div class="pnl c6"><h2>Benchmark <button class="btn sm primary" id="benchStart">Run</button></h2>
+    <div class="g2" style="margin-bottom:10px"><div class="f"><label for="benchPreset">Render</label><select id="benchPreset"><option value="fast">fast · quickest</option><option value="balanced">balanced</option><option value="best">best</option></select></div><div class="f"><label for="benchTarget">Target minutes</label><input type="number" id="benchTarget" value="15" min="1"></div></div>
+    <div id="benchResult" class="muted small">No benchmark yet. One real image is rendered and measured; the result recommends a preset for your target time. best stays the default.</div>
   </div>
-  <div class="panel"><h2>Models</h2><div id="modelsPanel"></div></div>
-  <div class="panel"><h2>Settings</h2>
-    <div class="switch"><div>Allow over-budget runs<div class="d">Lets you start jobs that need more memory than this machine has. They may swap for hours or fail; every such job is marked. Default off.</div></div><input type="checkbox" id="cfgOver"></div>
-    <div class="switch"><div>Default threads<div class="d">Leave empty for all physical cores.</div></div><input type="number" id="cfgThreads" style="width:90px" placeholder="cores"></div>
-    <p class="muted" id="cfgPath" style="font-family:var(--mono);font-size:11px"></p>
+  <div class="pnl c6"><h2>Memory now <button class="btn sm" id="memBtn">Refresh</button></h2><div id="memPanel" class="muted small">…</div></div>
+  <div class="pnl c8"><h2>Models</h2><div id="modelsPanel"></div></div>
+  <div class="pnl c4"><h2>Settings</h2>
+    <div class="sw"><div>Live preview<div class="d">Show the image forming while it renders. Costs almost nothing.</div></div><input type="checkbox" id="cfgPreview"></div>
+    <div class="sw"><div>Allow over-budget runs<div class="d">Start jobs that need more memory than this machine has. They may swap for hours or fail; each is marked.</div></div><input type="checkbox" id="cfgOver"></div>
+    <div class="sw"><div>Default threads<div class="d">Empty = all physical cores.</div></div><input type="number" id="cfgThreads" style="width:84px;height:30px" placeholder="cores"></div>
+    <p class="muted mono small" id="cfgPath" style="margin:10px 0 0"></p>
+    <h2 style="margin-top:16px">Activity</h2><div id="tasksPanel" class="muted small">Nothing running.</div>
   </div>
-  <div class="panel"><h2>Activity</h2><div id="tasksPanel" class="muted">Nothing running.</div></div>
-  <div class="panel"><h2>Glossary</h2>
-    <dl class="gloss">
+  <div class="pnl c12"><details class="gl"><summary><b>Glossary</b> · what every setting means</summary>
+    <dl class="gl">
       <dt>Preset</dt><dd>best is full resolution and full steps on the strongest model that fits. balanced and fast lower the resolution (FLUX) or the steps (Qwen-Image) to finish sooner, and say so.</dd>
       <dt>Resolution</dt><dd>Pixels cost time and memory. 1024² is four times the work of 512². For sharp large images render at 1024 and upscale (next release).</dd>
-      <dt>Seed</dt><dd>Fixes the randomness. Keep it to reproduce or to tweak a prompt while keeping the composition; change it to explore.</dd>
-      <dt>Steps</dt><dd>Denoising passes. Distilled models like FLUX schnell are tuned for exactly 4; others improve up to a point (Qwen-Image around 50), then only get slower.</dd>
+      <dt>Seed</dt><dd>Fixes the randomness. Keep it to reproduce or tweak while keeping the composition; change it to explore.</dd>
+      <dt>Steps</dt><dd>Denoising passes. FLUX schnell is tuned for exactly 4; others improve to a point (Qwen-Image ≈ 50), then only get slower.</dd>
       <dt>Guidance (CFG)</dt><dd>How hard the model obeys the prompt. Low is natural; high obeys more but looks harsh. 1 means off and halves the work.</dd>
-      <dt>Samplers</dt><dd><b>euler</b> standard, predictable. <b>euler_a</b> adds noise each step: livelier, less reproducible. <b>heun</b>, <b>dpm2</b> two evaluations per step: a little more accurate, twice the time. <b>dpm++2s_a</b>, <b>dpm++2m</b>, <b>dpm++2mv2</b> higher-order: converge in fewer steps on classic models, little gain on 4-step FLUX. <b>ipndm</b>, <b>ipndm_v</b> multistep predictors, smooth at low step counts. <b>lcm</b>, <b>tcd</b> for models distilled for those schedules. <b>ddim_trailing</b> deterministic classic scheduler.</dd>
-      <dt>Quantisation</dt><dd>Bits per weight in the file. q8 is visually identical to the original; q5 loses a little fine texture; q4 softens small text and detail. Changes memory, not speed.</dd>
-      <dt>Load meter</dt><dd>What the job needs against this machine's memory budget (RAM minus 2 GiB, plus a discrete GPU's VRAM). "will swap" runs, several times slower. "over budget" is refused unless you allow it in Settings.</dd>
-    </dl>
-  </div>
-</section>
+      <dt>Samplers</dt><dd><b>euler</b> standard. <b>euler_a</b> adds noise each step: livelier, less reproducible. <b>heun</b>, <b>dpm2</b> two evaluations per step: a little more accurate, twice the time. <b>dpm++2s_a / 2m / 2mv2</b> higher order; little gain on 4-step FLUX. <b>ipndm</b>, <b>ipndm_v</b> smooth at low step counts. <b>lcm</b>, <b>tcd</b> for models distilled for them. <b>ddim_trailing</b> deterministic classic.</dd>
+      <dt>Quantisation</dt><dd>Bits per weight. q8 visually identical to the original; q5 loses a little texture; q4 softens small text. Changes memory, not speed.</dd>
+      <dt>Load meter</dt><dd>What the job needs against this machine's memory budget (RAM minus 2 GiB, plus a discrete GPU's VRAM). "will swap" runs, several times slower. "over budget" is refused unless allowed in Settings.</dd>
+      <dt>Prompt parameters</dt><dd><code>--seed 7</code> <code>--size 1024x768</code> <code>--ar 16:9</code> <code>--preset fast</code> <code>--steps 8</code> <code>--cfg 1.5</code> <code>--sampler euler_a</code> <code>--model qwen-image</code> <code>--variant q4</code> <code>--no blurry, text</code>. They override the sliders and are stripped from what the model sees.</dd>
+    </dl></details></div>
+</div></section>
 
-<dialog id="dlDialog"><div class="dlg">
-  <div class="head"><h3 id="dlTitle">Download model</h3><button class="iconbtn" id="dlX">✕</button></div>
+<dialog class="dl" id="dlDialog"><div class="dlg">
+  <div class="head"><h3 id="dlTitle">Download model</h3><button class="ib" id="dlX">✕</button></div>
   <div id="dlBody"></div>
-  <label style="font-size:13px;color:var(--ink)"><input type="checkbox" id="dlConsent" style="width:auto"> I agree to download these files from Hugging Face. Nothing else is fetched; generation stays offline.</label>
-  <div class="actions"><button class="btn primary" id="dlStart" disabled>Start download</button></div>
+  <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px"><input type="checkbox" id="dlConsent" style="width:auto;height:auto;margin-top:3px"> I agree to download these files from Hugging Face. Nothing else is fetched; generation stays offline.</label>
+  <div class="acts" style="margin-top:12px"><button class="btn primary" id="dlStart" disabled>Start download</button></div>
 </div></dialog>
 <div class="toasts" id="toasts"></div>
 
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
-  const S = { preset: "best", caps: null, plan: null, jobs: [], selectedJob: null, galleryJob: null, gmode: "all", fmt: "png", tab: "create", tasks: {}, lastGalleryKey: "" };
-  const STYLES = [
-    ["", "no style", ""],
-    ["photo", "Photograph", "photograph, natural light, 35 mm lens, high detail, realistic"],
-    ["cinematic", "Cinematic", "cinematic still, dramatic lighting, shallow depth of field, film grain"],
-    ["oil", "Oil painting", "oil painting on canvas, visible brushstrokes, rich colour"],
-    ["watercolor", "Watercolour", "watercolour painting, soft washes, paper texture"],
-    ["anime", "Anime", "anime style, clean line art, cel shading, vibrant colours"],
-    ["3d", "3D render", "3D render, soft studio lighting, smooth materials, high detail"],
-    ["pixel", "Pixel art", "pixel art, 16-bit, limited palette, crisp pixels"],
-    ["sketch", "Pencil sketch", "pencil sketch, cross-hatching, graphite on paper"],
-    ["flat", "Flat illustration", "flat vector illustration, minimal shapes, bold colours"],
-    ["isometric", "Isometric", "isometric illustration, clean geometry, pastel palette"],
-    ["product", "Product shot", "product photography, white seamless background, softbox lighting"],
-  ];
+  const S = { preset: "best", caps: null, plan: null, parsed: { params: {} }, jobs: [], sel: null, lbList: [], lbIdx: -1, lbJob: null, gmode: "all", fmt: "png", tab: "create", tasks: {}, gkey: "", cfg: {} };
+  const STYLES = [["", "no style", ""], ["photo", "Photograph", "photograph, natural light, 35 mm lens, high detail, realistic"], ["cinematic", "Cinematic", "cinematic still, dramatic lighting, shallow depth of field, film grain"], ["oil", "Oil painting", "oil painting on canvas, visible brushstrokes, rich colour"], ["watercolor", "Watercolour", "watercolour painting, soft washes, paper texture"], ["anime", "Anime", "anime style, clean line art, cel shading, vibrant colours"], ["3d", "3D render", "3D render, soft studio lighting, smooth materials, high detail"], ["pixel", "Pixel art", "pixel art, 16-bit, limited palette, crisp pixels"], ["sketch", "Pencil sketch", "pencil sketch, cross-hatching, graphite on paper"], ["flat", "Flat illustration", "flat vector illustration, minimal shapes, bold colours"], ["isometric", "Isometric", "isometric illustration, clean geometry, pastel palette"], ["product", "Product shot", "product photography, white seamless background, softbox lighting"]];
   const SAMPLERS = ["euler", "euler_a", "heun", "dpm2", "dpm++2s_a", "dpm++2m", "dpm++2mv2", "ipndm", "ipndm_v", "lcm", "ddim_trailing", "tcd"];
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const num = (id) => { const v = $(id).value.trim(); return v === "" ? null : +v; };
@@ -359,249 +340,201 @@
   const fmtDur = (s) => { if (s == null) return "–"; s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60; return h ? `${h} h ${m} min` : m ? `${m} min ${r} s` : `${r} s`; };
   const fmtEta = (s) => s == null ? "" : s < 60 ? `${Math.round(s)} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`;
   const fmtBytes = (b) => b >= 1048576 ? `${(b / 1048576).toFixed(2)} MB` : `${Math.round(b / 1024)} KB`;
-  const api = async (url, opts) => { const r = await fetch(url, opts); return r.json(); };
-  const post = (url, body) => api(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) });
-  const toast = (msg, ms = 4000) => { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; $("toasts").appendChild(t); setTimeout(() => t.remove(), ms); };
+  const api = async (u, o) => (await fetch(u, o)).json();
+  const post = (u, b) => api(u, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b || {}) });
+  const toast = (m, ms = 3800) => { const t = document.createElement("div"); t.className = "toast"; t.textContent = m; $("toasts").appendChild(t); setTimeout(() => t.remove(), ms); };
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  // ---------- tabs / theme / drawer
-  function showTab(name) {
-    S.tab = name;
-    document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-    document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === name));
-    if (name === "gallery") renderGallery(true);
-    if (name === "machine") renderMachine();
-  }
+  function showTab(n) { S.tab = n; document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === n)); document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === n)); if (n === "gallery") renderGallery(true); if (n === "machine") renderMachine(); }
   $("tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) showTab(b.dataset.tab); };
   $("themeBtn").onclick = () => { const r = document.documentElement; const cur = r.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); r.dataset.theme = cur === "dark" ? "light" : "dark"; try { localStorage.setItem("theme", r.dataset.theme); } catch (e) {} };
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
-  $("drawerBtn").onclick = () => { $("work").classList.toggle("nodrawer"); $("work").classList.toggle("showdrawer"); };
-  $("actchip").onclick = () => $("activity").classList.toggle("open");
-  document.addEventListener("click", (e) => { if (!e.target.closest("#activity") && !e.target.closest("#actchip")) $("activity").classList.remove("open"); });
-
-  // ---------- settings
-  function fullPrompt() { const base = $("prompt").value.trim(); const st = STYLES.find(s => s[0] === $("style").value); return st && st[2] && base ? `${base}, ${st[2]}` : base; }
-  function settings() {
-    return { prompt: fullPrompt(), preset: S.preset, width: num("widthN"), height: num("heightN"), seed: num("seed"), model: $("model").value, negative_prompt: $("negative").value,
-      steps: num("stepsN"), cfg_scale: num("cfgN"), sampler: str("sampler"), variant: str("variant"), threads: num("threadsN"), vae_tiling: $("tiling").value === "1" };
-  }
-  function bindSlider(r, n, cb) { $(r).addEventListener("input", () => { $(n).value = $(r).value; cb(); }); $(n).addEventListener("input", () => { if ($(n).value !== "") $(r).value = $(n).value; cb(); }); }
-  bindSlider("widthR", "widthN", schedulePlan); bindSlider("heightR", "heightN", schedulePlan); bindSlider("stepsR", "stepsN", schedulePlan); bindSlider("cfgR", "cfgN", schedulePlan); bindSlider("threadsR", "threadsN", () => {});
-  for (const id of ["model", "sampler", "variant"]) $(id).addEventListener("input", () => { if (id === "model") renderPresets(); schedulePlan(); });
-  document.querySelectorAll("[data-ar]").forEach(b => b.onclick = () => {
-    const [a, c] = b.dataset.ar.split(":").map(Number); const base = num("widthN") || +$("widthN").placeholder || 1024;
-    const px = base * base; const w = Math.round(Math.sqrt(px * a / c) / 16) * 16, h = Math.round(Math.sqrt(px * c / a) / 16) * 16;
-    $("widthN").value = $("widthR").value = Math.min(2048, Math.max(256, w)); $("heightN").value = $("heightR").value = Math.min(2048, Math.max(256, h)); schedulePlan();
+  $("railBtn").onclick = () => $("ws").classList.toggle("rail-off");
+  $("qBtn").onclick = () => $("ws").classList.toggle("q-off");
+  $("focusBtn").onclick = () => $("ws").classList.toggle("focus");
+  $("actchip").onclick = (e) => { e.stopPropagation(); $("actpop").classList.toggle("open"); };
+  document.addEventListener("click", (e) => { if (!e.target.closest("#actpop")) $("actpop").classList.remove("open"); });
+  document.addEventListener("keydown", (e) => {
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && S.tab === "create" && !$("go").disabled) { e.preventDefault(); generate(); return; }
+    if ($("lb").open) { if (e.key === "ArrowLeft") lbStep(-1); if (e.key === "ArrowRight") lbStep(1); return; }
+    if (typing) return;
+    if (S.tab === "create") { if (e.key === "f") $("ws").classList.toggle("focus"); if (e.key === "s") $("ws").classList.toggle("rail-off"); if (e.key === "q") $("ws").classList.toggle("q-off"); }
   });
+
+  function styleText() { const st = STYLES.find(s => s[0] === $("style").value); return st && st[2] ? st[2] : ""; }
+  function fullPrompt() { const base = $("prompt").value.trim(); const st = styleText(); if (!st || !base) return base; const m = base.match(/^(.*?)(\s--.*)?$/s); return `${m[1].trim()}, ${st}${m[2] || ""}`; }
+  function effective() {
+    const p = S.parsed.params || {};
+    const e = { preset: p.preset || S.preset, width: p.width ?? num("widthN"), height: p.height ?? num("heightN"), model: p.model || $("model").value, steps: p.steps ?? num("stepsN"), cfg_scale: p.cfg_scale ?? num("cfgN"), sampler: p.sampler || str("sampler"), variant: p.variant || str("variant") };
+    if (p.aspect && e.width == null && e.height == null) { const [a, b] = p.aspect; const base = +$("widthN").placeholder || 1024; const px = base * base; e.width = Math.min(2048, Math.max(256, Math.round(Math.sqrt(px * a / b) / 16) * 16)); e.height = Math.min(2048, Math.max(256, Math.round(Math.sqrt(px * b / a) / 16) * 16)); }
+    return e;
+  }
+  function payload() { return { prompt: fullPrompt(), preset: S.preset, width: num("widthN"), height: num("heightN"), seed: num("seed"), model: $("model").value, negative_prompt: $("negative").value, steps: num("stepsN"), cfg_scale: num("cfgN"), sampler: str("sampler"), variant: str("variant"), threads: num("threadsN"), vae_tiling: $("tiling").value === "1" }; }
+  function bind(r, n, cb) { $(r).addEventListener("input", () => { $(n).value = $(r).value; cb(); }); $(n).addEventListener("input", () => { if ($(n).value !== "") $(r).value = $(n).value; cb(); }); }
+  bind("widthR", "widthN", () => { markAr(); schedulePlan(); }); bind("heightR", "heightN", () => { markAr(); schedulePlan(); }); bind("stepsR", "stepsN", schedulePlan); bind("cfgR", "cfgN", schedulePlan); bind("threadsR", "threadsN", () => {});
+  for (const id of ["model", "sampler", "variant"]) $(id).addEventListener("input", () => { if (id === "model") renderPresets(); schedulePlan(); });
+  $("ar").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; const [a, c] = b.dataset.ar.split(":").map(Number); const base = num("widthN") || +$("widthN").placeholder || 1024; const px = base * base; const w = Math.round(Math.sqrt(px * a / c) / 16) * 16, h = Math.round(Math.sqrt(px * c / a) / 16) * 16; $("widthN").value = $("widthR").value = Math.min(2048, Math.max(256, w)); $("heightN").value = $("heightR").value = Math.min(2048, Math.max(256, h)); markAr(); schedulePlan(); };
+  function markAr() { const w = num("widthN") || +$("widthN").placeholder, h = num("heightN") || +$("heightN").placeholder; document.querySelectorAll("#ar button").forEach(b => { const [a, c] = b.dataset.ar.split(":").map(Number); b.classList.toggle("active", Math.abs(w / h - a / c) < 0.03); }); }
   $("resetBtn").onclick = () => { for (const id of ["widthN", "heightN", "stepsN", "cfgN", "threadsN", "negative"]) $(id).value = ""; $("sampler").value = ""; $("variant").value = ""; $("tiling").value = ""; renderPresets(); plan(); };
-  $("style").addEventListener("input", () => { const st = STYLES.find(s => s[0] === $("style").value); $("styleText").textContent = st && st[2] ? `+ “${st[2]}”` : ""; });
-  $("prompt").addEventListener("input", () => { updateGo(); const t = $("prompt"); t.style.height = "auto"; t.style.height = Math.min(160, t.scrollHeight) + "px"; });
-  $("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !$("go").disabled) generate(); });
+  $("style").addEventListener("input", () => { const st = styleText(); $("stytext").textContent = st ? `+ “${st}”` : ""; });
+  const parseLive = debounce(async () => { const d = await api("/api/parse?prompt=" + encodeURIComponent($("prompt").value)); S.parsed = d; renderChips(d); plan(); }, 220);
+  $("prompt").addEventListener("input", () => { const t = $("prompt"); t.style.height = "auto"; t.style.height = Math.min(180, t.scrollHeight) + "px"; updateGo(); if (/--/.test(t.value) || Object.keys(S.parsed.params || {}).length || (S.parsed.errors || []).length) parseLive(); });
+  function renderChips(d) { const c = $("chips"); c.innerHTML = ""; for (const [k, v] of Object.entries(d.params || {})) { const el = document.createElement("span"); el.className = "pchip"; el.textContent = k === "aspect" ? `ar ${v[0]}:${v[1]}` : `${k.replace("cfg_scale", "cfg").replace("negative_prompt", "no")} ${v}`; c.appendChild(el); } for (const e of d.errors || []) { const el = document.createElement("span"); el.className = "pchip bad"; el.textContent = e; c.appendChild(el); } for (const u of d.unknown || []) { const el = document.createElement("span"); el.className = "pchip bad"; el.textContent = `--${u}: unknown, left in prompt`; c.appendChild(el); } }
 
   async function loadCaps() {
-    const caps = await api("/api/capabilities"); S.caps = caps;
-    const hw = caps.hardware;
-    const gpu = hw.gpus?.length ? hw.gpus.map(g => g.name + (g.vram_gib ? ` ${g.vram_gib} GiB` : "")).join(", ") : "no GPU";
-    $("hwtext").textContent = `${hw.physical_cores} cores · ${hw.ram_available_gib}/${hw.ram_total_gib} GiB free · ${caps.queue.worker_in_this_process ? "worker here" : caps.queue.worker_pid ? "worker pid " + caps.queue.worker_pid : "no worker running"}`;
-    $("hwdot").className = "dot" + (caps.engine.available ? "" : " warn");
-    $("hwPanel").innerHTML = `<p><b>${esc(hw.cpu_name)}</b><br>${hw.physical_cores} cores / ${hw.logical_cores} threads · ${hw.ram_total_gib} GiB RAM (${hw.ram_available_gib} free now) · ${esc(gpu)}</p><p>Engine: ${caps.engine.available ? esc(caps.engine.version) : "not installed"} · pinned ${esc(caps.engine.pinned_release)}</p><p>Memory budget for weights and working memory: <b>${caps.models[0].memory_budget_gib} GiB</b> (RAM minus 2 GiB${hw.gpus?.some(g => g.kind === "cuda") ? " plus VRAM" : ""}).</p><p class="muted">Data: ${esc(caps.paths.data_dir)}</p>`;
+    const c = await api("/api/capabilities"); S.caps = c; const hw = c.hardware;
+    $("hwtext").textContent = `${hw.ram_available_gib} / ${hw.ram_total_gib} GiB free · ${c.queue.worker_in_this_process ? "worker here" : c.queue.worker_pid ? "worker " + c.queue.worker_pid : "no worker"}`;
+    $("hwdot").className = "dot" + (c.engine.available ? "" : " warn");
     $("threadsR").max = Math.max(4, hw.logical_cores || 16);
-    const sel = $("model"); sel.innerHTML = '<option value="auto">auto (strongest that fits)</option>';
-    for (const m of caps.models) { const o = document.createElement("option"); o.value = m.name; o.textContent = `${m.display_name}${m.installed_variants.length ? "" : " · not downloaded"}`; sel.appendChild(o); }
-    if (!$("style").options.length) { for (const [v, name] of STYLES) { const o = document.createElement("option"); o.value = v; o.textContent = name; $("style").appendChild(o); } }
-    if (!$("sampler").options.length) { for (const s of SAMPLERS) { const o = document.createElement("option"); o.value = s === "euler" ? "" : s; o.textContent = s === "euler" ? "euler · default" : s; $("sampler").appendChild(o); } }
-    renderPresets();
-    if (caps.profile) renderProfile(caps.profile);
+    const sel = $("model"); sel.innerHTML = '<option value="auto">auto model</option>';
+    for (const m of c.models) { const o = document.createElement("option"); o.value = m.name; o.textContent = m.display_name + (m.installed_variants.length ? "" : " · not downloaded"); sel.appendChild(o); }
+    if (!$("style").options.length) for (const [v, n] of STYLES) { const o = document.createElement("option"); o.value = v; o.textContent = n; $("style").appendChild(o); }
+    if (!$("sampler").options.length) for (const s of SAMPLERS) { const o = document.createElement("option"); o.value = s === "euler" ? "" : s; o.textContent = s === "euler" ? "euler · default" : s; $("sampler").appendChild(o); }
+    S.cfg = await api("/api/config"); setLp();
+    renderPresets(); markAr();
   }
-  function currentModel() { const c = S.caps; return c.models.find(m => m.name === $("model").value) || c.models.find(m => m.installed_variants.length) || c.models[0]; }
+  function setLp() { $("lpBtn").classList.toggle("on", !!S.cfg.live_preview); $("lpBtn").title = S.cfg.live_preview ? "live preview on · click to turn off" : "live preview off · click to turn on"; }
+  $("lpBtn").onclick = async () => { S.cfg = await post("/api/config", { live_preview: !S.cfg.live_preview }); setLp(); toast(S.cfg.live_preview ? "Live preview on for new jobs." : "Live preview off for new jobs."); };
+  function currentModel() { const c = S.caps; const name = (S.parsed.params || {}).model || $("model").value; return c.models.find(m => m.name === name) || c.models.find(m => m.installed_variants.length) || c.models[0]; }
   function renderPresets() {
-    const model = currentModel(); const seg = $("presetSeg"); seg.innerHTML = "";
-    for (const name of ["best", "balanced", "fast"]) {
-      const p = model.presets.find(x => x.preset === name) || {};
-      const b = document.createElement("button"); b.className = name === S.preset ? "active" : "";
-      b.textContent = name; b.title = `${p.tradeoff || p.error || ""}${p.width ? `\n${p.width}×${p.height}, ${p.steps} steps, guidance ${p.cfg_scale}` : ""}${p.expected_time ? `\nabout ${p.expected_time.human} here` : ""}`;
-      b.onclick = () => { S.preset = name; renderPresets(); plan(); }; seg.appendChild(b);
-    }
-    const p = model.presets.find(x => x.preset === S.preset);
-    if (p?.width) { $("widthN").placeholder = p.width; $("heightN").placeholder = p.height; $("stepsN").placeholder = p.steps; $("cfgN").placeholder = p.cfg_scale;
-      if ($("widthN").value === "") $("widthR").value = p.width; if ($("heightN").value === "") $("heightR").value = p.height; if ($("stepsN").value === "") $("stepsR").value = p.steps; if ($("cfgN").value === "") $("cfgR").value = p.cfg_scale; }
+    const m = currentModel(); const seg = $("presetSeg"); seg.innerHTML = "";
+    for (const n of ["best", "balanced", "fast"]) { const p = m.presets.find(x => x.preset === n) || {}; const b = document.createElement("button"); b.className = n === S.preset ? "active" : ""; b.textContent = n; b.title = `${p.tradeoff || p.error || ""}${p.width ? `\n${p.width}×${p.height} · ${p.steps} steps · cfg ${p.cfg_scale}` : ""}${p.expected_time ? `\n≈ ${p.expected_time.human} here` : ""}`; b.onclick = () => { S.preset = n; renderPresets(); plan(); }; seg.appendChild(b); }
+    const p = m.presets.find(x => x.preset === S.preset);
+    if (p?.width) { $("widthN").placeholder = p.width; $("heightN").placeholder = p.height; $("stepsN").placeholder = p.steps; $("cfgN").placeholder = p.cfg_scale; if ($("widthN").value === "") $("widthR").value = p.width; if ($("heightN").value === "") $("heightR").value = p.height; if ($("stepsN").value === "") $("stepsR").value = p.steps; if ($("cfgN").value === "") $("cfgR").value = p.cfg_scale; }
+    markAr();
   }
 
-  // ---------- plan / meter / notices
-  let planTimer = null; function schedulePlan() { clearTimeout(planTimer); planTimer = setTimeout(plan, 220); }
-  function updateGo() { $("go").disabled = !(S.plan && S.plan.installed) || !$("prompt").value.trim(); }
-  function notice(kind, title, detail, action) { const n = document.createElement("div"); n.className = `notice ${kind}`; n.title = detail || ""; n.onclick = (e) => { if (!e.target.closest("button")) n.classList.toggle("open"); }; n.innerHTML = `<div class="ic">${kind === "bad" ? "!" : kind === "warn" ? "!" : "i"}</div><div><div class="t">${esc(title)}</div>${detail ? `<div class="d">${esc(detail)}</div>` : ""}</div>`; if (action) n.querySelector("div:last-child").appendChild(action); return n; }
-  function splitWarn(w) { const m = w.match(/^(.{10,90}?)[.;:]\s+(.*)$/s); return m ? [m[1], m[2]] : [w.replace(/[.;:]$/, ""), ""]; }
+  const schedulePlan = debounce(plan, 220);
+  function updateGo() { $("go").disabled = !(S.plan && S.plan.installed) || !$("prompt").value.trim() || (S.parsed.errors || []).length > 0; }
+  function alertEl(kind, title, detail, action) { const a = document.createElement("div"); a.className = `alert ${kind}`; a.innerHTML = `<i>${kind === "info" ? "i" : "!"}</i><div><div class="t">${esc(title)}</div>${detail ? `<div class="d">${esc(detail)}</div>` : ""}</div>`; if (action) { const d = document.createElement("div"); d.className = "act"; d.appendChild(action); a.lastElementChild.appendChild(d); } a.onclick = (e) => { if (!e.target.closest("button")) a.classList.toggle("open"); }; return a; }
+  const split = (w) => { const m = w.match(/^(.{10,90}?)[.;:]\s+(.*)$/s); return m ? [m[1], m[2]] : [w.replace(/[.;:]$/, ""), ""]; };
   async function plan() {
-    const s = settings(); const q = new URLSearchParams();
-    for (const k of ["preset", "width", "height", "model", "steps", "cfg_scale", "sampler", "variant"]) if (s[k] != null && s[k] !== "") q.set(k, s[k]);
-    const d = await api("/api/plan?" + q); const N = $("notices"); N.innerHTML = ""; $("modelDl").innerHTML = "";
+    const e = effective(); const q = new URLSearchParams();
+    for (const k of ["preset", "width", "height", "model", "steps", "cfg_scale", "sampler", "variant"]) if (e[k] != null && e[k] !== "" && e[k] !== "auto") q.set(k, e[k]);
+    const d = await api("/api/plan?" + q); const A = $("alerts"); A.innerHTML = "";
     if (d.error) {
-      S.plan = null; $("fill").style.width = "100%"; $("fill").style.background = "var(--bad)";
-      $("load").innerHTML = `<span class="lab-over">refused</span>`; $("loadnums").textContent = ""; $("planText").textContent = ""; $("goSub").textContent = "not possible";
-      const [t, rest] = splitWarn(d.error); const act = document.createElement("div"); act.className = "act";
-      if (/locked/i.test(d.error)) { const b = document.createElement("button"); b.className = "btn"; b.textContent = "Open Settings"; b.onclick = () => showTab("machine"); act.appendChild(b); }
-      const nb = notice("bad", t, rest, act); nb.classList.add("open"); N.appendChild(nb); updateGo(); return;
+      S.plan = null; $("meterFill").style.width = "100%"; $("meterFill").style.background = "var(--bad)"; $("etaText").innerHTML = `<span class="l-over">refused</span>`;
+      const [t, rest] = split(d.error); let act = null; if (/locked/i.test(d.error)) { act = document.createElement("button"); act.className = "btn sm"; act.textContent = "Open Settings"; act.onclick = () => showTab("machine"); }
+      const a = alertEl("bad", t, rest, act); a.classList.add("open"); A.appendChild(a); updateGo(); return;
     }
-    S.plan = d; const L = d.load; const cls = { "comfortable": "lab-comfortable", "tight": "lab-tight", "will swap": "lab-swap", "over budget": "lab-over" }[L.label];
-    $("fill").style.width = Math.min(100, L.score) + "%"; $("fill").style.background = cls === "lab-comfortable" ? "var(--ok)" : cls === "lab-over" ? "var(--bad)" : "var(--warn)";
-    $("load").innerHTML = `load ${L.score}% · <span class="${cls}">${L.label}</span>`; $("loadnums").textContent = `needs ${L.required_gib} GiB · budget ${L.budget_gib} · free ${L.available_gib}`;
-    $("planText").textContent = `${d.model} [${d.variant}] · ${d.width}×${d.height} · ${d.steps} steps · cfg ${d.cfg_scale} · ${d.sampler}${d.estimate.calibrated ? "" : " · estimate uncalibrated"}`;
-    $("goSub").textContent = `${S.preset} · about ${d.estimate.human}`;
-    if (d.fit_note) { const [t, rest] = splitWarn(d.fit_note); N.appendChild(notice("info", t, rest)); }
-    for (const w of d.warnings || []) { const [t, rest] = splitWarn(w); N.appendChild(notice("warn", t, rest)); }
-    if (!d.installed) {
-      const b = document.createElement("button"); b.className = "btn primary"; b.textContent = `Download ${d.model} [${d.variant}]`; b.onclick = () => openDownload(d.model, d.variant);
-      const act = document.createElement("div"); act.className = "act"; act.appendChild(b);
-      N.appendChild(notice("warn", `${d.model} [${d.variant}] is not downloaded yet`, "Generate is disabled until the weights are on this machine. The download asks for consent, resumes if interrupted and is hash-verified.", act));
-      $("modelDl").appendChild(b.cloneNode(true)).onclick = b.onclick;
-    }
+    S.plan = d; const L = d.load; const cls = { "comfortable": "l-comfortable", "tight": "l-tight", "will swap": "l-swap", "over budget": "l-over" }[L.label];
+    $("meterFill").style.width = Math.min(100, L.score) + "%"; $("meterFill").style.background = cls === "l-comfortable" ? "var(--ok)" : cls === "l-over" ? "var(--bad)" : "var(--warn)";
+    $("etaText").innerHTML = `≈ ${d.estimate.human} · <span class="${cls}">${L.label}</span>`; $("eta").title = `${d.model} [${d.variant}] ${d.width}×${d.height} · ${d.steps} steps · cfg ${d.cfg_scale} · ${d.sampler}\nneeds ${L.required_gib} GiB · budget ${L.budget_gib} · free ${L.available_gib}\n${d.estimate.basis}`;
+    if (d.fit_note) { const [t, r] = split(d.fit_note); A.appendChild(alertEl("info", t, r)); }
+    for (const w of d.warnings || []) { const [t, r] = split(w); A.appendChild(alertEl("warn", t, r)); }
+    if (!d.installed) { const b = document.createElement("button"); b.className = "btn sm primary"; b.textContent = `Download ${d.model} [${d.variant}]`; b.onclick = () => openDownload(d.model, d.variant); const a = alertEl("warn", `${d.model} [${d.variant}] is not downloaded`, "Generate is disabled until the weights are on this machine. The download asks for consent, resumes if interrupted and is hash-verified.", b); a.classList.add("open"); A.appendChild(a); }
     updateGo();
   }
-  async function generate() {
-    $("go").disabled = true; const d = await post("/api/generate", settings());
-    if (d.error) { toast(d.error, 6000); } else { toast(`Queued · about ${fmtEta(d.eta_seconds)}`); S.selectedJob = d.id; }
-    await refreshJobs(); plan();
-  }
+  async function generate() { $("go").disabled = true; const d = await post("/api/generate", payload()); if (d.error) toast(d.error, 6000); else { S.sel = d.id; toast(`Queued · ≈ ${fmtEta(d.eta_seconds)}`); } await refreshJobs(); plan(); }
   $("go").onclick = generate;
 
-  // ---------- queue + stage
   async function refreshJobs() {
     const d = await api("/api/jobs"); const jobs = d.jobs || []; S.jobs = jobs;
     const active = jobs.filter(j => j.status === "queued" || j.status === "running");
-    const strip = $("strip"); strip.innerHTML = "";
-    if (!active.length) strip.innerHTML = '<span class="none">Nothing in the queue.</span>';
-    for (const j of active) {
-      const el = document.createElement("div"); el.className = "q" + (S.selectedJob === j.id ? " sel" : "");
-      const eta = j.status === "running" && j.phase === "sampling" ? `step ${j.step}/${j.total_steps} · ${fmtEta(j.eta_seconds)} left` : j.status === "queued" ? `queued #${j.queue_position} · ~${fmtEta(j.eta_seconds)}` : `${j.phase} · ~${fmtEta(j.eta_seconds)} left`;
-      const thumb = j.has_preview ? `<img src="/api/preview/${j.id}?t=${Date.now()}" alt="">` : `<div class="ph">${j.status === "running" ? j.phase : "queued"}</div>`;
-      el.innerHTML = `${thumb}<div><div class="p">${esc(j.prompt)}</div><div class="m">${j.preset} · ${j.width}×${j.height} · ${eta}</div><div class="bar"><i style="width:${Math.round((j.progress || 0) * 100)}%"></i></div></div>`;
-      el.onclick = () => { S.selectedJob = j.id; refreshJobs(); }; strip.appendChild(el);
+    const recent = jobs.filter(j => ["done", "failed", "cancelled"].includes(j.status) && j.finished_at && (Date.now() - new Date(j.finished_at)) < 3600e3).slice(0, 5);
+    const box = $("queue"); box.innerHTML = ""; $("qcount").textContent = active.length ? `${active.length} active` : "";
+    for (const j of [...active, ...recent]) {
+      const el = document.createElement("div"); el.className = "qcard" + (S.sel === j.id ? " sel" : "");
+      const thumb = j.status === "done" ? `<img src="/api/image/${j.id}" alt="">` : j.has_preview ? `<img src="/api/preview/${j.id}?t=${Date.now()}" alt="">` : `<div class="ph">${j.status === "running" ? j.phase : j.status}</div>`;
+      const meta = j.status === "running" ? (j.phase === "sampling" ? `step ${j.step}/${j.total_steps} · ${fmtEta(j.eta_seconds)} left` : `${j.phase} · ≈ ${fmtEta(j.eta_seconds)} left`) : j.status === "queued" ? `queued #${j.queue_position} · ≈ ${fmtEta(j.eta_seconds)}` : j.status === "done" ? fmtDur(j.total_seconds) : j.status;
+      const bar = (j.status === "running" || j.status === "queued") ? `<div class="bar"><i style="width:${Math.round((j.progress || 0) * 100)}%"></i></div>` : "";
+      const act = j.status === "running" || j.status === "queued" ? `<button class="btn sm" data-c="${j.id}">Cancel</button>` : j.status === "done" ? `<button class="btn sm" data-g="${j.id}">Open</button>` : "";
+      el.innerHTML = `${thumb}<div><div class="t">${esc(j.title)}</div><div class="m" title="${esc(j.prompt)}">${esc(j.prompt)}</div>${bar}<div class="m">${meta}</div><div style="margin-top:6px">${act}</div></div>`;
+      el.onclick = (e) => { if (e.target.closest("button")) return; S.sel = j.id; refreshJobs(); };
+      const cb = el.querySelector("[data-c]"); if (cb) cb.onclick = async () => { cb.disabled = true; cb.textContent = "Cancelling…"; await post(`/api/jobs/${j.id}/cancel`); toast("Cancel requested."); setTimeout(refreshJobs, 1200); };
+      const gb = el.querySelector("[data-g]"); if (gb) gb.onclick = () => { showTab("gallery"); openLightbox(j.id); };
+      box.appendChild(el);
     }
-    const sel = jobs.find(j => j.id === S.selectedJob) || active[0] || jobs.find(j => j.status === "done");
-    renderStage(sel);
+    if (!active.length && !recent.length) box.innerHTML = '<div class="qempty">Nothing queued. Finished work is in the gallery.</div>';
+    renderCanvas(jobs.find(j => j.id === S.sel) || active[0]);
     if (S.tab === "gallery") renderGallery(false);
-    const running = jobs.some(j => j.status === "running");
-    $("hwdot").className = "dot" + (running ? " busy" : "");
+    $("hwdot").className = "dot" + (active.some(j => j.status === "running") ? " busy" : "");
   }
-  function renderStage(j) {
-    const c = $("canvas");
-    if (!j) { c.innerHTML = '<div class="empty"><b>Describe an image below</b>Your render appears here as it forms.</div>'; return; }
-    const prevImg = c.querySelector("img");
-    let html = "";
-    if (j.status === "done") html = `<img src="/api/image/${j.id}" alt="">`;
-    else if (j.has_preview) html = `<img src="/api/preview/${j.id}?t=${Date.now()}" alt="" title="live preview: a rough projection of the image forming">`;
-    else html = `<div class="empty"><b>${j.status === "queued" ? "Waiting in the queue" : esc(j.phase)}</b>${esc(j.prompt)}</div>`;
-    if (j.status === "running" || j.status === "queued") {
-      const eta = j.phase === "sampling" ? `step ${j.step}/${j.total_steps} · ${fmtEta(j.eta_seconds)} left` : j.status === "queued" ? `queued · ~${fmtEta(j.eta_seconds)}` : `${j.phase} · ~${fmtEta(j.eta_seconds)} left`;
-      html += `<div class="overlay"><div><b>${j.status === "running" ? "Rendering" : "Queued"}</b><div class="m">${eta}</div></div><div class="bar"><i style="width:${Math.round((j.progress || 0) * 100)}%"></i></div><button class="btn" id="cancelBtn">Cancel</button></div>`;
-    } else if (j.status === "done") {
-      html += `<div class="overlay"><span class="m">${j.preset} · ${j.width}×${j.height} · seed ${j.seed} · ${fmtDur(j.total_seconds)}</span><button class="btn" id="openGal">Open in gallery</button></div>`;
-    } else if (j.status === "failed") {
-      html += `<div class="overlay"><div><b>Failed</b><div class="m">${esc((j.error || "").split("\n")[0].slice(0, 120))}</div></div></div>`;
-    }
-    // avoid flicker: if same done image already shown, skip
-    if (prevImg && j.status === "done" && prevImg.src.endsWith(`/api/image/${j.id}`) && c.dataset.job === j.id) return;
-    c.dataset.job = j.id; c.innerHTML = html;
-    const cb = $("cancelBtn"); if (cb) cb.onclick = async () => { cb.disabled = true; cb.textContent = "Cancelling…"; await post(`/api/jobs/${j.id}/cancel`); toast("Cancel requested; the engine stops within seconds."); setTimeout(refreshJobs, 1500); };
-    const og = $("openGal"); if (og) og.onclick = () => { showTab("gallery"); openSide(j); };
+  function renderCanvas(j) {
+    const c = $("canvas"); c.querySelectorAll(":scope > img, :scope > .status").forEach(n => n.remove());
+    const emptyEl = $("empty");
+    if (!j || !["running", "queued", "done"].includes(j.status)) { emptyEl.style.display = ""; emptyEl.innerHTML = `<b>Describe what you want to see</b>Type below and press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>. Parameters work inline: <code>--seed 7 --size 1024x768 --preset fast</code>`; return; }
+    emptyEl.style.display = "none";
+    if (j.status === "done") { const img = document.createElement("img"); img.src = `/api/image/${j.id}`; c.appendChild(img); }
+    else if (j.has_preview) { const img = document.createElement("img"); img.src = `/api/preview/${j.id}?t=${Date.now()}`; img.title = "live preview: a rough projection of the image forming"; c.appendChild(img); }
+    else { emptyEl.style.display = ""; emptyEl.innerHTML = `<b>${j.status === "queued" ? "Waiting in the queue…" : esc(j.phase[0].toUpperCase() + j.phase.slice(1)) + "…"}</b>${esc(j.prompt)}`; }
+    const st = document.createElement("div"); st.className = "status";
+    if (j.status === "done") st.innerHTML = `<span><b>Done</b> <span class="m">${esc(j.title)} · ${fmtDur(j.total_seconds)}</span></span><button class="btn sm" id="stOpen">Open in gallery</button>`;
+    else st.innerHTML = `<span><b>${j.status === "running" ? "Rendering" : "Queued"}</b> <span class="m">${j.phase === "sampling" ? `step ${j.step}/${j.total_steps}` : j.phase} · ${fmtEta(j.eta_seconds)} left</span></span><span class="bar"><i style="width:${Math.round((j.progress || 0) * 100)}%"></i></span><button class="btn sm" id="stCancel">Cancel</button>`;
+    c.appendChild(st);
+    const so = $("stOpen"); if (so) so.onclick = () => { showTab("gallery"); openLightbox(j.id); };
+    const sc = $("stCancel"); if (sc) sc.onclick = async () => { sc.disabled = true; await post(`/api/jobs/${j.id}/cancel`); toast("Cancel requested."); setTimeout(refreshJobs, 1200); };
   }
 
-  // ---------- gallery
   $("gmode").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.gmode = b.dataset.m; document.querySelectorAll("#gmode button").forEach(x => x.classList.toggle("active", x === b)); renderGallery(true); };
   $("search").addEventListener("input", () => renderGallery(true));
-  async function renderGallery(force) {
-    const done = S.jobs.filter(j => j.status === "done");
-    let items = done;
-    if (S.gmode === "compare") { const by = {}; for (const j of done) if (!by[j.preset]) by[j.preset] = j; items = ["best", "balanced", "fast"].map(p => by[p]).filter(Boolean); }
-    const q = $("search").value.trim().toLowerCase(); if (q) items = items.filter(j => (j.prompt || "").toLowerCase().includes(q));
-    const key = S.gmode + "|" + q + "|" + items.map(j => j.id).join(",") + "|" + (S.galleryJob?.id || "");
-    if (!force && key === S.lastGalleryKey) return; S.lastGalleryKey = key;
-    const g = $("grid"); g.className = "grid" + (S.gmode === "compare" ? " compare" : ""); g.innerHTML = "";
-    $("gcount").textContent = `${items.length} image${items.length === 1 ? "" : "s"}`;
-    for (const j of items) {
-      const c = document.createElement("div"); c.className = "card" + (S.galleryJob?.id === j.id ? " sel" : "");
-      c.innerHTML = `<img loading="lazy" src="/api/image/${j.id}" alt=""><div class="cap"><div class="pr">${S.gmode === "compare" ? `<b>${j.preset}</b> · ` : ""}${esc(j.prompt)}</div><div class="mt">${j.preset} · ${j.width}×${j.height} · seed ${j.seed} · ${fmtDur(j.total_seconds)}</div></div>`;
-      c.onclick = () => openSide(j); c.oncontextmenu = (e) => { e.preventDefault(); window.open(`/api/image/${j.id}`, "_blank"); }; g.appendChild(c);
-    }
+  function galleryItems() { const done = S.jobs.filter(j => j.status === "done"); let items = done; if (S.gmode === "compare") { const by = {}; for (const j of done) if (!by[j.preset]) by[j.preset] = j; items = ["best", "balanced", "fast"].map(p => by[p]).filter(Boolean); } const q = $("search").value.trim().toLowerCase(); if (q) items = items.filter(j => (j.prompt || "").toLowerCase().includes(q)); return items; }
+  function renderGallery(force) {
+    const items = galleryItems(); const key = S.gmode + "|" + $("search").value + "|" + items.map(j => j.id).join(",");
+    if (!force && key === S.gkey) return; S.gkey = key;
+    const g = $("grid"); g.className = "grid" + (S.gmode === "compare" ? " compare" : ""); g.innerHTML = ""; $("gcount").textContent = `${items.length} image${items.length === 1 ? "" : "s"}`;
+    for (const j of items) { const c = document.createElement("div"); c.className = "card"; c.innerHTML = `<img loading="lazy" src="/api/image/${j.id}" alt=""><div class="cap">${S.gmode === "compare" ? `<span class="tag">${j.preset}</span>` : ""}<div class="t">${esc(j.title)}</div><div class="m" title="${esc(j.prompt)}">${esc(j.prompt)}</div></div>`; c.onclick = () => openLightbox(j.id); c.oncontextmenu = (e) => { e.preventDefault(); window.open(`/api/image/${j.id}`, "_blank"); }; g.appendChild(c); }
     if (!items.length) g.innerHTML = '<div class="muted">No images yet.</div>';
   }
-  function openSide(j) {
-    S.galleryJob = j; $("gbody").classList.add("open"); renderGallery(true);
-    $("sPrompt").textContent = j.prompt; $("sImg").src = `/api/image/${j.id}`; $("sOpen").href = `/api/image/${j.id}`;
-    const rows = [["Model", `${j.model} [${j.variant}]`], ["Preset", j.preset], ["Size", `${j.width} × ${j.height}`], ["Seed", j.seed], ["Steps", j.steps], ["Guidance", j.cfg_scale], ["Sampler", j.sampler], ["Negative", j.negative_prompt || "–"], ["Threads", j.threads || "cores"], ["VAE tiling", j.vae_tiling ? "on" : "off"], ["Time", fmtDur(j.total_seconds)], ["Peak memory", j.peak_rss_gib ? `${j.peak_rss_gib} GiB` : "–"], ["Finished", (j.finished_at || "").replace("T", " ").slice(0, 19)]];
-    if (j.fit_note) rows.push(["Fit", j.fit_note]);
-    $("sKv").innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><span>${esc(v)}</span></div>`).join("");
-    updateExport();
+  function openLightbox(id) { S.lbList = galleryItems().map(j => j.id); if (!S.lbList.includes(id)) S.lbList = [id, ...S.lbList]; S.lbIdx = S.lbList.indexOf(id); showLb(); if (!$("lb").open) $("lb").showModal(); }
+  function lbStep(d) { const n = S.lbIdx + d; if (n < 0 || n >= S.lbList.length) return; S.lbIdx = n; showLb(); }
+  function showLb() {
+    const j = S.jobs.find(x => x.id === S.lbList[S.lbIdx]); if (!j) return; S.lbJob = j;
+    $("lbImg").src = `/api/image/${j.id}`; $("lbTitle").textContent = j.title; $("lbSub").textContent = `${j.model} [${j.variant}] · ${j.width}×${j.height} · seed ${j.seed} · ${fmtDur(j.total_seconds)}`;
+    $("lbPrompt").innerHTML = esc(j.reproducible_prompt).replace(/(--\S+ \S+)/g, '<span class="p">$1</span>'); $("lbOpen").href = `/api/image/${j.id}`;
+    const rows = [["Preset", j.preset], ["Steps", j.steps], ["Guidance", j.cfg_scale], ["Sampler", j.sampler], ["Negative", j.negative_prompt || "–"], ["Threads", j.threads || "cores"], ["VAE tiling", j.vae_tiling ? "on" : "off"], ["Sampling", fmtDur(j.sampling_seconds)], ["Peak memory", j.peak_rss_gib ? `${j.peak_rss_gib} GiB` : "–"], ["Finished", (j.finished_at || "").replace("T", " ").slice(0, 16)]];
+    $("lbKv").innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><span>${esc(v)}</span></div>`).join("");
+    $("lbPrev").disabled = S.lbIdx <= 0; $("lbNext").disabled = S.lbIdx >= S.lbList.length - 1; updateExport();
   }
-  $("sClose").onclick = () => { $("gbody").classList.remove("open"); S.galleryJob = null; renderGallery(true); };
-  $("sReuse").onclick = () => { const j = S.galleryJob; if (!j) return; $("prompt").value = j.prompt; $("style").value = ""; $("styleText").textContent = ""; S.preset = j.preset; $("widthN").value = $("widthR").value = j.width; $("heightN").value = $("heightR").value = j.height; $("seed").value = j.seed; $("model").value = j.model; $("negative").value = j.negative_prompt || ""; $("stepsN").value = $("stepsR").value = j.steps; $("cfgN").value = $("cfgR").value = j.cfg_scale; $("sampler").value = j.sampler === "euler" ? "" : j.sampler; $("variant").value = j.variant; showTab("create"); renderPresets(); plan(); updateGo(); };
+  $("lbPrev").onclick = () => lbStep(-1); $("lbNext").onclick = () => lbStep(1); $("lbClose").onclick = () => $("lb").close();
+  $("lb").addEventListener("click", (e) => { if (e.target === $("lb")) $("lb").close(); });
+  $("lbCopy").onclick = async () => { try { await navigator.clipboard.writeText(S.lbJob.reproducible_prompt); toast("Copied. Paste it into the prompt box to recreate this image exactly."); } catch (e) { toast("Copy failed; select the text instead."); } };
+  $("lbReuse").onclick = () => { const j = S.lbJob; $("prompt").value = j.reproducible_prompt; $("style").value = ""; $("stytext").textContent = ""; $("lb").close(); showTab("create"); $("prompt").dispatchEvent(new Event("input")); $("prompt").focus(); };
   $("fmtSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.fmt = b.dataset.f; document.querySelectorAll("#fmtSeg button").forEach(x => x.classList.toggle("active", x === b)); updateExport(); };
-  let sizeTimer = null;
-  function updateExport() {
-    const j = S.galleryJob; if (!j) return;
-    const scale = +$("scaleR").value, quality = +$("qualityR").value; const lossy = S.fmt !== "png";
-    $("qualityRow").style.display = lossy ? "" : "none";
-    $("scaleV").textContent = `${scale}% · ${Math.round(j.width * scale / 100)}×${Math.round(j.height * scale / 100)}`; $("qualityV").textContent = `${quality}%`;
-    $("dlBtn").href = `/api/download/${j.id}?fmt=${S.fmt}&quality=${quality}&scale=${scale}`;
-    $("sizeText").textContent = "measuring…"; clearTimeout(sizeTimer);
-    sizeTimer = setTimeout(async () => { const r = await api(`/api/export-size/${j.id}?fmt=${S.fmt}&quality=${quality}&scale=${scale}`); if (!r.error) $("sizeText").textContent = `${r.filename} · ${fmtBytes(r.bytes)}${scale === 100 && S.fmt === "png" ? " · original file" : ""}`; }, 300);
-  }
+  const measure = debounce(async (j, scale, quality) => { const r = await api(`/api/export-size/${j.id}?fmt=${S.fmt}&quality=${quality}&scale=${scale}`); if (!r.error) $("sizeText").textContent = `${r.filename} · ${fmtBytes(r.bytes)}${scale === 100 && S.fmt === "png" ? " · original file" : ""}`; }, 300);
+  function updateExport() { const j = S.lbJob; if (!j) return; const scale = +$("scaleR").value, quality = +$("qualityR").value; const lossy = S.fmt !== "png"; $("qRow").style.display = lossy ? "" : "none"; $("scaleV").textContent = `${scale}% · ${Math.round(j.width * scale / 100)}×${Math.round(j.height * scale / 100)}`; $("qualityV").textContent = `${quality}%`; $("dlBtn").href = `/api/download/${j.id}?fmt=${S.fmt}&quality=${quality}&scale=${scale}`; $("sizeText").textContent = "measuring…"; measure(j, scale, quality); }
   $("scaleR").addEventListener("input", updateExport); $("qualityR").addEventListener("input", updateExport);
 
-  // ---------- machine: models, downloads, benchmark, settings
   async function renderMachine() {
-    const caps = S.caps; const box = $("modelsPanel"); box.innerHTML = "";
-    for (const m of caps.models) {
-      const h = document.createElement("div"); h.innerHTML = `<p><b>${esc(m.display_name)}</b> <span class="pill">${esc(m.licence)}</span><br><span class="muted">${esc(m.description)}</span></p>`;
-      for (const v of m.variants) {
-        const r = document.createElement("div"); r.className = "vrow";
-        r.innerHTML = `<b>${v.name}</b><div>${v.download_gib} GiB download · needs ${v.needs_gib_at_1024} GiB at 1024 px <span class="pill ${v.fits_this_machine ? "ok" : ""}">${v.fits_this_machine ? "fits" : "does not fit"}</span><div class="m">${esc(v.note)}</div></div><div></div>`;
-        const slot = r.lastElementChild;
-        if (v.installed) slot.innerHTML = '<span class="pill ok">installed</span>'; else { const b = document.createElement("button"); b.className = "btn"; b.textContent = "Download"; b.onclick = () => openDownload(m.name, v.name); slot.appendChild(b); }
-        h.appendChild(r);
-      }
-      box.appendChild(h);
-    }
-    const cfg = await api("/api/config");
-    $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
-    renderTasks();
+    const c = S.caps; const hw = c.hardware; const clean = (s) => s.replace(/\(R\)|\(TM\)/g, "").replace("12th Gen ", "");
+    const gpu = hw.gpus?.length ? hw.gpus.map(g => clean(g.name) + (g.vram_gib ? ` · ${g.vram_gib} GiB` : "")).join(", ") : "none";
+    $("strip").innerHTML = [["CPU", clean(hw.cpu_name), `${hw.physical_cores} cores · ${hw.logical_cores} threads`], ["Memory", `${hw.ram_available_gib} / ${hw.ram_total_gib} GiB free`, `budget ${c.models[0].memory_budget_gib} GiB for weights`], ["GPU", gpu, hw.gpus?.some(g => g.kind === "cuda") ? "CUDA" : "CPU rendering"], ["Engine", c.engine.available ? "stable-diffusion.cpp" : "not installed", c.engine.version || c.engine.pinned_release], ["Worker", c.queue.worker_in_this_process ? "this process" : c.queue.worker_pid ? `pid ${c.queue.worker_pid}` : "none", `${c.queue.queued} queued`], ["Data", c.paths.data_dir.split(/[\\/]/).slice(-1)[0], c.paths.data_dir]].map(([k, v, s]) => `<div class="stat"><div class="k">${k}</div><div class="v" title="${esc(v)}">${esc(v)}</div><div class="s" title="${esc(s)}">${esc(s)}</div></div>`).join("");
+    const rows = []; for (const m of c.models) { rows.push(`<tr><td colspan="5" style="padding-top:12px"><b>${esc(m.display_name)}</b> <span class="pill">${esc(m.licence)}</span><div class="muted small">${esc(m.description)}</div></td></tr>`); for (const v of m.variants) rows.push(`<tr><td class="mono"><b>${v.name}</b></td><td class="r mono">${v.download_gib} GiB</td><td class="r mono">${v.needs_gib_at_1024} GiB</td><td><span class="pill ${v.fits_this_machine ? "ok" : ""}">${v.fits_this_machine ? "fits" : "does not fit"}</span></td><td class="r">${v.installed ? '<span class="pill ok">installed</span>' : `<button class="btn sm" data-dl="${m.name}|${v.name}">Download</button>`}</td></tr>`); }
+    $("modelsPanel").innerHTML = `<table class="t"><tr><th>Set</th><th class="r">Download</th><th class="r">Needs at 1024²</th><th>Memory</th><th></th></tr>${rows.join("")}</table>`;
+    $("modelsPanel").querySelectorAll("[data-dl]").forEach(b => b.onclick = () => { const [m, v] = b.dataset.dl.split("|"); openDownload(m, v); });
+    const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
+    if (c.profile) renderProfile(c.profile);
+    renderTasks(); loadMemory();
   }
-  $("cfgOver").onchange = async () => { await post("/api/config", { allow_over_budget: $("cfgOver").checked }); toast($("cfgOver").checked ? "Over-budget runs allowed. Jobs that exceed memory may swap for hours or fail." : "Over-budget runs locked."); plan(); };
+  async function loadMemory() { const m = await api("/api/memory"); const max = m.top[0]?.gib || 1; $("memPanel").innerHTML = `<div class="muted small" style="margin-bottom:8px">${m.available_gib} of ${m.total_gib} GiB free. The studio cannot free other programs' memory; close the heavy ones before a long render.</div>` + m.top.map(p => `<div style="display:grid;grid-template-columns:120px 1fr 56px;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(p.name)}">${esc(p.name)}</span><span class="membar"><i style="width:${Math.round(p.gib / max * 100)}%"></i></span><span class="mono" style="text-align:right">${p.gib.toFixed(2)}</span></div>`).join(""); }
+  $("memBtn").onclick = loadMemory;
+  $("cfgOver").onchange = async () => { S.cfg = await post("/api/config", { allow_over_budget: $("cfgOver").checked }); toast($("cfgOver").checked ? "Over-budget runs allowed. They may swap for hours or fail." : "Over-budget runs locked."); plan(); };
+  $("cfgPreview").onchange = async () => { S.cfg = await post("/api/config", { live_preview: $("cfgPreview").checked }); setLp(); toast("Saved."); };
   $("cfgThreads").onchange = async () => { await post("/api/config", { default_threads: num("cfgThreads") }); toast("Saved."); };
   async function openDownload(model, variant) {
-    const q = new URLSearchParams({ model }); if (variant) q.set("variant", variant);
-    const info = await api("/api/models/download?" + q); if (info.error) { toast(info.error, 6000); return; }
+    const q = new URLSearchParams({ model }); if (variant) q.set("variant", variant); const info = await api("/api/models/download?" + q); if (info.error) { toast(info.error, 6000); return; }
     $("dlTitle").textContent = `${info.display_name} [${info.variant}] · ${info.total_gib} GiB · ${info.licence}`;
-    $("dlBody").innerHTML = `<p class="muted">${esc(info.note)}</p><div class="filelist">${info.files.map(f => `${esc(f.filename)} · ${f.size_gib} GiB · ${esc(f.source)}`).join("<br>")}</div><p class="muted">Resumable and SHA-256 verified. Runs in the background; progress shows in the activity chip at the top.</p>`;
+    $("dlBody").innerHTML = `<p class="muted small" style="margin:4px 0 8px">${esc(info.note)}</p><div class="files">${info.files.map(f => `${esc(f.filename)} · ${f.size_gib} GiB · ${esc(f.source)}`).join("<br>")}</div><p class="muted small">Resumable and SHA-256 verified. Runs in the background; progress shows in the activity chip at the top.</p>`;
     $("dlConsent").checked = false; $("dlStart").disabled = true; $("dlConsent").onchange = () => { $("dlStart").disabled = !$("dlConsent").checked; };
-    $("dlStart").onclick = async () => { await post("/api/models/download", { model: info.model, variant: info.variant, consent: true }); $("dlDialog").close(); toast(`Download started · ${info.total_gib} GiB`); $("activity").classList.add("open"); pollTasks(); };
+    $("dlStart").onclick = async () => { await post("/api/models/download", { model: info.model, variant: info.variant, consent: true }); $("dlDialog").close(); toast(`Download started · ${info.total_gib} GiB`); $("actpop").classList.add("open"); pollTasks(); };
     $("dlDialog").showModal();
   }
   $("dlX").onclick = () => $("dlDialog").close();
-  $("benchStart").onclick = async () => { await post("/api/benchmark", { preset: $("benchPreset").value, target_minutes: +$("benchTarget").value || 15 }); toast("Benchmark started. Progress shows in the queue and the activity chip."); $("benchResult").innerHTML = '<p class="muted">Running…</p>'; pollTasks(); };
-  function renderProfile(p) {
-    const rows = Object.entries(p.preset_estimates).map(([n, s]) => `<tr><td>${n}${n === p.recommended_preset ? ' <span class="pill ok">recommended</span>' : ""}</td><td class="right">${fmtDur(s)}</td></tr>`).join("");
-    $("benchResult").innerHTML = `<table class="res"><tr><th>Preset</th><th class="right">Expected here</th></tr>${rows}</table><p class="muted">Measured ${p.measured_at.replace("T", " ").slice(0, 16)}: ${p.model} [${p.variant}] ${p.width}×${p.height} in ${fmtDur(p.wall_seconds)}, peak memory ${p.peak_rss_gib ?? "–"} GiB, ${p.free_ram_gib_at_start} GiB free at start${p.swapped ? ", swapped" : ""}. ${p.recommended_preset ? `Within ${p.target_minutes} min: <b>${p.recommended_preset}</b>.` : `No preset meets ${p.target_minutes} min here; best still runs, just slower.`}</p>`;
-  }
+  $("benchStart").onclick = async () => { await post("/api/benchmark", { preset: $("benchPreset").value, target_minutes: +$("benchTarget").value || 15 }); toast("Benchmark started. Progress shows in the queue and the activity chip."); $("benchResult").innerHTML = '<span class="muted small">Running…</span>'; pollTasks(); };
+  function renderProfile(p) { const rows = Object.entries(p.preset_estimates).map(([n, s]) => `<tr><td>${n}${n === p.recommended_preset ? ' <span class="pill acc">recommended</span>' : ""}</td><td class="r mono">${fmtDur(s)}</td></tr>`).join(""); $("benchResult").innerHTML = `<table class="t"><tr><th>Preset</th><th class="r">Expected here</th></tr>${rows}</table><div class="muted small" style="margin-top:8px">Measured ${p.measured_at.replace("T", " ").slice(0, 16)}: ${p.model} [${p.variant}] ${p.width}×${p.height} in ${fmtDur(p.wall_seconds)}, peak memory ${p.peak_rss_gib ?? "–"} GiB, ${p.free_ram_gib_at_start} GiB free at start${p.swapped ? ", swapped" : ""}. ${p.recommended_preset ? `Within ${p.target_minutes} min: <b>${p.recommended_preset}</b>.` : `No preset meets ${p.target_minutes} min here; best still runs, just slower.`}</div>`; }
   let taskTimer = null;
   async function pollTasks() { clearTimeout(taskTimer); const t = await api("/api/tasks"); S.tasks = t; renderTasks(); if (Object.values(t).some(x => x.status === "running")) taskTimer = setTimeout(pollTasks, 3000); else if (Object.values(t).some(x => x.status === "done" && x.kind === "download")) { await loadCaps(); plan(); } }
   function renderTasks() {
     const entries = Object.entries(S.tasks); const running = entries.filter(([, t]) => t.status === "running").length;
-    $("acttext").textContent = running ? `${running} running` : entries.length ? "activity" : "no activity"; $("actdot").className = "dot" + (running ? " busy" : "");
-    const html = entries.length ? entries.map(([k, t]) => {
-      let b = `<b>${esc(t.label)}</b> · ${t.status} · ${fmtDur(t.elapsed_seconds)}`;
-      if (t.kind === "download") { const pct = t.progress != null ? Math.round(t.progress * 100) : 0; b += `<div class="muted">${(t.done_bytes / 1073741824).toFixed(2)} / ${(t.total_bytes / 1073741824).toFixed(2)} GiB${t.current_file ? " · " + esc(t.current_file) : ""}</div><div class="bar"><i style="width:${pct}%"></i></div>`; }
-      else { b += `<div class="muted">${esc(t.message || "")}</div>`; if (t.result?.profile) renderProfile(t.result.profile); }
-      if (t.error) b += `<div style="color:var(--bad)">${esc(t.error)}</div>`;
-      return `<div class="task">${b}</div>`;
-    }).join("") : '<div class="muted">Nothing running.</div>';
-    $("activity").innerHTML = html; $("tasksPanel").innerHTML = html;
+    $("acttext").textContent = running ? `${running} running` : entries.length ? "done" : "idle"; $("actdot").className = "dot" + (running ? " busy" : entries.length ? "" : " off");
+    const html = entries.length ? entries.map(([k, t]) => { let b = `<b>${esc(t.label)}</b> · ${t.status} · ${fmtDur(t.elapsed_seconds)}`; if (t.kind === "download") { const pct = t.progress != null ? Math.round(t.progress * 100) : 0; b += `<div class="muted">${(t.done_bytes / 1073741824).toFixed(2)} / ${(t.total_bytes / 1073741824).toFixed(2)} GiB${t.current_file ? " · " + esc(t.current_file) : ""}</div><div class="bar"><i style="width:${pct}%"></i></div>`; } else { b += `<div class="muted">${esc(t.message || "")}</div>`; if (t.result?.profile) renderProfile(t.result.profile); } if (t.error) b += `<div style="color:var(--bad)">${esc(t.error)}</div>`; return `<div class="task">${b}</div>`; }).join("") : '<div class="muted small">Nothing running.</div>';
+    $("actpop").innerHTML = html; $("tasksPanel").innerHTML = html;
   }
 
-  // ---------- boot
   loadCaps().then(plan).then(refreshJobs).then(pollTasks);
   setInterval(refreshJobs, 4000);
-  setInterval(async () => { if (S.caps) { const c = await api("/api/capabilities"); S.caps = c; const hw = c.hardware; $("hwtext").textContent = `${hw.physical_cores} cores · ${hw.ram_available_gib}/${hw.ram_total_gib} GiB free · ${c.queue.worker_in_this_process ? "worker here" : c.queue.worker_pid ? "worker pid " + c.queue.worker_pid : "no worker running"}`; } }, 30000);
+  setInterval(async () => { if (!S.caps) return; const c = await api("/api/capabilities"); S.caps = c; const hw = c.hardware; $("hwtext").textContent = `${hw.ram_available_gib} / ${hw.ram_total_gib} GiB free · ${c.queue.worker_in_this_process ? "worker here" : c.queue.worker_pid ? "worker " + c.queue.worker_pid : "no worker"}`; }, 30000);
 })();
 </script>
 </body>
