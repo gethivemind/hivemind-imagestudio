@@ -151,6 +151,26 @@ stable-diffusion.cpp release; its SHA-256 is in `registry.py`. Allow it, or add 
 Tool descriptions are written for an AI caller: what the tool does, when to use it, what
 comes back, and how often to poll.
 
+### `generate` parameters
+
+Every parameter is optional except the prompt. The same parameters are available on the
+CLI (`imagestudio generate --help`) and will be mirrored in Hivemind's duty form.
+
+| Parameter | Default | What it does |
+| --- | --- | --- |
+| `prompt` | required | What to draw. Be concrete: subject, setting, style, lighting. FLUX follows long prompts well. |
+| `preset` | `best` | `best` = full resolution and full steps. `balanced` and `fast` trade quality for time; see the preset table. |
+| `width`, `height` | from preset | 256 to 2048 px, rounded down to a multiple of 16. Any aspect ratio. More pixels means proportionally more time and memory. |
+| `seed` | random | The random seed. Same prompt, settings and seed reproduce the same image; a different seed gives a different composition. The seed used is returned with every job. |
+| `negative_prompt` | empty | What to avoid. Has little effect on FLUX schnell, which runs without guidance (`cfg_scale` 1). |
+| `model` | auto | `flux-schnell`, `qwen-image`, or omit for the strongest installed model that fits memory. |
+| `steps` | from preset | Advanced. Denoising steps, 1 to 100. FLUX schnell is distilled to 4 and gains nothing from more; Qwen-Image uses 50. The studio warns when extra steps only cost time. |
+| `cfg_scale` | from preset | Advanced. Guidance strength, 0 to 20. 1.0 for FLUX schnell, 2.5 for Qwen-Image. Above 1 the model runs twice per step. |
+| `sampler` | `euler` | Advanced. `euler`, `euler_a`, `heun`, `dpm2`, `dpm++2s_a`, `dpm++2m`, `dpm++2mv2`, `ipndm`, `ipndm_v`, `lcm`, `ddim_trailing`, `tcd`. |
+
+Quantisation (`q8`, `q6`, `q5`, `q4`) is chosen by memory fit, not by preset; it can be
+forced with `--variant` on the CLI and is always reported in the job.
+
 ## Licences
 
 | Component | Licence |

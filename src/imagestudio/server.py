@@ -53,7 +53,11 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             "best); they must be 256-2048 and are rounded down to multiples of 16. seed: omit "
             "for random, repeat to reproduce. model: omit (auto) or one of "
             + ", ".join(f"'{m}'" for m in MODELS)
-            + ". Returns {job_id, status, estimate_seconds, estimate_human, estimate_basis, "
+            + ". Advanced overrides, normally left unset because the presets hold the tested "
+            "values: steps (1-100; FLUX schnell is distilled to 4 and gains nothing from more), "
+            "cfg_scale (0-20 guidance strength; 1.0 for FLUX schnell, 2.5 for Qwen-Image; above "
+            "1 doubles the work), sampler (euler default; euler_a, heun, dpm++2m, ...). "
+            "Returns {job_id, status, estimate_seconds, estimate_human, estimate_basis, "
             "model, variant, preset, width, height, steps, seed, fit_note, warnings}. "
             "Then poll job_status(job_id) every 10-15 seconds and fetch job_result(job_id) when "
             "status is 'done'. Errors (engine or model not installed, bad preset) come back as "
@@ -68,9 +72,23 @@ def build_server(studio: Studio | None = None) -> FastMCP:
         seed: int | None = None,
         negative_prompt: str = "",
         model: str | None = None,
+        steps: int | None = None,
+        cfg_scale: float | None = None,
+        sampler: str | None = None,
     ) -> dict[str, Any]:
         try:
-            job = studio.generate(prompt, preset, width, height, seed, negative_prompt, model)
+            job = studio.generate(
+                prompt,
+                preset,
+                width,
+                height,
+                seed,
+                negative_prompt,
+                model,
+                steps=steps,
+                cfg_scale=cfg_scale,
+                sampler=sampler,
+            )
         except StudioError as e:
             return _err(e)
         st = studio.job_status(job.id)
@@ -87,6 +105,8 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             "width": job.width,
             "height": job.height,
             "steps": job.steps,
+            "cfg_scale": job.cfg_scale,
+            "sampler": job.sampler,
             "seed": job.seed,
             "fit_note": job.fit_note,
             "warnings": job.warnings,

@@ -188,6 +188,9 @@ def cmd_generate(args: argparse.Namespace) -> int:
             negative_prompt=args.negative or "",
             model=args.model,
             variant=args.variant,
+            steps=args.steps,
+            cfg_scale=args.cfg_scale,
+            sampler=args.sampler,
         )
     except StudioError as e:
         print(f"error: {e}")
@@ -294,6 +297,9 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--negative")
     g.add_argument("--model", choices=list(MODELS))
     g.add_argument("--variant", choices=["q8", "q6", "q5", "q4"])
+    g.add_argument("--steps", type=int, help="advanced: override the step count of the preset")
+    g.add_argument("--cfg-scale", type=float, help="advanced: override guidance strength")
+    g.add_argument("--sampler", help="advanced: euler (default), euler_a, heun, dpm++2m, ...")
     g.add_argument("--no-wait", action="store_true", help="queue and exit (needs serve running)")
     g.set_defaults(fn=cmd_generate)
 

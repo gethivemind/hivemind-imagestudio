@@ -129,3 +129,15 @@ def test_every_catalogue_file_is_pinned_and_permissive():
                 assert f.size > 0
                 assert f.licence in ("Apache-2.0", "MIT", "BSD-3-Clause")
                 assert "FLUX.1-dev" not in f.url
+
+
+def test_advanced_overrides_apply_and_are_validated(settings):
+    planner, _ = make_planner(settings, workstation())
+    plan = planner.plan("flux-schnell", "best", steps=8, cfg_scale=1.5, sampler="euler_a")
+    assert (plan.steps, plan.cfg_scale, plan.sampler) == (8, 1.5, "euler_a")
+    assert any("step-distilled" in w for w in plan.warnings)
+    base = planner.plan("flux-schnell", "best")
+    assert plan.estimate.seconds > base.estimate.seconds  # more steps and CFG cost time
+    for bad in ({"steps": 0}, {"steps": 101}, {"cfg_scale": -1}, {"sampler": "magic"}):
+        with pytest.raises(PlanError):
+            planner.plan("flux-schnell", "best", **bad)

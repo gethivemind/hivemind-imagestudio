@@ -19,6 +19,22 @@ from imagestudio.registry import MODELS, PRESET_NAMES, ModelSpec, Preset, Varian
 HEADROOM_BYTES = 2 * GIB  # for the OS and the caller
 WORKING_BYTES_PER_MEGAPIXEL = int(1.5 * GIB)  # compute buffers at 1 MP, roughly linear
 MAX_SIDE = 2048
+MAX_STEPS = 100
+MAX_CFG = 20.0
+SAMPLERS = (
+    "euler",
+    "euler_a",
+    "heun",
+    "dpm2",
+    "dpm++2s_a",
+    "dpm++2m",
+    "dpm++2mv2",
+    "ipndm",
+    "ipndm_v",
+    "lcm",
+    "ddim_trailing",
+    "tcd",
+)
 MIN_SIDE = 256
 SIDE_MULTIPLE = 16
 
@@ -47,6 +63,7 @@ class Plan:
     height: int
     steps: int
     cfg_scale: float
+    sampler: str
     estimate: Estimate
     fit_note: str | None = None
     installed: bool = True
@@ -61,6 +78,7 @@ class Plan:
             "height": self.height,
             "steps": self.steps,
             "cfg_scale": self.cfg_scale,
+            "sampler": self.sampler,
             "estimate": self.estimate.to_dict(),
             "fit_note": self.fit_note,
             "installed": self.installed,
@@ -135,15 +153,28 @@ class Planner:
         width: int | None = None,
         height: int | None = None,
         variant_name: str | None = None,
+        steps: int | None = None,
+        cfg_scale: float | None = None,
+        sampler: str | None = None,
     ) -> Plan:
+        """``steps``, ``cfg_scale`` and ``sampler`` are advanced overrides of the preset."""
         if preset_name not in PRESET_NAMES:
             raise PlanError(f"unknown preset {preset_name!r}; one of {', '.join(PRESET_NAMES)}")
+        if steps is not None and not 1 <= steps <= MAX_STEPS:
+            raise PlanError(f"steps must be between 1 and {MAX_STEPS}, got {steps}")
+        if cfg_scale is not None and not 0.0 <= cfg_scale <= MAX_CFG:
+            raise PlanError(f"cfg_scale must be between 0 and {MAX_CFG}, got {cfg_scale}")
+        if sampler is not None and sampler not in SAMPLERS:
+            raise PlanError(f"unknown sampler {sampler!r}; one of {', '.join(SAMPLERS)}")
         w0 = snap_side(width, "width") if width else None
         h0 = snap_side(height, "height") if height else None
         model = self.resolve_model(prompt_model, w0 or 1024, h0 or 1024)
         preset = model.presets[preset_name]
         w = w0 or preset.width
         h = h0 or preset.height
+        n_steps = steps if steps is not None else preset.steps
+        cfg = cfg_scale if cfg_scale is not None else preset.cfg_scale
+        chosen_sampler = sampler or model.sampler
 
         warnings: list[str] = []
         fit_note: str | None = None
@@ -196,7 +227,7 @@ class Planner:
                         )
 
         estimate = self.calibration.estimate(
-            model, variant.name, variant.download_bytes, w, h, preset.steps, preset.cfg_scale
+            model, variant.name, variant.download_bytes, w, h, n_steps, cfg
         )
         if (
             self.hw.ram_available_bytes < required_bytes(variant, w, h)
@@ -207,14 +238,21 @@ class Planner:
                 f"the job needs about {required_bytes(variant, w, h) / GIB:.1f} GiB. Close "
                 "other programs or expect swapping to slow it down."
             )
+        if model.family == "flux" and n_steps > preset.steps:
+            warnings.append(
+                f"{model.display_name} is step-distilled: {preset.steps} steps is its full "
+                f"count and {n_steps} will take proportionally longer without improving "
+                "the image."
+            )
         return Plan(
             model=model,
             variant=variant,
             preset=preset,
             width=w,
             height=h,
-            steps=preset.steps,
-            cfg_scale=preset.cfg_scale,
+            steps=n_steps,
+            cfg_scale=cfg,
+            sampler=chosen_sampler,
             estimate=estimate,
             fit_note=fit_note,
             installed=variant.name in installed_names,

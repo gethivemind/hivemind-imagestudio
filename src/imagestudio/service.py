@@ -82,9 +82,14 @@ class Studio:
         width: int | None,
         height: int | None,
         variant: str | None = None,
+        steps: int | None = None,
+        cfg_scale: float | None = None,
+        sampler: str | None = None,
     ) -> Plan:
         try:
-            return self.planner.plan(model, preset, width, height, variant)
+            return self.planner.plan(
+                model, preset, width, height, variant, steps, cfg_scale, sampler
+            )
         except PlanError as e:
             raise StudioError(str(e)) from e
 
@@ -98,6 +103,9 @@ class Studio:
         negative_prompt: str = "",
         model: str | None = None,
         variant: str | None = None,
+        steps: int | None = None,
+        cfg_scale: float | None = None,
+        sampler: str | None = None,
     ) -> Job:
         if not prompt or not prompt.strip():
             raise StudioError("prompt must not be empty")
@@ -106,7 +114,7 @@ class Studio:
                 "the image engine (stable-diffusion.cpp) is not installed. Run "
                 "`imagestudio install-engine` (downloads ~20-40 MB after confirmation)."
             )
-        plan = self.plan(model, preset, width, height, variant)
+        plan = self.plan(model, preset, width, height, variant, steps, cfg_scale, sampler)
         if not plan.installed:
             missing = self.models.missing_bytes(plan.variant)
             raise StudioError(
@@ -137,7 +145,7 @@ class Studio:
             steps=plan.steps,
             cfg_scale=plan.cfg_scale,
             seed=seed,
-            sampler=plan.model.sampler,
+            sampler=plan.sampler,
             component_paths=paths,
             extra_args=list(plan.preset.extra_args),
             estimate_seconds=plan.estimate.seconds,
