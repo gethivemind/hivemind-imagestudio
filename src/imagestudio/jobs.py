@@ -153,22 +153,14 @@ class JobStore:
                 self._jobs[job.id] = job
                 self._mtimes[job_id] = mtime
 
+    def cancel_marker(self, job_id: str) -> Path:
+        return self.settings.jobs_dir / f"{job_id}.cancel"
+
     def new_id(self) -> str:
         return "job_" + secrets.token_hex(6)
 
     def put(self, job: Job) -> None:
         with self._lock:
-            if job.id in self.owned and not job.cancel_requested:
-                # Another process may have asked for a cancel since our last write; a progress
-                # write must not erase that request.
-                try:
-                    on_disk = json.loads(
-                        (self.settings.jobs_dir / f"{job.id}.json").read_text(encoding="utf-8")
-                    )
-                    if on_disk.get("cancel_requested"):
-                        job.cancel_requested = True
-                except (OSError, ValueError):
-                    pass
             self._jobs[job.id] = job
             tmp = self.settings.jobs_dir / f"{job.id}.json.tmp"
             tmp.write_text(json.dumps(job.to_dict(), indent=2), encoding="utf-8")
@@ -318,9 +310,10 @@ class Worker:
                 if cancel:
                     cancel()
             else:
-                # Another process is rendering it: leave a flag it polls for.
+                # Another process is rendering it: leave a marker file it polls for. A separate
+                # file cannot be overwritten by that process's own progress writes.
                 job.cancel_requested = True
-                self.store.put(job)
+                self.store.cancel_marker(job.id).write_text("cancel", encoding="utf-8")
             return True
         job.status, job.phase, job.finished_at = "cancelled", "cancelled", _now()
         self.store.put(job)
@@ -379,13 +372,10 @@ class Worker:
         stop_watch = threading.Event()
 
         def watch_cancel() -> None:
-            path = self.store.settings.jobs_dir / f"{job.id}.json"
-            while not stop_watch.wait(0.5):
-                try:
-                    flag = json.loads(path.read_text(encoding="utf-8")).get("cancel_requested")
-                except (OSError, ValueError):
-                    continue
-                if flag:
+            marker = self.store.cancel_marker(job.id)
+            while not stop_watch.wait(0.25):
+                if marker.exists():
+                    job.cancel_requested = True
                     cancel = getattr(self.engine, "cancel", None)
                     if cancel:
                         cancel()
@@ -436,6 +426,8 @@ class Worker:
         self.store.owned.discard(job.id)
         with contextlib.suppress(OSError):
             (self.store.settings.out_dir / job.preview_name).unlink()
+        with contextlib.suppress(OSError):
+            self.store.cancel_marker(job.id).unlink()
         if self.on_finished:
             with contextlib.suppress(Exception):
                 self.on_finished(job)
