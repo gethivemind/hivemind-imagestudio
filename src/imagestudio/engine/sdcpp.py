@@ -237,7 +237,9 @@ class SdCppEngine:
                 tail.append(line[-200:])
                 del tail[:-40]
                 low = line.lower()
-                if "loading tensors completed" in low or "total params memory" in low:
+                # sd.cpp redraws its progress bar with \r, so the start of this log line can
+                # be cut off ("...mpleted, taking 368.61s ... model_loader.cpp"); match the tail.
+                if ("tensors completed" in low or "model_loader" in low) and "taking" in low:
                     mt = _TAKING_RE.search(line)
                     if mt:
                         load_seconds = float(mt.group(1))
