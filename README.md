@@ -168,8 +168,48 @@ CLI (`imagestudio generate --help`) and will be mirrored in Hivemind's duty form
 | `cfg_scale` | from preset | Advanced. Guidance strength, 0 to 20. 1.0 for FLUX schnell, 2.5 for Qwen-Image. Above 1 the model runs twice per step. |
 | `sampler` | `euler` | Advanced. `euler`, `euler_a`, `heun`, `dpm2`, `dpm++2s_a`, `dpm++2m`, `dpm++2mv2`, `ipndm`, `ipndm_v`, `lcm`, `ddim_trailing`, `tcd`. |
 
-Quantisation (`q8`, `q6`, `q5`, `q4`) is chosen by memory fit, not by preset; it can be
-forced with `--variant` on the CLI and is always reported in the job.
+| `variant` | by memory fit | Weight quantisation `q8`, `q6`, `q5`, `q4`. Default: the highest fidelity that fits this machine's memory budget (reported in `fit_note`). Forcing one that does not fit is refused unless over-budget runs are unlocked. |
+| `threads` | physical cores | CPU threads for the engine. Fewer threads leave the machine more responsive; more than the physical core count rarely helps. |
+| `vae_tiling` | false | Decode the final image in tiles. Saves memory on large images at a small time cost; no quality change. |
+
+### The load meter: `plan`
+
+`plan` takes the same settings as `generate` and queues nothing. It returns the resolved
+plan, the expected time on this machine, and a **load** reading: the percent of the
+machine's memory budget the job needs, with a label.
+
+| Label | Meaning |
+| --- | --- |
+| `comfortable` | Fits in free memory with room to spare. |
+| `tight` | Fits the budget, close to the machine's limit. |
+| `will swap` | Fits total memory but not what is free right now. Runs, several times slower; weights are memory-mapped so the OS pages them from the model files. |
+| `over budget` | Needs more memory than the machine has. Refused with the exact numbers. |
+
+```bash
+imagestudio plan --preset best --width 1536 --height 1536
+```
+
+A UI can call `plan` on every change of a knob and draw the meter live, like a game's
+graphics settings screen. The memory budget is total RAM minus 2 GiB (plus VRAM of a
+discrete GPU); time is never limited, only reported.
+
+**Unlocking over-budget runs.** Time is never capped, but memory that does not exist cannot
+be used, so settings over the budget are refused by default. To try anyway, set
+`IMAGESTUDIO_ALLOW_OVER_BUDGET=1` or write `{"allow_over_budget": true}` into `config.json`
+in the data directory. Every such job is marked `over_budget`; if the engine cannot allocate,
+the job fails with the exact error and the memory it wanted, and nothing is downgraded.
+
+### Benchmark: detect settings for this machine
+
+```bash
+imagestudio benchmark --target-minutes 15
+```
+
+Runs one real image (preset `fast` by default) through the normal queue, measures step time,
+wall time, peak engine memory and whether the run swapped, then writes `profile.json` with
+the expected time of every preset and the highest-quality preset that meets the target. It
+is a recommendation, shown by `doctor` and `capabilities()`; the default stays `best`, and the
+user may always pick a slower setting. Every later job refines the same calibration.
 
 ## Licences
 
