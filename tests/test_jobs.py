@@ -428,3 +428,21 @@ def test_live_preview_can_be_switched_off(studio: Studio):
     wait_done(studio, job.id)
     spec = studio.engine.calls[-1]
     assert spec.preview_path is None
+
+
+def test_worker_lock_records_version_and_flags_outdated(settings: Settings):
+    from imagestudio import __version__
+
+    first = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    second = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        q = second.capabilities()["queue"]
+        assert q["worker_version"] == __version__ and q["worker_outdated"] is False
+        assert q["worker_started_at"]
+    finally:
+        second.close()
+        first.close()
+    # a legacy lock (bare pid) from an older build is read and reported as outdated
+    settings.worker_lock_file.write_text(str(__import__("os").getpid()))
+    third = Studio(settings=settings, engine=FakeEngine(), hardware=laptop(), start_worker=False)
+    assert third.capabilities()["queue"]["worker_outdated"] is True

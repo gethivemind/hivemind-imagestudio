@@ -263,7 +263,7 @@ class SdCppEngine:
                     sps = rate if unit == "s/it" else (1.0 / rate if rate else None)
                     if first_step_at is None:
                         first_step_at = now
-                        load_seconds = load_seconds or (now - t0)
+                        load_seconds = now - t0  # weights + text encoding, measured, not parsed
                     last_step_at = now
                     phase = "sampling"
                     emit(Progress("sampling", step, total, sps, line[-80:]))

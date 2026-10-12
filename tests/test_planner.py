@@ -199,3 +199,16 @@ def test_hardware_cache_is_reused_but_available_ram_is_live(tmp_path, monkeypatc
     assert len(calls) == 1 and cache.exists()
     assert a.cpu_name == b.cpu_name and b.gpus[0].name == a.gpus[0].name
     assert b.ram_available_bytes > 0
+
+
+def test_small_images_have_a_per_step_floor(settings):
+    hw = laptop()
+    cal = Calibration(settings.calibration_file, hw)
+    v = FLUX_SCHNELL.variant("q5")
+    cal.record(FLUX_SCHNELL, "q5", v.download_bytes, 1024, 1024, 4, 1.0, 60.0, 400.0)
+    e256 = cal.estimate(FLUX_SCHNELL, "q5", v.download_bytes, 256, 256, 4, 1.0)
+    e512 = cal.estimate(FLUX_SCHNELL, "q5", v.download_bytes, 512, 512, 4, 1.0)
+    k = cal.coefficients(FLUX_SCHNELL, "q5", v.download_bytes).seconds_per_step_megapixel
+    # 256² is 1/16 of the pixels but is estimated at the floor (0.2 MP)
+    assert e256.seconds - 60 == pytest.approx(4 * 0.2 * k, rel=0.01)
+    assert e512.seconds - 60 == pytest.approx(4 * 0.262144 * k, rel=0.01)

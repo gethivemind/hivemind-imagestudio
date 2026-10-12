@@ -22,6 +22,9 @@ _BASE_SECONDS_PER_STEP_MP_8_CORES = 100.0
 _DISK_BYTES_PER_SECOND = 200 * 1024 * 1024
 _GPU_SECONDS_PER_STEP_MP = 1.5  # a mid-range discrete GPU
 _ALPHA = 0.5  # EMA weight of the newest observation
+# A sampling step never costs less than this many megapixels' worth of work: attention and
+# per-step overhead do not shrink with the image. 256 px is 0.065 MP but costs ~0.2 MP.
+_MIN_STEP_MEGAPIXELS = 0.2
 
 
 @dataclass
@@ -101,7 +104,7 @@ class Calibration:
         cfg_scale: float = 1.0,
     ) -> Estimate:
         c = self.coefficients(model, variant, weight_bytes)
-        mp = (width * height) / 1_000_000
+        mp = max(_MIN_STEP_MEGAPIXELS, (width * height) / 1_000_000)
         passes = 2 if cfg_scale > 1.0 else 1
         seconds = c.load_seconds + steps * mp * c.seconds_per_step_megapixel * passes
         basis = (
@@ -124,7 +127,7 @@ class Calibration:
         sampling_seconds: float,
     ) -> None:
         """Fold one finished job into the coefficients for its model variant."""
-        mp = (width * height) / 1_000_000
+        mp = max(_MIN_STEP_MEGAPIXELS, (width * height) / 1_000_000)
         passes = 2 if cfg_scale > 1.0 else 1
         per_step = sampling_seconds / max(1e-6, steps * mp * passes)
         key = f"{model.name}:{variant}"

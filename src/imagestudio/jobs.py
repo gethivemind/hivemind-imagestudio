@@ -204,12 +204,22 @@ class WorkerLock:
         self.path = path
         self.held = False
 
-    def owner(self) -> int | None:
+    def info(self) -> dict | None:
+        """{pid, version, started_at} of the live owner, or None."""
         try:
-            pid = int(self.path.read_text(encoding="utf-8").strip())
-        except (OSError, ValueError):
+            raw = self.path.read_text(encoding="utf-8").strip()
+        except OSError:
             return None
-        return pid if _pid_alive(pid) else None
+        try:
+            d = json.loads(raw) if raw.startswith("{") else {"pid": int(raw)}
+        except ValueError:
+            return None
+        pid = int(d.get("pid", 0))
+        return d if pid and _pid_alive(pid) else None
+
+    def owner(self) -> int | None:
+        d = self.info()
+        return int(d["pid"]) if d else None
 
     def acquire(self) -> bool:
         if self.path in _HELD_IN_PROCESS:
@@ -219,7 +229,12 @@ class WorkerLock:
             return False
         _HELD_IN_PROCESS.add(self.path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(str(os.getpid()), encoding="utf-8")
+        from imagestudio import __version__
+
+        self.path.write_text(
+            json.dumps({"pid": os.getpid(), "version": __version__, "started_at": _now()}),
+            encoding="utf-8",
+        )
         self.held = True
         return True
 

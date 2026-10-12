@@ -718,5 +718,11 @@ class Studio:
                 "queued": len(self.jobs.queued()),
                 "worker_in_this_process": self.worker_active,
                 "worker_pid": self.worker_owner_pid,
+                "worker_version": (self.worker.lock.info() or {}).get("version"),
+                "worker_started_at": (self.worker.lock.info() or {}).get("started_at"),
+                "worker_outdated": bool(
+                    self.worker.lock.info()
+                    and (self.worker.lock.info() or {}).get("version") != __version__
+                ),
             },
         }
