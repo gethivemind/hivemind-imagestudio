@@ -106,11 +106,38 @@ def build_app(studio: Studio) -> Starlette:
         headers = {"Cache-Control": "no-store"}
         return Response(p.read_bytes(), media_type="image/png", headers=headers)
 
+    async def export_size(request: Request) -> JSONResponse:
+        q = request.query_params
+        try:
+            return JSONResponse(
+                studio.export_size(
+                    request.path_params["job_id"],
+                    q.get("fmt", "png"),
+                    int(q.get("quality", "90")),
+                    int(q.get("scale", "100")),
+                )
+            )
+        except (StudioError, ValueError) as e:
+            return JSONResponse({"error": str(e)}, status_code=404)
+
+    async def get_config(_: Request) -> JSONResponse:
+        return JSONResponse(studio.get_config())
+
+    async def set_config(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(studio.set_config(body))
+        except (ValueError, TypeError, OSError) as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     async def download(request: Request):
         q = request.query_params
         try:
             data, mime, name = studio.export_image(
-                request.path_params["job_id"], q.get("fmt", "png"), int(q.get("quality", "90"))
+                request.path_params["job_id"],
+                q.get("fmt", "png"),
+                int(q.get("quality", "90")),
+                int(q.get("scale", "100")),
             )
         except (StudioError, ValueError) as e:
             return JSONResponse({"error": str(e)}, status_code=404)
@@ -176,6 +203,9 @@ def build_app(studio: Studio) -> Starlette:
         routes=[
             Route("/api/preview/{job_id}", preview),
             Route("/api/download/{job_id}", download),
+            Route("/api/export-size/{job_id}", export_size),
+            Route("/api/config", get_config),
+            Route("/api/config", set_config, methods=["POST"]),
             Route("/api/samples", samples),
             Route("/api/models/download", download_info),
             Route("/api/models/download", start_download, methods=["POST"]),

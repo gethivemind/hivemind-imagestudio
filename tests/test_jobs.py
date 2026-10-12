@@ -371,3 +371,24 @@ def test_progress_moves_with_time_before_sampling():
     assert 0 < early < later <= 0.1
     job.phase, job.step, job.total_steps = "sampling", 2, 4
     assert job.progress_fraction() == 0.1 + 0.85 * 0.5
+
+
+def test_cancel_from_another_process_stops_the_running_job(settings: Settings):
+    from conftest import FLUX_SCHNELL, fake_install
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    worker_side = Studio(settings=settings, engine=FakeEngine(step_delay=0.8), hardware=laptop())
+    worker_side.worker.poll_seconds = 0.05
+    ui_side = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        job = ui_side.generate("long one")
+        for _ in range(100):
+            if ui_side.job_status(job.id)["status"] == "running":
+                break
+            time.sleep(0.02)
+        assert ui_side.cancel(job.id)  # sets the flag; the worker's watcher honours it
+        st = wait_done(ui_side, job.id, timeout=15)
+        assert st["status"] == "cancelled"
+    finally:
+        ui_side.close()
+        worker_side.close()

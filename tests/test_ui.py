@@ -92,3 +92,32 @@ def test_downloads_exports_samples_and_tasks(studio: Studio, monkeypatch):
         "fast",
         None,
     )
+
+
+def test_export_formats_scale_and_config(studio: Studio):
+    client = TestClient(build_app(studio))
+    job_id = client.post(
+        "/api/generate",
+        json={"prompt": "x", "preset": "fast", "width": 256, "height": 256, "seed": 1},
+    ).json()["id"]
+    for _ in range(200):
+        if client.get(f"/api/jobs/{job_id}").json()["status"] == "done":
+            break
+        time.sleep(0.02)
+    for fmt, magic in (("png", b"\x89PNG"), ("jpg", b"\xff\xd8"), ("webp", b"RIFF")):
+        r = client.get(f"/api/download/{job_id}", params={"fmt": fmt, "quality": 80, "scale": 50})
+        assert r.status_code == 200 and r.content.startswith(magic), fmt
+    size = client.get(
+        f"/api/export-size/{job_id}", params={"fmt": "jpg", "quality": 60, "scale": 50}
+    ).json()
+    assert size["bytes"] > 0 and size["width"] == 128  # half of the 256 px job
+    assert client.get(f"/api/download/{job_id}", params={"fmt": "bmp"}).status_code == 404
+
+    cfg = client.get("/api/config").json()
+    assert cfg["allow_over_budget"] is False
+    cfg = client.post("/api/config", json={"allow_over_budget": True, "default_threads": 6}).json()
+    assert cfg["allow_over_budget"] is True and cfg["default_threads"] == 6
+    assert studio.settings.config_file.exists()
+    assert client.get("/api/plan", params={"variant": "q8"}).status_code == 200  # unlocked now
+    client.post("/api/config", json={"allow_over_budget": False})
+    assert client.get("/api/plan", params={"variant": "q8"}).status_code == 400

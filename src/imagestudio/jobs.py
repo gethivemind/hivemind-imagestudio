@@ -69,6 +69,7 @@ class Job:
     threads: int | None = None
     over_budget: bool = False
     worker_pid: int | None = None  # process rendering this job; guards against duplicates
+    cancel_requested: bool = False  # set by any process; honoured by the rendering one
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -300,9 +301,14 @@ class Worker:
         if job is None or job.status in ("done", "failed", "cancelled"):
             return False
         if job.status == "running":
-            cancel = getattr(self.engine, "cancel", None)
-            if cancel:
-                cancel()
+            if job.id in self.store.owned:
+                cancel = getattr(self.engine, "cancel", None)
+                if cancel:
+                    cancel()
+            else:
+                # Another process is rendering it: leave a flag it polls for.
+                job.cancel_requested = True
+                self.store.put(job)
             return True
         job.status, job.phase, job.finished_at = "cancelled", "cancelled", _now()
         self.store.put(job)
@@ -358,6 +364,23 @@ class Worker:
                 last_write = now
                 self.store.put(job)
 
+        stop_watch = threading.Event()
+
+        def watch_cancel() -> None:
+            path = self.store.settings.jobs_dir / f"{job.id}.json"
+            while not stop_watch.wait(0.5):
+                try:
+                    flag = json.loads(path.read_text(encoding="utf-8")).get("cancel_requested")
+                except (OSError, ValueError):
+                    continue
+                if flag:
+                    cancel = getattr(self.engine, "cancel", None)
+                    if cancel:
+                        cancel()
+                    return
+
+        threading.Thread(target=watch_cancel, name=f"cancel-watch-{job.id}", daemon=True).start()
+
         spec = GenerateSpec(
             prompt=job.prompt,
             negative_prompt=job.negative_prompt,
@@ -376,13 +399,16 @@ class Worker:
         try:
             result = self.engine.generate(spec, on_progress)
         except EngineError as e:
+            stop_watch.set()
             if str(e) == "cancelled":
                 job.status, job.phase, job.message = "cancelled", "cancelled", "cancelled by caller"
             else:
                 job.status, job.phase, job.error = "failed", "failed", str(e)
         except Exception as e:
+            stop_watch.set()
             job.status, job.phase, job.error = "failed", "failed", f"{type(e).__name__}: {e}"
         else:
+            stop_watch.set()
             job.status, job.phase = "done", "done"
             job.step = job.total_steps = job.steps
             job.output_path = str(result.output)

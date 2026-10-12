@@ -32,6 +32,7 @@ class FakeEngine:
         self.step_delay = step_delay
         self.fail = fail
         self.calls: list[GenerateSpec] = []
+        self._cancel = False
 
     def available(self) -> bool:
         return True
@@ -39,8 +40,12 @@ class FakeEngine:
     def version(self) -> str | None:
         return "fake-0"
 
+    def cancel(self) -> None:
+        self._cancel = True
+
     def generate(self, spec: GenerateSpec, on_progress: ProgressFn | None = None) -> EngineResult:
         self.calls.append(spec)
+        self._cancel = False
         t0 = time.monotonic()
         if on_progress:
             on_progress(Progress("loading", message="fake load"))
@@ -50,6 +55,10 @@ class FakeEngine:
         for i in range(1, spec.steps + 1):
             if self.step_delay:
                 time.sleep(self.step_delay)
+            if self._cancel:
+                from imagestudio.engine.base import EngineError
+
+                raise EngineError("cancelled")
             if on_progress:
                 on_progress(Progress("sampling", i, spec.steps, self.step_delay))
         t2 = time.monotonic()

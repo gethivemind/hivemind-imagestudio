@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import base64
 import io
+import json
+import os
 import secrets
 import threading
 import time
@@ -13,7 +15,7 @@ from typing import Any
 
 from imagestudio import __version__
 from imagestudio.calibration import Calibration, human_duration
-from imagestudio.config import Settings
+from imagestudio.config import ENV_ALLOW_OVER_BUDGET, Settings
 from imagestudio.engine.base import Engine
 from imagestudio.engine.sdcpp import SdCppEngine
 from imagestudio.hardware import Hardware, detect
@@ -149,6 +151,7 @@ class Studio:
         cfg_scale: float | None = None,
         sampler: str | None = None,
     ) -> Plan:
+        self.planner.allow_over_budget = self.settings.allow_over_budget
         try:
             return self.planner.plan(
                 model, preset, width, height, variant, steps, cfg_scale, sampler
@@ -339,28 +342,86 @@ class Studio:
         p = self.settings.out_dir / job.preview_name
         return p if p.exists() else None
 
-    def export_image(
-        self, job_id: str, fmt: str = "png", quality: int = 90
-    ) -> tuple[bytes, str, str]:
-        """The finished image as bytes: original PNG, or a JPEG at the given quality.
+    EXPORT_FORMATS = {
+        "png": ("PNG", "image/png", "png", False),
+        "jpg": ("JPEG", "image/jpeg", "jpg", True),
+        "webp": ("WEBP", "image/webp", "webp", True),
+    }
 
-        Returns (data, mime_type, filename)."""
+    def export_image(
+        self, job_id: str, fmt: str = "png", quality: int = 90, scale: int = 100
+    ) -> tuple[bytes, str, str]:
+        """The finished image as bytes.
+
+        ``scale`` (10-100 percent) resizes the image and applies to every format; ``quality``
+        (30-100) is the encoder quality for lossy formats and ignored for PNG. At 100/100 PNG
+        the original file is returned byte for byte. Returns (data, mime_type, filename)."""
         job = self.jobs.get(job_id)
         if job is None or job.status != "done" or not job.output_path:
             raise StudioError(f"job {job_id!r} has no finished image")
+        if fmt not in self.EXPORT_FORMATS:
+            raise StudioError(f"unknown format {fmt!r}; one of {', '.join(self.EXPORT_FORMATS)}")
+        pil_name, mime, ext, lossy = self.EXPORT_FORMATS[fmt]
+        scale = max(10, min(100, int(scale)))
+        quality = max(30, min(100, int(quality)))
         path = Path(job.output_path)
-        stem = f"{job.id}-{job.preset}-{job.width}x{job.height}-seed{job.seed}"
-        if fmt == "png":
-            return path.read_bytes(), "image/png", f"{stem}.png"
-        if fmt in ("jpg", "jpeg"):
-            from PIL import Image
+        stem = f"{job.id}-{job.preset}-seed{job.seed}"
+        if fmt == "png" and scale == 100:
+            return path.read_bytes(), mime, f"{stem}-{job.width}x{job.height}.png"
+        from PIL import Image
 
-            q = max(30, min(100, int(quality)))
-            buf = io.BytesIO()
-            with Image.open(path) as im:
-                im.convert("RGB").save(buf, "JPEG", quality=q, optimize=True)
-            return buf.getvalue(), "image/jpeg", f"{stem}-q{q}.jpg"
-        raise StudioError(f"unknown format {fmt!r}; png or jpg")
+        buf = io.BytesIO()
+        with Image.open(path) as im:
+            if scale != 100:
+                w = max(16, round(im.width * scale / 100))
+                h = max(16, round(im.height * scale / 100))
+                im = im.resize((w, h), Image.LANCZOS)
+            size = im.size
+            if lossy:
+                im.convert("RGB").save(buf, pil_name, quality=quality, optimize=True)
+            else:
+                im.save(buf, pil_name, optimize=True)
+        suffix = f"-q{quality}" if lossy else ""
+        return buf.getvalue(), mime, f"{stem}-{size[0]}x{size[1]}{suffix}.{ext}"
+
+    def export_size(self, job_id: str, fmt: str, quality: int, scale: int) -> dict[str, Any]:
+        """Bytes and pixel size an export would have, so the UI can show it first."""
+        data, mime, name = self.export_image(job_id, fmt, quality, scale)
+        job = self.jobs.get(job_id)
+        assert job is not None
+        s = max(10, min(100, int(scale)))
+        return {
+            "bytes": len(data),
+            "filename": name,
+            "mime": mime,
+            "width": round(job.width * s / 100) if s != 100 else job.width,
+            "height": round(job.height * s / 100) if s != 100 else job.height,
+        }
+
+    # -- config -----------------------------------------------------------------------------
+
+    def get_config(self) -> dict[str, Any]:
+        cfg = self.settings.config()
+        return {
+            "allow_over_budget": self.settings.allow_over_budget,
+            "allow_over_budget_from_env": bool(os.environ.get(ENV_ALLOW_OVER_BUDGET)),
+            "default_threads": cfg.get("default_threads"),
+            "data_dir": str(self.settings.data_dir),
+            "config_file": str(self.settings.config_file),
+        }
+
+    def set_config(self, changes: dict[str, Any]) -> dict[str, Any]:
+        """Write user settings to config.json. Only known keys are accepted."""
+        cfg = self.settings.config()
+        if "allow_over_budget" in changes:
+            cfg["allow_over_budget"] = bool(changes["allow_over_budget"])
+        if "default_threads" in changes:
+            v = changes["default_threads"]
+            cfg["default_threads"] = int(v) if v not in (None, "", 0) else None
+        self.settings.config_file.parent.mkdir(parents=True, exist_ok=True)
+        self.settings.config_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        self.planner.allow_over_budget = self.settings.allow_over_budget
+        return self.get_config()
 
     def samples_by_preset(self) -> dict[str, dict[str, Any]]:
         """The newest finished job per preset: a visual comparison of what each preset
