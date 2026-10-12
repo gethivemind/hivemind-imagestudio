@@ -157,17 +157,22 @@ class Worker:
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, name="imagestudio-worker", daemon=True)
         self._current: str | None = None
-        # Recover: anything running when we last stopped goes back to the queue.
+
+    def start(self) -> None:
+        """Recover jobs left running by a previous worker, then start draining the queue.
+
+        Recovery happens here, not in ``__init__``, so read-only users of the store (the CLI's
+        doctor/plan/jobs commands) never touch a job another process is still running.
+        """
+        if self._thread.is_alive():
+            return
         for job in self.store.all():
             if job.status == "running":
                 job.status, job.phase, job.message = "queued", "queued", "re-queued after restart"
                 self.store.put(job)
         for job in self.store.queued():
             self._q.put(job.id)
-
-    def start(self) -> None:
-        if not self._thread.is_alive():
-            self._thread.start()
+        self._thread.start()
 
     def stop(self, timeout: float = 5.0) -> None:
         self._stop.set()

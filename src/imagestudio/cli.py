@@ -330,7 +330,8 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
         print(f"  {name:<9} {human_duration(secs)}{mark}")
     if p.recommended_preset is None:
         print(
-            f"No preset meets {p.target_minutes:g} min on this machine; best still runs, just slower."
+            f"No preset meets {p.target_minutes:g} min on this machine; "
+            "best still runs, just slower."
         )
     print(f"Profile written to {studio.settings.profile_file}")
     return 0

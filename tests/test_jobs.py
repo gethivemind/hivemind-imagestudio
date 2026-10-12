@@ -135,8 +135,9 @@ def test_running_jobs_are_requeued_after_restart(settings: Settings):
     store2 = JobStore(settings)
     engine = FakeEngine()
     worker = Worker(store2, engine)
-    assert store2.get("job_abc").status == "queued"
+    assert store2.get("job_abc").status == "running"  # not touched until the worker starts
     worker.start()
+    assert store2.get("job_abc").status in ("queued", "running", "done")
     deadline = time.monotonic() + 5
     while store2.get("job_abc").status != "done" and time.monotonic() < deadline:
         time.sleep(0.02)
@@ -237,3 +238,32 @@ def test_recommend_picks_highest_quality_within_target():
     assert recommend(est, 1000) == "best"
     assert recommend(est, 500) == "balanced"
     assert recommend(est, 50) is None
+
+
+def test_read_only_studio_does_not_requeue_running_jobs(settings: Settings):
+    store = JobStore(settings)
+    job = Job(
+        id="job_live",
+        tool="generate",
+        prompt="p",
+        negative_prompt="",
+        model="flux-schnell",
+        variant="q5",
+        preset="best",
+        width=512,
+        height=512,
+        steps=4,
+        cfg_scale=1.0,
+        seed=1,
+        sampler="euler",
+        component_paths={},
+        extra_args=[],
+        estimate_seconds=10,
+        estimate_basis="x",
+        fit_note=None,
+        warnings=[],
+        status="running",
+    )
+    store.put(job)
+    Studio(settings=settings, engine=FakeEngine(), hardware=laptop(), start_worker=False)
+    assert JobStore(settings).get("job_live").status == "running"
