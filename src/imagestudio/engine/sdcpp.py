@@ -18,6 +18,8 @@ import zipfile
 from collections.abc import Callable
 from pathlib import Path
 
+import psutil
+
 from imagestudio import download as dl
 from imagestudio.config import ENV_SD_BIN, ENV_SD_FLAVOR, ENV_THREADS, Settings
 from imagestudio.engine.base import EngineError, EngineResult, GenerateSpec, Progress, ProgressFn
@@ -202,6 +204,23 @@ class SdCppEngine:
         proc = self._proc
         assert proc.stdout is not None
         emit(Progress("loading", message="starting stable-diffusion.cpp"))
+        peak_rss = 0
+        stop_sampling = threading.Event()
+
+        def sample_rss(pid: int = proc.pid) -> None:
+            nonlocal peak_rss
+            try:
+                ps = psutil.Process(pid)
+            except psutil.Error:
+                return
+            while not stop_sampling.is_set():
+                try:
+                    peak_rss = max(peak_rss, ps.memory_info().rss)
+                except psutil.Error:
+                    return
+                stop_sampling.wait(1.0)
+
+        threading.Thread(target=sample_rss, daemon=True).start()
 
         buf = b""
         while True:
@@ -257,6 +276,7 @@ class SdCppEngine:
                 elif "[error]" in low or "error:" in low:
                     emit(Progress(phase, message=line[-160:]))
         rc = proc.wait()
+        stop_sampling.set()
         with self._lock:
             self._proc = None
             cancelled = self._cancelled
@@ -278,4 +298,5 @@ class SdCppEngine:
             sampling_seconds=sampling_seconds or 0.0,
             total_seconds=total,
             log_tail=tail[-12:],
+            peak_rss_bytes=peak_rss,
         )

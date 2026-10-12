@@ -62,6 +62,7 @@ class Job:
     load_seconds: float | None = None
     sampling_seconds: float | None = None
     total_seconds: float | None = None
+    peak_rss_bytes: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -261,6 +262,7 @@ class Worker:
             job.load_seconds = result.load_seconds
             job.sampling_seconds = result.sampling_seconds
             job.total_seconds = result.total_seconds
+            job.peak_rss_bytes = result.peak_rss_bytes or None
             job.message = "finished"
         job.finished_at = _now()
         self.store.put(job)

@@ -194,6 +194,7 @@ class Studio:
             "started_at": job.started_at,
             "finished_at": job.finished_at,
             "output_path": job.output_path,
+            "peak_rss_gib": round(job.peak_rss_bytes / GIB, 2) if job.peak_rss_bytes else None,
         }
 
     def job_result(self, job_id: str, as_base64: bool = False) -> dict[str, Any]:
@@ -220,6 +221,7 @@ class Studio:
             "preset": job.preset,
             "prompt": job.prompt,
             "total_seconds": job.total_seconds,
+            "peak_rss_gib": round(job.peak_rss_bytes / GIB, 2) if job.peak_rss_bytes else None,
             "fit_note": job.fit_note,
         }
         if as_base64:

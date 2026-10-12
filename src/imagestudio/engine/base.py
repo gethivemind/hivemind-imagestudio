@@ -43,6 +43,7 @@ class EngineResult:
     sampling_seconds: float
     total_seconds: float
     log_tail: list[str] = field(default_factory=list)
+    peak_rss_bytes: int = 0  # highest resident memory of the engine process, if measured
 
 
 ProgressFn = Callable[[Progress], None]
