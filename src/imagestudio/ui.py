@@ -8,9 +8,10 @@ from typing import Any
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import FileResponse, HTMLResponse, JSONResponse
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.routing import Route
 
+from imagestudio.registry import GIB, MODELS
 from imagestudio.service import Studio, StudioError
 
 STATIC = Path(__file__).parent / "static"
@@ -98,8 +99,88 @@ def build_app(studio: Studio) -> Starlette:
             return JSONResponse({"error": "no image"}, status_code=404)
         return FileResponse(j.output_path, media_type="image/png")
 
+    async def preview(request: Request):
+        p = studio.preview_path(request.path_params["job_id"])
+        if p is None:
+            return JSONResponse({"error": "no preview yet"}, status_code=404)
+        headers = {"Cache-Control": "no-store"}
+        return Response(p.read_bytes(), media_type="image/png", headers=headers)
+
+    async def download(request: Request):
+        q = request.query_params
+        try:
+            data, mime, name = studio.export_image(
+                request.path_params["job_id"], q.get("fmt", "png"), int(q.get("quality", "90"))
+            )
+        except (StudioError, ValueError) as e:
+            return JSONResponse({"error": str(e)}, status_code=404)
+        return Response(
+            data, media_type=mime, headers={"Content-Disposition": f'attachment; filename="{name}"'}
+        )
+
+    async def samples(_: Request) -> JSONResponse:
+        return JSONResponse(studio.samples_by_preset())
+
+    async def download_info(request: Request) -> JSONResponse:
+        q = request.query_params
+        name = q.get("model", "")
+        if name not in MODELS:
+            return JSONResponse({"error": "unknown model"}, status_code=400)
+        model = MODELS[name]
+        try:
+            plan = studio.plan(name, "best", None, None, _str(q.get("variant")))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        v = plan.variant
+        missing = [f for f in v.files if not studio.models.file_installed(f)]
+        return JSONResponse(
+            {
+                "model": model.name,
+                "display_name": model.display_name,
+                "variant": v.name,
+                "licence": model.licence,
+                "note": v.note,
+                "files": [
+                    {"filename": f.filename, "size_gib": round(f.size / GIB, 2), "source": f.source}
+                    for f in missing
+                ],
+                "total_gib": round(sum(f.size for f in missing) / GIB, 2),
+                "installed": not missing,
+            }
+        )
+
+    async def start_download(request: Request) -> JSONResponse:
+        body = await request.json()
+        if not body.get("consent"):
+            return JSONResponse({"error": "consent required"}, status_code=400)
+        try:
+            task = studio.start_download(body.get("model", ""), _str(body.get("variant")))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse(task.to_dict())
+
+    async def start_benchmark(request: Request) -> JSONResponse:
+        body = await request.json() if await request.body() else {}
+        try:
+            task = studio.start_benchmark(
+                body.get("preset", "fast"), float(body.get("target_minutes", 15))
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse(task.to_dict())
+
+    async def tasks(_: Request) -> JSONResponse:
+        return JSONResponse(studio.task_list())
+
     return Starlette(
         routes=[
+            Route("/api/preview/{job_id}", preview),
+            Route("/api/download/{job_id}", download),
+            Route("/api/samples", samples),
+            Route("/api/models/download", download_info),
+            Route("/api/models/download", start_download, methods=["POST"]),
+            Route("/api/benchmark", start_benchmark, methods=["POST"]),
+            Route("/api/tasks", tasks),
             Route("/", index),
             Route("/api/capabilities", capabilities),
             Route("/api/plan", plan),

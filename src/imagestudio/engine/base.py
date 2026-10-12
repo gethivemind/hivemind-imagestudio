@@ -25,6 +25,7 @@ class GenerateSpec:
     component_paths: dict[str, Path]  # engine flag -> weight file
     extra_args: tuple[str, ...] = ()
     threads: int | None = None
+    preview_path: Path | None = None  # engine writes a cheap preview here after each step
 
 
 @dataclass

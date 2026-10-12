@@ -171,6 +171,16 @@ class SdCppEngine:
             args += ["-t", str(threads)]
         for flag, path in spec.component_paths.items():
             args += [flag, str(path)]
+        if spec.preview_path is not None:
+            # 'proj' projects the latent with a fixed matrix: nearly free, blurry but honest.
+            args += [
+                "--preview",
+                "proj",
+                "--preview-path",
+                str(spec.preview_path),
+                "--preview-interval",
+                "1",
+            ]
         args += list(spec.extra_args)
         return args
 

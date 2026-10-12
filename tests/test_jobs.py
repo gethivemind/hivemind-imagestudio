@@ -336,3 +336,38 @@ def test_running_job_owned_by_a_live_process_is_not_requeued(settings: Settings)
     worker.stop()
     assert JobStore(settings).get("job_theirs").status == "running"
     assert not engine.calls
+
+
+def test_progress_moves_with_time_before_sampling():
+    from datetime import UTC, datetime, timedelta
+
+    job = Job(
+        id="j",
+        tool="generate",
+        prompt="p",
+        negative_prompt="",
+        model="m",
+        variant="q5",
+        preset="best",
+        width=1024,
+        height=1024,
+        steps=4,
+        cfg_scale=1.0,
+        seed=1,
+        sampler="euler",
+        component_paths={},
+        extra_args=[],
+        estimate_seconds=1000,
+        estimate_basis="x",
+        fit_note=None,
+        warnings=[],
+        status="running",
+        phase="loading",
+    )
+    job.started_at = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
+    early = job.progress_fraction()
+    job.started_at = (datetime.now(UTC) - timedelta(seconds=150)).isoformat()
+    later = job.progress_fraction()
+    assert 0 < early < later <= 0.1
+    job.phase, job.step, job.total_steps = "sampling", 2, 4
+    assert job.progress_fraction() == 0.1 + 0.85 * 0.5

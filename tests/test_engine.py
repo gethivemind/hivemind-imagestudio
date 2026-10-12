@@ -137,3 +137,11 @@ def test_pinned_assets_cover_the_three_desktop_platforms():
     assert find_engine_asset("linux", "riscv64", "cpu") is None
     for a in SDCPP_ASSETS:
         assert len(a.sha256) == 64 and a.size > 0 and a.url.startswith("https://github.com/")
+
+
+def test_preview_flags_are_passed_when_requested(tmp_path, fake_sd):
+    engine = SdCppEngine(Settings(data_dir=tmp_path / "data"))
+    args = engine.build_args(spec(tmp_path, preview_path=tmp_path / "p.png"))
+    assert args[args.index("--preview") + 1] == "proj"
+    assert args[args.index("--preview-path") + 1] == str(tmp_path / "p.png")
+    assert "--preview" not in engine.build_args(spec(tmp_path))

@@ -96,15 +96,26 @@ class Job:
         return max(0.0, self.estimate_seconds - elapsed)
 
     def progress_fraction(self) -> float:
+        """0-1. Before sampling reports steps, progress follows elapsed time against the
+        estimate (capped at the point where sampling begins), so the bar keeps moving."""
         if self.status == "done":
             return 1.0
         if self.status != "running":
             return 0.0
         if self.phase == "sampling" and self.total_steps:
             return 0.1 + 0.85 * (self.step / self.total_steps)
-        return {"loading": 0.02, "encoding": 0.08, "decoding": 0.96, "saving": 0.99}.get(
-            self.phase, 0.0
-        )
+        if self.phase in ("decoding", "saving"):
+            return 0.97
+        elapsed = 0.0
+        if self.started_at:
+            elapsed = (datetime.now(UTC) - datetime.fromisoformat(self.started_at)).total_seconds()
+        if self.estimate_seconds > 0:
+            return min(0.1, 0.1 * elapsed / (0.2 * self.estimate_seconds))
+        return 0.02
+
+    @property
+    def preview_name(self) -> str:
+        return f"{self.id}.preview.png"
 
 
 class JobStore:
@@ -357,6 +368,7 @@ class Worker:
             seed=job.seed,
             sampler=job.sampler,
             output=self.store.settings.out_dir / f"{job.id}.png",
+            preview_path=self.store.settings.out_dir / job.preview_name,
             component_paths={k: Path(v) for k, v in job.component_paths.items()},
             extra_args=tuple(job.extra_args),
             threads=job.threads,
@@ -382,6 +394,8 @@ class Worker:
         job.finished_at = _now()
         self.store.put(job)
         self.store.owned.discard(job.id)
+        with contextlib.suppress(OSError):
+            (self.store.settings.out_dir / job.preview_name).unlink()
         if self.on_finished:
             with contextlib.suppress(Exception):
                 self.on_finished(job)

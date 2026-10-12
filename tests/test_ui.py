@@ -36,3 +36,59 @@ def test_ui_page_plan_generate_and_image(studio: Studio):
     assert listing["jobs"][0]["id"] == job_id and listing["worker_in_this_process"] is True
     bad = client.post("/api/generate", json={"prompt": ""})
     assert bad.status_code == 400
+
+
+def test_downloads_exports_samples_and_tasks(studio: Studio, monkeypatch):
+    client = TestClient(build_app(studio))
+    r = client.post("/api/generate", json={"prompt": "a teapot", "preset": "fast", "seed": 3})
+    job_id = r.json()["id"]
+    for _ in range(200):
+        if client.get(f"/api/jobs/{job_id}").json()["status"] == "done":
+            break
+        time.sleep(0.02)
+    png = client.get(f"/api/download/{job_id}?fmt=png")
+    assert png.status_code == 200 and png.content.startswith(b"\x89PNG")
+    assert "attachment" in png.headers["content-disposition"]
+    jpg = client.get(f"/api/download/{job_id}?fmt=jpg&quality=70")
+    assert jpg.status_code == 200 and jpg.content[:2] == b"\xff\xd8"
+    samples = client.get("/api/samples").json()
+    assert samples["fast"]["id"] == job_id
+
+    info = client.get(
+        "/api/models/download", params={"model": "flux-schnell", "variant": "q4"}
+    ).json()
+    assert info["total_gib"] > 5 and not info["installed"] and info["licence"] == "Apache-2.0"
+    assert client.post("/api/models/download", json={"model": "flux-schnell"}).status_code == 400
+
+    def fake_install(model, variant, consent, progress=None):
+        for fl in variant.files:
+            if progress:
+                progress(fl.filename, fl.size, fl.size)
+        return True
+
+    monkeypatch.setattr(studio.models, "install_variant", fake_install)
+    t = client.post(
+        "/api/models/download", json={"model": "flux-schnell", "variant": "q4", "consent": True}
+    ).json()
+    assert t["kind"] == "download"
+    for _ in range(100):
+        tasks = client.get("/api/tasks").json()
+        if tasks["download:flux-schnell"]["status"] != "running":
+            break
+        time.sleep(0.02)
+    assert tasks["download:flux-schnell"]["status"] == "done"
+
+    b = client.post("/api/benchmark", json={"preset": "fast", "target_minutes": 15}).json()
+    assert b["kind"] == "benchmark"
+    for _ in range(300):
+        tasks = client.get("/api/tasks").json()
+        if tasks["benchmark"]["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert tasks["benchmark"]["status"] == "done"
+    assert tasks["benchmark"]["result"]["profile"]["recommended_preset"] in (
+        "best",
+        "balanced",
+        "fast",
+        None,
+    )
