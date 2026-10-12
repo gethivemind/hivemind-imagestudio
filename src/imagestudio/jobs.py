@@ -158,6 +158,17 @@ class JobStore:
 
     def put(self, job: Job) -> None:
         with self._lock:
+            if job.id in self.owned and not job.cancel_requested:
+                # Another process may have asked for a cancel since our last write; a progress
+                # write must not erase that request.
+                try:
+                    on_disk = json.loads(
+                        (self.settings.jobs_dir / f"{job.id}.json").read_text(encoding="utf-8")
+                    )
+                    if on_disk.get("cancel_requested"):
+                        job.cancel_requested = True
+                except (OSError, ValueError):
+                    pass
             self._jobs[job.id] = job
             tmp = self.settings.jobs_dir / f"{job.id}.json.tmp"
             tmp.write_text(json.dumps(job.to_dict(), indent=2), encoding="utf-8")
