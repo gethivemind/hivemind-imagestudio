@@ -1,0 +1,314 @@
+"""Command line: doctor, install-engine, download-model, generate, jobs, serve."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+
+from imagestudio import __version__
+from imagestudio.calibration import human_duration
+from imagestudio.engine.base import EngineError
+from imagestudio.registry import GIB, MODELS, PRESET_NAMES
+from imagestudio.service import Studio, StudioError
+
+
+def _consent_prompt(yes: bool):
+    def consent(description: str, size: int) -> bool:
+        print(f"Download: {description}")
+        print(f"Size: {size / GIB:.2f} GiB. Nothing else will be fetched.")
+        if yes:
+            print("Approved with --yes.")
+            return True
+        if not sys.stdin.isatty():
+            print("No terminal to ask on; re-run with --yes to approve.")
+            return False
+        answer = input("Proceed? [y/N] ").strip().lower()
+        return answer in ("y", "yes")
+
+    return consent
+
+
+class _Bar:
+    def __init__(self) -> None:
+        self._last = 0.0
+        self._name = ""
+
+    def __call__(self, name: str, done: int, total: int) -> None:
+        now = time.monotonic()
+        if name != self._name:
+            self._name = name
+            print()
+        if now - self._last < 0.5 and done < total:
+            return
+        self._last = now
+        pct = (done / total * 100) if total else 0
+        print(
+            f"\r  {name}: {done / GIB:6.2f}/{total / GIB:6.2f} GiB ({pct:5.1f}%)",
+            end="",
+            flush=True,
+        )
+        if done >= total:
+            print()
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    caps = studio.capabilities()
+    if args.json:
+        print(json.dumps(caps, indent=2))
+        return 0
+    hw = caps["hardware"]
+    print(f"Hivemind Image Studio {__version__}")
+    print(f"Data dir: {caps['paths']['data_dir']}")
+    print()
+    print("Hardware")
+    print(f"  OS/arch: {hw['os']} {hw['arch']}")
+    print(f"  CPU: {hw['cpu_name']} ({hw['physical_cores']} cores, {hw['logical_cores']} threads)")
+    print(f"  RAM: {hw['ram_total_gib']} GiB total, {hw['ram_available_gib']} GiB available")
+    if hw["gpus"]:
+        for g in hw["gpus"]:
+            vram = f"{g['vram_gib']} GiB" if g["vram_gib"] else "unknown VRAM"
+            shared = " (shared with RAM)" if g["shared_memory"] else ""
+            print(f"  GPU: {g['name']} [{g['kind']}, {vram}{shared}]")
+    else:
+        print("  GPU: none found")
+    print()
+    eng = caps["engine"]
+    state = (
+        f"installed: {eng['version']} at {eng['binary']}" if eng["available"] else "NOT installed"
+    )
+    print(f"Engine: {eng['name']} ({state}); pinned release {eng['pinned_release']}")
+    print()
+    print("Models")
+    for m in caps["models"]:
+        inst = ", ".join(m["installed_variants"]) or "none"
+        print(f"  {m['display_name']} ({m['name']}, {m['licence']}): installed variants: {inst}")
+        print(f"    memory budget on this machine: {m['memory_budget_gib']} GiB")
+        for v in m["variants"]:
+            fit = "fits" if v["fits_this_machine"] else "does NOT fit"
+            mark = "*" if v["installed"] else " "
+            print(
+                f"    {mark} {v['name']}: download {v['download_gib']} GiB, needs "
+                f"{v['needs_gib_at_1024']} GiB at 1024 px: {fit}"
+            )
+        for p in m["presets"]:
+            if "error" in p:
+                print(f"    preset {p['preset']}: {p['error']}")
+                continue
+            t = p["expected_time"]
+            tag = "" if t["calibrated"] else " (uncalibrated)"
+            print(
+                f"    preset {p['preset']}: {p['width']}x{p['height']}, {p['steps']} steps, "
+                f"variant {p['variant']}: about {t['human']}{tag}"
+            )
+            if p["fit_note"]:
+                print(f"      fit: {p['fit_note']}")
+    print()
+    print("Policy: quality is a setting, never a consequence. Default preset: best.")
+    print(
+        "Licences: " + "; ".join(f"{li['component']}: {li['licence']}" for li in caps["licences"])
+    )
+    ex = ", ".join(f"{e['model']} ({e['reason']})" for e in caps["excluded_by_policy"])
+    print(f"Excluded by policy: {ex}")
+    if args.verify:
+        print()
+        print("Verifying installed model hashes (slow)...")
+        for m in MODELS.values():
+            for v in m.variants:
+                for f in v.files:
+                    if studio.models.path_for(f).exists():
+                        ok = studio.models.verify_file(f)
+                        print(f"  {f.filename}: {'ok' if ok else 'MISMATCH'}")
+    return 0
+
+
+def cmd_install_engine(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    engine = studio.engine
+    install = getattr(engine, "install", None)
+    if install is None:
+        print("This engine has no installer.")
+        return 1
+    bar = _Bar()
+    try:
+        path = install(_consent_prompt(args.yes), progress=lambda d, t: bar("engine", d, t))
+    except EngineError as e:
+        print(f"error: {e}")
+        return 1
+    print(f"Engine ready: {path}")
+    print(f"Version: {engine.version()}")
+    return 0
+
+
+def cmd_download_model(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    if args.name not in MODELS:
+        print(f"unknown model {args.name!r}; known: {', '.join(MODELS)}")
+        return 2
+    model = MODELS[args.name]
+    try:
+        plan = studio.plan(args.name, "best", None, None, args.variant)
+    except StudioError as e:
+        print(f"error: {e}")
+        return 1
+    v = plan.variant
+    if plan.fit_note:
+        print(plan.fit_note)
+    if studio.models.variant_installed(v):
+        print(f"{model.display_name} [{v.name}] is already installed.")
+        return 0
+    print(f"{model.display_name} [{v.name}] ({model.licence}): {v.note}")
+    for f in v.files:
+        have = "have" if studio.models.file_installed(f) else "need"
+        print(f"  {have}  {f.filename}  {f.size / GIB:.2f} GiB  from {f.source}")
+    bar = _Bar()
+    try:
+        ok = studio.models.install_variant(model, v, _consent_prompt(args.yes), progress=bar)
+    except Exception as e:
+        print(f"\nerror: {e}")
+        return 1
+    if not ok:
+        print("Not downloaded.")
+        return 1
+    print(f"{model.display_name} [{v.name}] installed.")
+    return 0
+
+
+def cmd_generate(args: argparse.Namespace) -> int:
+    studio = Studio()
+    try:
+        job = studio.generate(
+            args.prompt,
+            preset=args.preset,
+            width=args.width,
+            height=args.height,
+            seed=args.seed,
+            negative_prompt=args.negative or "",
+            model=args.model,
+            variant=args.variant,
+        )
+    except StudioError as e:
+        print(f"error: {e}")
+        studio.close()
+        return 1
+    print(
+        f"Job {job.id}: {job.model} [{job.variant}] preset {job.preset}, "
+        f"{job.width}x{job.height}, {job.steps} steps, seed {job.seed}"
+    )
+    print(f"Estimate: {human_duration(job.estimate_seconds)} ({job.estimate_basis})")
+    if job.fit_note:
+        print(f"Fit: {job.fit_note}")
+    for w in job.warnings:
+        print(f"Warning: {w}")
+    if args.no_wait:
+        studio.close()
+        return 0
+    last = ""
+    try:
+        while True:
+            st = studio.job_status(job.id)
+            line = (
+                f"{st['status']}/{st['phase']} {st['progress'] * 100:5.1f}%"
+                f" step {st['step']}/{st['total_steps']} eta {st['eta_human']}"
+            )
+            if line != last:
+                print(f"\r  {line:<70}", end="", flush=True)
+                last = line
+            if st["status"] in ("done", "failed", "cancelled"):
+                print()
+                break
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("\nCancelling...")
+        studio.cancel(job.id)
+        time.sleep(1)
+    st = studio.job_status(job.id)
+    if st["status"] == "done":
+        print(f"Image: {st['output_path']}")
+        j = studio.jobs.get(job.id)
+        if j and j.total_seconds:
+            print(
+                f"Took {human_duration(j.total_seconds)} total "
+                f"(load {human_duration(j.load_seconds or 0)}, "
+                f"sampling {human_duration(j.sampling_seconds or 0)})"
+            )
+    else:
+        print(f"{st['status']}: {st['error'] or st['message']}")
+    studio.close()
+    return 0 if st["status"] == "done" else 1
+
+
+def cmd_jobs(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    rows = studio.list_jobs()
+    if args.json:
+        print(json.dumps(rows, indent=2))
+        return 0
+    if not rows:
+        print("No jobs.")
+    for r in rows:
+        print(f"{r['id']}  {r['status']:<9} {r['preset']:<8} {r['model']:<13} {r['prompt']}")
+        if r["output_path"]:
+            print(f"    {r['output_path']}")
+    return 0
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    from imagestudio.server import serve
+
+    serve(args.transport, args.host, args.port)
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="imagestudio",
+        description="Hivemind Image Studio: free, local, permissively licensed image generation.",
+    )
+    p.add_argument("--version", action="version", version=f"imagestudio {__version__}")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    d = sub.add_parser("doctor", help="show hardware, engine, models and expected times")
+    d.add_argument("--json", action="store_true")
+    d.add_argument("--verify", action="store_true", help="re-hash installed model files")
+    d.set_defaults(fn=cmd_doctor)
+
+    ie = sub.add_parser("install-engine", help="download the pinned stable-diffusion.cpp build")
+    ie.add_argument("--yes", "-y", action="store_true", help="approve the download")
+    ie.set_defaults(fn=cmd_install_engine)
+
+    dm = sub.add_parser("download-model", help="download a model's weights (asks for consent)")
+    dm.add_argument("name", choices=list(MODELS))
+    dm.add_argument("--variant", choices=["q8", "q6", "q5", "q4"])
+    dm.add_argument("--yes", "-y", action="store_true", help="approve the download")
+    dm.set_defaults(fn=cmd_download_model)
+
+    g = sub.add_parser("generate", help="generate one image and wait for it")
+    g.add_argument("prompt")
+    g.add_argument("--preset", choices=PRESET_NAMES, default="best")
+    g.add_argument("--width", type=int)
+    g.add_argument("--height", type=int)
+    g.add_argument("--seed", type=int)
+    g.add_argument("--negative")
+    g.add_argument("--model", choices=list(MODELS))
+    g.add_argument("--variant", choices=["q8", "q6", "q5", "q4"])
+    g.add_argument("--no-wait", action="store_true", help="queue and exit (needs serve running)")
+    g.set_defaults(fn=cmd_generate)
+
+    j = sub.add_parser("jobs", help="list jobs")
+    j.add_argument("--json", action="store_true")
+    j.set_defaults(fn=cmd_jobs)
+
+    s = sub.add_parser("serve", help="run the MCP server")
+    s.add_argument("--transport", choices=["stdio", "http"], default="stdio")
+    s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--port", type=int, default=8765)
+    s.set_defaults(fn=cmd_serve)
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    return int(args.fn(args))
