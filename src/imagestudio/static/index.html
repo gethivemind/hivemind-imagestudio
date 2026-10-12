@@ -344,6 +344,7 @@
   const post = (u, b) => api(u, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b || {}) });
   const toast = (m, ms = 3800) => { const t = document.createElement("div"); t.className = "toast"; t.textContent = m; $("toasts").appendChild(t); setTimeout(() => t.remove(), ms); };
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const schedulePlan = debounce((...a) => plan(...a), 220);
 
   function showTab(n) { S.tab = n; document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === n)); document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === n)); if (n === "gallery") renderGallery(true); if (n === "machine") renderMachine(); }
   $("tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) showTab(b.dataset.tab); };
@@ -405,7 +406,6 @@
     markAr();
   }
 
-  const schedulePlan = debounce(plan, 220);
   function updateGo() { $("go").disabled = !(S.plan && S.plan.installed) || !$("prompt").value.trim() || (S.parsed.errors || []).length > 0; }
   function alertEl(kind, title, detail, action) { const a = document.createElement("div"); a.className = `alert ${kind}`; a.innerHTML = `<i>${kind === "info" ? "i" : "!"}</i><div><div class="t">${esc(title)}</div>${detail ? `<div class="d">${esc(detail)}</div>` : ""}</div>`; if (action) { const d = document.createElement("div"); d.className = "act"; d.appendChild(action); a.lastElementChild.appendChild(d); } a.onclick = (e) => { if (!e.target.closest("button")) a.classList.toggle("open"); }; return a; }
   const split = (w) => { const m = w.match(/^(.{10,90}?)[.;:]\s+(.*)$/s); return m ? [m[1], m[2]] : [w.replace(/[.;:]$/, ""), ""]; };
