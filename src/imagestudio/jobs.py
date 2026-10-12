@@ -68,6 +68,7 @@ class Job:
     peak_rss_bytes: int | None = None
     threads: int | None = None
     over_budget: bool = False
+    worker_pid: int | None = None  # process rendering this job; guards against duplicates
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -250,7 +251,10 @@ class Worker:
             return False
         for job in self.store.all():
             if job.status == "running":
+                if job.worker_pid and job.worker_pid != os.getpid() and _pid_alive(job.worker_pid):
+                    continue  # another live process is rendering it; leave it alone
                 job.status, job.phase, job.message = "queued", "queued", "re-queued after restart"
+                job.worker_pid = None
                 self.store.put(job)
         for job in self.store.queued():
             self._enqueue(job.id)
@@ -325,6 +329,7 @@ class Worker:
     def _execute(self, job: Job) -> None:
         self.store.owned.add(job.id)
         job.status, job.phase, job.started_at = "running", "loading", _now()
+        job.worker_pid = os.getpid()
         self.store.put(job)
         last_write = 0.0
 

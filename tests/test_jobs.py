@@ -299,3 +299,40 @@ def test_stale_lock_from_dead_pid_is_taken_over(settings: Settings):
         assert studio.worker_active
     finally:
         studio.close()
+
+
+def test_running_job_owned_by_a_live_process_is_not_requeued(settings: Settings):
+    import os
+
+    store = JobStore(settings)
+    job = Job(
+        id="job_theirs",
+        tool="generate",
+        prompt="p",
+        negative_prompt="",
+        model="flux-schnell",
+        variant="q5",
+        preset="best",
+        width=512,
+        height=512,
+        steps=4,
+        cfg_scale=1.0,
+        seed=1,
+        sampler="euler",
+        component_paths={},
+        extra_args=[],
+        estimate_seconds=10,
+        estimate_basis="x",
+        fit_note=None,
+        warnings=[],
+        status="running",
+        worker_pid=os.getppid(),  # a live process that is not us
+    )
+    store.put(job)
+    engine = FakeEngine()
+    worker = Worker(JobStore(settings), engine)
+    worker.start()
+    time.sleep(0.3)
+    worker.stop()
+    assert JobStore(settings).get("job_theirs").status == "running"
+    assert not engine.calls
