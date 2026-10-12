@@ -190,6 +190,58 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             return _err(e)
 
     @mcp.tool(
+        name="upscale",
+        description=(
+            "Queue a 4x upscale of a finished image with Real-ESRGAN (BSD licence) and return a "
+            "job "
+            "id. image is a job id from generate() or a path to a PNG/JPEG/WebP on this machine. "
+            "model: 'realesrgan-x4plus' (default, photos and renders) or 'realesrgan-anime-6b' "
+            "(flat colours, line art). repeats=2 runs it twice for 16x. Takes tens of seconds per "
+            "output megapixel on a CPU. Poll job_status, then job_result for the PNG. Use it to "
+            "turn "
+            "a 1024 px render into a sharp 4096 px file instead of rendering large."
+        ),
+    )
+    def upscale(image: str, model: str | None = None, repeats: int = 1) -> dict[str, Any]:
+        try:
+            job = studio.upscale(image, model, repeats)
+        except StudioError as e:
+            return _err(e)
+        st = studio.job_status(job.id)
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "estimate_seconds": round(job.estimate_seconds),
+            "estimate_human": st["eta_human"],
+            "width": job.width,
+            "height": job.height,
+            "model": job.model,
+        }
+
+    @mcp.tool(
+        name="remove_background",
+        description=(
+            "Queue background removal for an image and return a job id; the result is a PNG with a "
+            "transparent background (alpha matte). image is a job id or a path to a PNG/JPEG/WebP. "
+            "model: 'isnet-general-use' (default, cleaner edges) or 'u2net' (faster, softer). "
+            "Takes a few seconds on a CPU. Poll job_status, then job_result."
+        ),
+    )
+    def remove_background(image: str, model: str | None = None) -> dict[str, Any]:
+        try:
+            job = studio.remove_background(image, model)
+        except StudioError as e:
+            return _err(e)
+        st = studio.job_status(job.id)
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "estimate_seconds": round(job.estimate_seconds),
+            "estimate_human": st["eta_human"],
+            "model": job.model,
+        }
+
+    @mcp.tool(
         name="jobs",
         description=(
             "List all jobs known to the studio, newest first, with id, status, preset, model, "
@@ -225,6 +277,39 @@ def build_server(studio: Studio | None = None) -> FastMCP:
     def capabilities() -> dict[str, Any]:
         return studio.capabilities()
 
+    def download_model_impl(name: str, consent: bool, variant: str | None) -> dict[str, Any]:
+        from imagestudio.registry import TOOL_MODELS
+
+        tm = TOOL_MODELS.get(name)
+        if tm is None:
+            return _err(StudioError(f"unknown model {name!r}"))
+        info = {
+            "model": tm.name,
+            "kind": tm.kind,
+            "licence": tm.licence,
+            "files": [
+                {
+                    "filename": tm.file.filename,
+                    "size_gib": round(tm.file.size / GIB, 2),
+                    "source": tm.file.source,
+                }
+            ],
+            "total_gib": round(tm.file.size / GIB, 2),
+            "already_installed": studio.models.tool_installed(tm),
+        }
+        if info["already_installed"]:
+            return info | {"downloaded": False, "message": "already installed"}
+        if not consent:
+            return info | {
+                "downloaded": False,
+                "message": "Call again with consent=true after the human approves.",
+            }
+        try:
+            ok = studio.models.install_tool(tm, lambda _d, _b: True)
+        except Exception as e:  # surfaced to the caller
+            return info | {"downloaded": False, "error": str(e)}
+        return info | {"downloaded": ok}
+
     @mcp.tool(
         name="download_model",
         description=(
@@ -234,7 +319,9 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             "total size in GiB and licence, then again with consent=true after the human "
             "agrees. name is one of "
             + ", ".join(f"'{m}'" for m in MODELS)
-            + "; variant is optional (q8|q6|q5|q4; default: the highest fidelity that fits this "
+            + ", or a tool model: 'realesrgan-x4plus', 'realesrgan-anime-6b', "
+            "'isnet-general-use', 'u2net'"
+            "; variant is optional (q8|q6|q5|q4; default: the highest fidelity that fits this "
             "machine). Downloads are resumable and SHA-256 verified. This call blocks until the "
             "download finishes, which can take a long time for ~10 GB; prefer the CLI "
             "`imagestudio download-model <name> --yes` for very large sets."
@@ -244,7 +331,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
         name: str, consent: bool = False, variant: str | None = None
     ) -> dict[str, Any]:
         if name not in MODELS:
-            return _err(StudioError(f"unknown model {name!r}; known: {', '.join(MODELS)}"))
+            return download_model_impl(name, consent, variant)
         model = MODELS[name]
         try:
             plan = studio.plan(name, "best", None, None, variant)

@@ -7,7 +7,7 @@ import struct
 import time
 import zlib
 
-from imagestudio.engine.base import EngineResult, GenerateSpec, Progress, ProgressFn
+from imagestudio.engine.base import EngineResult, GenerateSpec, Progress, ProgressFn, UpscaleSpec
 
 
 def tiny_png(width: int = 8, height: int = 8, rgb: tuple[int, int, int] = (90, 120, 200)) -> bytes:
@@ -73,3 +73,37 @@ class FakeEngine:
             total_seconds=time.monotonic() - t0,
             log_tail=["fake engine"],
         )
+
+    def upscale(self, spec: UpscaleSpec, on_progress: ProgressFn | None = None) -> EngineResult:
+        self.calls.append(spec)
+        t0 = time.monotonic()
+        if on_progress:
+            on_progress(Progress("sampling", 1, 1, message="fake upscale"))
+        if self.step_delay:
+            time.sleep(self.step_delay)
+        spec.output.parent.mkdir(parents=True, exist_ok=True)
+        spec.output.write_bytes(tiny_png(32, 32, (200, 120, 90)))
+        return EngineResult(
+            spec.output, 0.0, time.monotonic() - t0, time.monotonic() - t0, ["fake"]
+        )
+
+
+class FakeBackgroundEngine:
+    name = "fake-bg"
+
+    def __init__(self) -> None:
+        self.calls: list = []
+
+    def available(self) -> bool:
+        return True
+
+    def version(self) -> str | None:
+        return "fake-bg-0"
+
+    def remove_background(self, spec, on_progress: ProgressFn | None = None) -> EngineResult:
+        self.calls.append(spec)
+        if on_progress:
+            on_progress(Progress("sampling", 1, 1, message="fake matte"))
+        spec.output.parent.mkdir(parents=True, exist_ok=True)
+        spec.output.write_bytes(tiny_png(16, 16, (10, 200, 10)))
+        return EngineResult(spec.output, 0.0, 0.01, 0.01, ["fake"])

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from imagestudio import download as dl
 from imagestudio.config import Settings
-from imagestudio.registry import MODELS, FileSpec, ModelSpec, Variant
+from imagestudio.registry import MODELS, TOOL_MODELS, FileSpec, ModelSpec, ToolModel, Variant
 
 ConsentFn = Callable[[str, int], bool]  # (description, bytes) -> allowed?
 ProgressFn = Callable[[str, int, int], None]  # (filename, done, total)
@@ -113,6 +113,32 @@ class ModelStore:
             dl.download(f.url, target, f.sha256, f.size, progress=_p)
             self._manifest[f.filename] = f.sha256
             self._save()
+        return True
+
+    def tool_installed(self, tool: ToolModel) -> bool:
+        return self.file_installed(tool.file)
+
+    def installed_tools(self) -> list[str]:
+        return [t.name for t in TOOL_MODELS.values() if self.tool_installed(t)]
+
+    def install_tool(
+        self, tool: ToolModel, consent: ConsentFn, progress: ProgressFn | None = None
+    ) -> bool:
+        if self.tool_installed(tool):
+            return True
+        if not consent(
+            f"{tool.display_name} ({tool.licence}): {tool.file.filename}", tool.file.size
+        ):
+            return False
+        target = self.path_for(tool.file)
+
+        def _p(done: int, tot: int, name: str = tool.file.filename) -> None:
+            if progress:
+                progress(name, done, tot)
+
+        dl.download(tool.file.url, target, tool.file.sha256, tool.file.size, progress=_p)
+        self._manifest[tool.file.filename] = tool.file.sha256
+        self._save()
         return True
 
     def verify_file(self, spec: FileSpec) -> bool:

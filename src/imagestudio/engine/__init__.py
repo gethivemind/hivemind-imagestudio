@@ -5,6 +5,15 @@ from imagestudio.engine.base import (
     GenerateSpec,
     Progress,
     ProgressFn,
+    UpscaleSpec,
 )
 
-__all__ = ["Engine", "EngineError", "EngineResult", "GenerateSpec", "Progress", "ProgressFn"]
+__all__ = [
+    "Engine",
+    "EngineError",
+    "EngineResult",
+    "GenerateSpec",
+    "Progress",
+    "ProgressFn",
+    "UpscaleSpec",
+]

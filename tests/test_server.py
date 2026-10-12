@@ -20,6 +20,8 @@ EXPECTED_TOOLS = {
     "capabilities",
     "download_model",
     "plan",
+    "upscale",
+    "remove_background",
 }
 
 
@@ -124,3 +126,15 @@ async def test_plan_tool_is_a_dry_run_with_load_meter(studio: Studio):
     assert len(studio.list_jobs()) == before
     r = _payload(await server.call_tool("plan", {"variant": "q8"}))
     assert "error" in r and "locked" in r["error"]
+
+
+async def test_upscale_and_remove_background_tools_exist(studio: Studio):
+    server = build_server(studio)
+    names = {t.name for t in await server.list_tools()}
+    assert {"upscale", "remove_background"} <= names
+    r = _payload(await server.call_tool("upscale", {"image": "job_nope"}))
+    assert "error" in r
+    info = _payload(await server.call_tool("download_model", {"name": "realesrgan-anime-6b"}))
+    assert (
+        info["kind"] == "upscaler" and info["downloaded"] is False and "consent" in info["message"]
+    )

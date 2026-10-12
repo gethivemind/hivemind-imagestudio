@@ -120,6 +120,31 @@ def build_app(studio: Studio) -> Starlette:
         except (StudioError, ValueError) as e:
             return JSONResponse({"error": str(e)}, status_code=404)
 
+    async def run_tool(request: Request) -> JSONResponse:
+        body = await request.json()
+        tool = request.path_params["tool"]
+        try:
+            if tool == "upscale":
+                job = studio.upscale(
+                    body.get("image", ""), _str(body.get("model")), int(body.get("repeats", 1))
+                )
+            elif tool == "remove_background":
+                job = studio.remove_background(body.get("image", ""), _str(body.get("model")))
+            else:
+                return JSONResponse({"error": f"unknown tool {tool}"}, status_code=404)
+        except (StudioError, ValueError, TypeError) as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse(studio.job_status(job.id))
+
+    async def tool_download(request: Request) -> JSONResponse:
+        body = await request.json()
+        if not body.get("consent"):
+            return JSONResponse({"error": "consent required"}, status_code=400)
+        try:
+            return JSONResponse(studio.start_tool_download(body.get("name", "")).to_dict())
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     async def parse_prompt(request: Request) -> JSONResponse:
         return JSONResponse(studio.parse_prompt(request.query_params.get("prompt", "")))
 
@@ -212,6 +237,8 @@ def build_app(studio: Studio) -> Starlette:
             Route("/api/export-size/{job_id}", export_size),
             Route("/api/config", get_config),
             Route("/api/parse", parse_prompt),
+            Route("/api/tools/{tool}", run_tool, methods=["POST"]),
+            Route("/api/tools/download", tool_download, methods=["POST"]),
             Route("/api/memory", memory),
             Route("/api/config", set_config, methods=["POST"]),
             Route("/api/samples", samples),

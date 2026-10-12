@@ -29,6 +29,17 @@ class GenerateSpec:
 
 
 @dataclass
+class UpscaleSpec:
+    """Upscale one image with an ESRGAN-family model (output size = input × scale)."""
+
+    input: Path
+    output: Path
+    model_path: Path
+    repeats: int = 1  # run the 4x model this many times
+    threads: int | None = None
+
+
+@dataclass
 class Progress:
     phase: str  # loading | encoding | sampling | decoding | saving
     step: int = 0
@@ -64,3 +75,5 @@ class Engine(Protocol):
     def generate(
         self, spec: GenerateSpec, on_progress: ProgressFn | None = None
     ) -> EngineResult: ...
+
+    def upscale(self, spec: UpscaleSpec, on_progress: ProgressFn | None = None) -> EngineResult: ...

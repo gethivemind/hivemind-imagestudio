@@ -21,7 +21,7 @@ from typing import Any
 import psutil
 
 from imagestudio.config import Settings
-from imagestudio.engine.base import Engine, EngineError, GenerateSpec, Progress
+from imagestudio.engine.base import Engine, EngineError, GenerateSpec, Progress, UpscaleSpec
 
 STATUSES = ("queued", "running", "done", "failed", "cancelled")
 
@@ -71,6 +71,9 @@ class Job:
     worker_pid: int | None = None  # process rendering this job; guards against duplicates
     cancel_requested: bool = False  # set by any process; honoured by the rendering one
     live_preview: bool = True  # write a per-step preview image while rendering
+    input_path: str | None = None  # upscale / remove_background: the source image
+    source_job: str | None = None  # the job the source image came from, if any
+    tool_model: str | None = None  # upscale / remove_background: which tool model
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -258,9 +261,13 @@ class Worker:
         store: JobStore,
         engine: Engine,
         on_finished=None,
+        background_engine=None,
+        tool_model_path=None,
     ) -> None:
         self.store = store
         self.engine = engine
+        self.background_engine = background_engine
+        self.tool_model_path = tool_model_path  # name -> Path
         self.on_finished = on_finished
         self._q: queue.Queue[str] = queue.Queue()
         self._stop = threading.Event()
@@ -363,6 +370,37 @@ class Worker:
             self._execute(job)
             self._current = None
 
+    def _run_tool(self, job: Job, spec: GenerateSpec, on_progress):
+        out = self.store.settings.out_dir / f"{job.id}.png"
+        if job.tool == "generate":
+            return self.engine.generate(spec, on_progress)
+        if not job.input_path or not Path(job.input_path).exists():
+            raise EngineError(f"input image not found: {job.input_path}")
+        model_path = self.tool_model_path(job.tool_model) if self.tool_model_path else None
+        if model_path is None:
+            raise EngineError(f"tool model {job.tool_model!r} is not installed")
+        if job.tool == "upscale":
+            return self.engine.upscale(
+                UpscaleSpec(
+                    Path(job.input_path),
+                    out,
+                    model_path,
+                    repeats=max(1, job.steps),
+                    threads=job.threads,
+                ),
+                on_progress,
+            )
+        if job.tool == "remove_background":
+            if self.background_engine is None:
+                raise EngineError("no background-removal engine configured")
+            from imagestudio.engine.background import BackgroundSpec
+
+            return self.background_engine.remove_background(
+                BackgroundSpec(Path(job.input_path), out, model_path, job.tool_model or ""),
+                on_progress,
+            )
+        raise EngineError(f"unknown tool {job.tool!r}")
+
     def _execute(self, job: Job) -> None:
         self.store.owned.add(job.id)
         job.status, job.phase, job.started_at = "running", "loading", _now()
@@ -416,7 +454,7 @@ class Worker:
             threads=job.threads,
         )
         try:
-            result = self.engine.generate(spec, on_progress)
+            result = self._run_tool(job, spec, on_progress)
         except EngineError as e:
             stop_watch.set()
             if str(e) == "cancelled":

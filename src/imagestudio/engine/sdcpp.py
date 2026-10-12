@@ -22,7 +22,14 @@ import psutil
 
 from imagestudio import download as dl
 from imagestudio.config import ENV_SD_BIN, ENV_SD_FLAVOR, ENV_THREADS, Settings
-from imagestudio.engine.base import EngineError, EngineResult, GenerateSpec, Progress, ProgressFn
+from imagestudio.engine.base import (
+    EngineError,
+    EngineResult,
+    GenerateSpec,
+    Progress,
+    ProgressFn,
+    UpscaleSpec,
+)
 from imagestudio.registry import SDCPP_COMMIT, SDCPP_TAG, EngineAsset, find_engine_asset
 
 _STEP_RE = re.compile(r"(\d+)/(\d+)\s*-\s*([\d.]+)\s*(s/it|it/s)")
@@ -183,6 +190,67 @@ class SdCppEngine:
             ]
         args += list(spec.extra_args)
         return args
+
+    def upscale(self, spec: UpscaleSpec, on_progress: ProgressFn | None = None) -> EngineResult:
+        """Run sd-cli in upscale mode. ESRGAN work has no step bar; progress is coarse."""
+        b = self.binary()
+        if b is None:
+            raise EngineError(
+                "stable-diffusion.cpp is not installed; run `imagestudio install-engine`"
+            )
+        threads = spec.threads or int(os.environ.get(ENV_THREADS, "0") or 0)
+        args = [
+            str(b),
+            "-M",
+            "upscale",
+            "-i",
+            str(spec.input),
+            "--upscale-model",
+            str(spec.model_path),
+            "-o",
+            str(spec.output),
+            "--upscale-repeats",
+            str(spec.repeats),
+            "--log-level",
+            "info",
+        ]
+        if threads > 0:
+            args += ["-t", str(threads)]
+        spec.output.parent.mkdir(parents=True, exist_ok=True)
+        t0 = time.monotonic()
+        if on_progress:
+            on_progress(Progress("loading", message="starting upscaler"))
+        with self._lock:
+            self._cancelled = False
+            try:
+                self._proc = subprocess.Popen(
+                    args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    cwd=str(Path(args[0]).parent),
+                )
+            except OSError as e:
+                raise EngineError(f"could not start {args[0]}: {e}") from e
+        proc = self._proc
+        assert proc.stdout is not None
+        tail: list[str] = []
+        for raw in proc.stdout:
+            line = raw.decode("utf-8", "replace").strip()
+            if line:
+                tail.append(line[-200:])
+                del tail[:-20]
+                if on_progress and "upscal" in line.lower():
+                    on_progress(Progress("sampling", 1, 1, message=line[-120:]))
+        rc = proc.wait()
+        with self._lock:
+            self._proc = None
+            cancelled = self._cancelled
+        if cancelled:
+            raise EngineError("cancelled")
+        if rc != 0 or not spec.output.exists():
+            raise EngineError(f"upscale failed (exit {rc}):\n" + "\n".join(tail[-8:]))
+        total = time.monotonic() - t0
+        return EngineResult(spec.output, 0.0, total, total, tail[-8:])
 
     def cancel(self) -> None:
         with self._lock:

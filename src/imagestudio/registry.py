@@ -398,6 +398,105 @@ QWEN_IMAGE = ModelSpec(
 
 MODELS: dict[str, ModelSpec] = {m.name: m for m in (QWEN_IMAGE, FLUX_SCHNELL)}
 
+
+# --- tool models: upscalers and background removal --------------------------------------
+
+
+@dataclass(frozen=True)
+class ToolModel:
+    """A small single-file model behind a task tool (upscale, remove_background)."""
+
+    name: str
+    kind: str  # "upscaler" | "background"
+    display_name: str
+    licence: str
+    file: FileSpec
+    note: str
+    default: bool = False
+    scale: int = 1  # upscalers: output size factor
+
+
+_GH = "https://github.com/{repo}/releases/download/{tag}/{name}"
+
+TOOL_MODELS: dict[str, ToolModel] = {
+    t.name: t
+    for t in (
+        ToolModel(
+            "realesrgan-x4plus",
+            "upscaler",
+            "Real-ESRGAN x4plus",
+            "BSD-3-Clause",
+            FileSpec(
+                "RealESRGAN_x4plus.pth",
+                _GH.format(repo="xinntao/Real-ESRGAN", tag="v0.1.0", name="RealESRGAN_x4plus.pth"),
+                "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+                67040989,
+                "BSD-3-Clause",
+                "xinntao/Real-ESRGAN v0.1.0",
+            ),
+            "General-purpose 4x upscaler for photos and renders; the default.",
+            default=True,
+            scale=4,
+        ),
+        ToolModel(
+            "realesrgan-anime-6b",
+            "upscaler",
+            "Real-ESRGAN x4plus anime 6B",
+            "BSD-3-Clause",
+            FileSpec(
+                "RealESRGAN_x4plus_anime_6B.pth",
+                _GH.format(
+                    repo="xinntao/Real-ESRGAN",
+                    tag="v0.2.2.4",
+                    name="RealESRGAN_x4plus_anime_6B.pth",
+                ),
+                "f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da",
+                17938799,
+                "BSD-3-Clause",
+                "xinntao/Real-ESRGAN v0.2.2.4",
+            ),
+            "Smaller 4x upscaler tuned for flat colours and line art (anime, illustration).",
+            scale=4,
+        ),
+        ToolModel(
+            "isnet-general-use",
+            "background",
+            "IS-Net general use",
+            "Apache-2.0",
+            FileSpec(
+                "isnet-general-use.onnx",
+                _GH.format(repo="danielgatis/rembg", tag="v0.0.0", name="isnet-general-use.onnx"),
+                "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a",
+                178648008,
+                "Apache-2.0",
+                "danielgatis/rembg releases (IS-Net, Apache-2.0)",
+            ),
+            "Dichotomous image segmentation at 1024 px: clean edges on hair and thin structures.",
+            default=True,
+        ),
+        ToolModel(
+            "u2net",
+            "background",
+            "U²-Net",
+            "Apache-2.0",
+            FileSpec(
+                "u2net.onnx",
+                _GH.format(repo="danielgatis/rembg", tag="v0.0.0", name="u2net.onnx"),
+                "8d10d2f3bb75ae3b6d527c77944fc5e7dcd94b29809d47a739a7a728a912b491",
+                175997641,
+                "Apache-2.0",
+                "danielgatis/rembg releases (U²-Net, Apache-2.0)",
+            ),
+            "Classic salient-object model at 320 px: faster, softer edges.",
+        ),
+    )
+}
+
+
+def default_tool_model(kind: str) -> ToolModel:
+    return next(t for t in TOOL_MODELS.values() if t.kind == kind and t.default)
+
+
 EXCLUDED_BY_POLICY: tuple[tuple[str, str], ...] = (
     ("FLUX.1 [dev]", "FLUX.1-dev Non-Commercial License"),
     ("RMBG-2.0", "non-commercial (CC BY-NC 4.0)"),
@@ -506,4 +605,7 @@ LICENCES: tuple[dict[str, str], ...] = (
     {"component": "Qwen-Image weights (GGUF, city96)", "licence": "Apache-2.0"},
     {"component": "Qwen2.5-VL-7B-Instruct text encoder (GGUF)", "licence": "Apache-2.0"},
     {"component": "Qwen-Image VAE (Comfy-Org repack)", "licence": "Apache-2.0"},
+    {"component": "Real-ESRGAN upscalers (xinntao)", "licence": "BSD-3-Clause"},
+    {"component": "IS-Net and U²-Net background models", "licence": "Apache-2.0"},
+    {"component": "ONNX Runtime", "licence": "MIT"},
 )

@@ -34,7 +34,15 @@ from imagestudio.planner import (
 )
 from imagestudio.profile import MachineProfile, now_iso, recommend
 from imagestudio.promptparams import apply_aspect, parse, reproducible
-from imagestudio.registry import EXCLUDED_BY_POLICY, LICENCES, MODELS, SDCPP_TAG, ModelSpec
+from imagestudio.registry import (
+    EXCLUDED_BY_POLICY,
+    LICENCES,
+    MODELS,
+    SDCPP_TAG,
+    TOOL_MODELS,
+    ModelSpec,
+    default_tool_model,
+)
 
 MAX_SEED = 2**31 - 1
 
@@ -95,6 +103,7 @@ class Studio:
         engine: Engine | None = None,
         hardware: Hardware | None = None,
         start_worker: bool = True,
+        background_engine=None,
     ) -> None:
         self.settings = settings or Settings.load()
         self.settings.ensure_dirs()
@@ -108,8 +117,19 @@ class Studio:
             allow_over_budget=self.settings.allow_over_budget,
         )
         self.engine: Engine = engine or SdCppEngine(self.settings)
+        if background_engine is None:
+            from imagestudio.engine.background import BackgroundEngine
+
+            background_engine = BackgroundEngine()
+        self.background_engine = background_engine
         self.jobs = JobStore(self.settings)
-        self.worker = Worker(self.jobs, self.engine, on_finished=self._on_finished)
+        self.worker = Worker(
+            self.jobs,
+            self.engine,
+            on_finished=self._on_finished,
+            background_engine=self.background_engine,
+            tool_model_path=self._tool_model_path,
+        )
         self.worker_wanted = start_worker
         self.tasks: dict[str, BackgroundTask] = {}
         if start_worker:
@@ -132,6 +152,8 @@ class Studio:
 
     def _on_finished(self, job: Job) -> None:
         if job.status != "done" or job.sampling_seconds is None or job.sampling_seconds <= 0:
+            return
+        if job.tool != "generate":
             return
         model = MODELS.get(job.model)
         if model is None:
@@ -267,6 +289,138 @@ class Studio:
         self.worker.submit(job)
         return job
 
+    # -- task tools: upscale, remove_background -------------------------------------------
+
+    def _tool_model_path(self, name: str | None) -> Path | None:
+        t = TOOL_MODELS.get(name or "")
+        if t is None or not self.models.tool_installed(t):
+            return None
+        return self.models.path_for(t.file)
+
+    def _resolve_input(self, image: str) -> tuple[Path, str | None]:
+        """``image`` is a job id or a path to a PNG/JPEG/WebP on this machine."""
+        job = self.jobs.get(image)
+        if job is not None:
+            if job.status != "done" or not job.output_path:
+                raise StudioError(f"job {image} has no finished image yet")
+            return Path(job.output_path), job.id
+        p = Path(image).expanduser()
+        if not p.is_file():
+            raise StudioError(f"{image!r} is neither a job id nor an existing image file")
+        if p.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+            raise StudioError("the input must be a PNG, JPEG or WebP image")
+        return p, None
+
+    def _tool_job(self, tool: str, image: str, model_name: str | None, repeats: int = 1) -> Job:
+        kind = "upscaler" if tool == "upscale" else "background"
+        tm = TOOL_MODELS.get(model_name) if model_name else default_tool_model(kind)
+        if tm is None or tm.kind != kind:
+            options = ", ".join(t.name for t in TOOL_MODELS.values() if t.kind == kind)
+            raise StudioError(f"unknown {kind} model {model_name!r}; one of {options}")
+        if not self.models.tool_installed(tm):
+            raise StudioError(
+                f"{tm.display_name} is not downloaded ({tm.file.size / GIB:.2f} GiB). Call "
+                f"download_model(name={tm.name!r}, consent=true) or "
+                f"`imagestudio download-model {tm.name}`."
+            )
+        if tool == "upscale" and not self.engine.available():
+            raise StudioError("the image engine (stable-diffusion.cpp) is not installed")
+        if tool == "remove_background" and not self.background_engine.available():
+            raise StudioError(
+                "background removal needs onnxruntime: pip install 'hivemind-imagestudio[bg]'"
+            )
+        src, source_job = self._resolve_input(image)
+        from PIL import Image
+
+        with Image.open(src) as im:
+            w, h = im.size
+        if tool == "upscale":
+            w, h = w * (tm.scale**repeats), h * (tm.scale**repeats)
+            estimate = 20.0 + 25.0 * (w * h) / 1_000_000  # ~25 s per output megapixel on CPU
+            basis = "heuristic: about 25 s per output megapixel on a laptop CPU"
+        else:
+            estimate = 8.0
+            basis = "heuristic: a few seconds"
+        job = Job(
+            id=self.jobs.new_id(),
+            tool=tool,
+            prompt=f"{tool.replace('_', ' ')} of {source_job or src.name}",
+            negative_prompt="",
+            model=tm.name,
+            variant="-",
+            preset="tool",
+            width=w,
+            height=h,
+            steps=repeats,
+            cfg_scale=0.0,
+            seed=0,
+            sampler="-",
+            component_paths={},
+            extra_args=[],
+            estimate_seconds=estimate,
+            estimate_basis=basis,
+            fit_note=None,
+            warnings=[],
+            input_path=str(src),
+            source_job=source_job,
+            tool_model=tm.name,
+            live_preview=False,
+        )
+        self.worker.submit(job)
+        return job
+
+    def upscale(self, image: str, model: str | None = None, repeats: int = 1) -> Job:
+        if not 1 <= repeats <= 2:
+            raise StudioError("repeats must be 1 (4x) or 2 (16x)")
+        return self._tool_job("upscale", image, model, repeats)
+
+    def remove_background(self, image: str, model: str | None = None) -> Job:
+        return self._tool_job("remove_background", image, model)
+
+    def tools_report(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": t.name,
+                "kind": t.kind,
+                "display_name": t.display_name,
+                "licence": t.licence,
+                "size_gib": round(t.file.size / GIB, 2),
+                "installed": self.models.tool_installed(t),
+                "default": t.default,
+                "scale": t.scale,
+                "note": t.note,
+            }
+            for t in TOOL_MODELS.values()
+        ]
+
+    def start_tool_download(self, name: str) -> BackgroundTask:
+        tm = TOOL_MODELS.get(name)
+        if tm is None:
+            raise StudioError(f"unknown tool model {name!r}")
+        key = f"download:{name}"
+        existing = self.tasks.get(key)
+        if existing and existing.status == "running":
+            return existing
+        task = BackgroundTask("download", tm.display_name)
+        task.total_bytes = 0 if self.models.tool_installed(tm) else tm.file.size
+        self.tasks[key] = task
+
+        def progress(name_: str, done: int, total: int) -> None:
+            task.current_file = name_
+            task.done_bytes = done
+
+        def run() -> None:
+            try:
+                self.models.install_tool(tm, lambda _d, _b: True, progress)
+                task.done_bytes = task.total_bytes
+                task.status, task.message = "done", "installed"
+            except Exception as e:  # shown to the user
+                task.status, task.error = "failed", str(e)
+            task.finished_at = time.time()
+
+        threading.Thread(target=run, name=key, daemon=True).start()
+        return task
+
     # -- job views ------------------------------------------------------------------------
 
     def job_status(self, job_id: str) -> dict[str, Any]:
@@ -281,8 +435,11 @@ class Studio:
             position = queued_ids.index(job_id) + 1 if job_id in queued_ids else None
         return {
             "id": job.id,
+            "tool": job.tool,
+            "source_job": job.source_job,
+            "tool_model": job.tool_model,
             "prompt": job.prompt,
-            "reproducible_prompt": reproducible(job),
+            "reproducible_prompt": reproducible(job) if job.tool == "generate" else "",
             "title": job_title(job),
             "status": job.status,
             "phase": job.phase,
@@ -703,6 +860,12 @@ class Studio:
                 "binary": str(getattr(self.engine, "binary", lambda: None)() or ""),
             },
             "models": [self.model_report(m) for m in MODELS.values()],
+            "tools": self.tools_report(),
+            "background_engine": {
+                "name": self.background_engine.name,
+                "available": self.background_engine.available(),
+                "version": self.background_engine.version(),
+            },
             "excluded_by_policy": [{"model": m, "reason": r} for m, r in EXCLUDED_BY_POLICY],
             "licences": list(LICENCES),
             "paths": {
