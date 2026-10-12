@@ -56,11 +56,12 @@
 
   /* ---------- Create ---------- */
   #create { flex-direction: column; min-height: 0; }
-  .work { flex: 1; display: grid; grid-template-columns: 340px 1fr; min-height: 0; position: relative; }
+  .work { flex: 1; display: grid; grid-template-columns: 312px 1fr; min-height: 0; position: relative; }
   .work.nodrawer { grid-template-columns: 0 1fr; }
   .drawer { border-right: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 14px 16px 24px; }
   .work.nodrawer .drawer { display: none; }
-  .drawer h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin: 14px 0 6px; }
+  .drawer h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin: 16px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .drawer h3:first-child { border-top: 0; padding-top: 0; margin-top: 4px; }
   label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
   .help { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--line); font-size: 10px; cursor: help; color: var(--muted); }
   input[type=text], input[type=number], select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
@@ -68,18 +69,20 @@
   .slider { display: grid; grid-template-columns: 1fr 72px; gap: 8px; align-items: center; }
   .slider input[type=range] { width: 100%; padding: 0; accent-color: var(--accent); }
   .slider input[type=number] { padding: 6px 8px; font-family: var(--mono); font-size: 12px; }
+  .ar .btn { padding: 5px 8px; font-size: 12px; border-radius: 8px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
   .stage { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--bg); }
-  .canvas { flex: 1; display: grid; place-items: center; padding: 18px; min-height: 0; position: relative; overflow: hidden; }
-  .canvas img { max-width: 100%; max-height: calc(100% - 0px); width: auto; height: auto; border-radius: 14px; box-shadow: var(--shadow); object-fit: contain; background: var(--panel); }
+  .canvas { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  .canvas > img { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: calc(100% - 36px); max-height: calc(100% - 36px); border-radius: 14px; box-shadow: var(--shadow); background: var(--panel); }
+  .canvas > .empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
   .canvas .empty { text-align: center; color: var(--muted); max-width: 440px; }
   .canvas .empty b { color: var(--ink); display: block; font-size: 18px; margin-bottom: 6px; }
-  .overlay { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; display: flex; gap: 14px; align-items: center; font-size: 13px; box-shadow: var(--shadow); }
+  .overlay { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: calc(100% - 36px); white-space: nowrap; background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; display: flex; gap: 14px; align-items: center; font-size: 13px; box-shadow: var(--shadow); }
   .overlay .bar { width: 180px; height: 6px; border-radius: 3px; background: var(--meter-bg); overflow: hidden; }
   .overlay .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s; }
   .overlay .m { color: var(--muted); font-family: var(--mono); font-size: 12px; }
-  .strip { display: flex; gap: 10px; padding: 10px 18px; overflow-x: auto; border-top: 1px solid var(--line); background: var(--panel2); min-height: 92px; }
+  .strip { display: flex; gap: 10px; padding: 10px 18px; overflow-x: auto; border-top: 1px solid var(--line); background: var(--panel2); min-height: 56px; }
   .strip .q { flex: 0 0 auto; display: grid; grid-template-columns: 56px 1fr; gap: 8px; width: 300px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 12px; cursor: pointer; }
   .strip .q.sel { border-color: var(--accent); }
   .strip .q img, .strip .q .ph { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: var(--meter-bg); display: grid; place-items: center; color: var(--muted); font-size: 10px; text-align: center; }
@@ -92,7 +95,7 @@
   .promptbar .inner { max-width: 1100px; margin: 0 auto; }
   .prow { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: stretch; }
   .pbox { border: 1px solid var(--line); border-radius: 14px; background: var(--bg); padding: 8px 10px; display: grid; grid-template-rows: auto auto; gap: 6px; }
-  .pbox textarea { border: 0; background: transparent; padding: 4px 6px; min-height: 48px; max-height: 160px; resize: none; }
+  .pbox textarea { border: 0; background: transparent; padding: 4px 6px; min-height: 48px; max-height: 160px; resize: none; font-size: 15px; }
   .pbox textarea:focus { outline: none; }
   .ptools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .ptools select, .ptools input { width: auto; padding: 6px 8px; border-radius: 8px; font-size: 12px; }
@@ -104,8 +107,12 @@
   .meterline .bar { flex: 0 0 160px; height: 8px; border-radius: 4px; background: var(--meter-bg); overflow: hidden; }
   .meterline .bar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s, background .3s; }
   .lab-comfortable { color: var(--ok); font-weight: 600; } .lab-tight, .lab-swap { color: var(--warn); font-weight: 600; } .lab-over { color: var(--bad); font-weight: 600; }
-  .notices { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-  .notice { display: grid; grid-template-columns: 18px 1fr; gap: 8px; padding: 8px 10px; border-radius: 10px; font-size: 12px; border: 1px solid var(--line); background: var(--panel2); }
+  .notices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .notice { display: grid; grid-template-columns: 16px 1fr; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; max-width: 100%; }
+  .notice .d { display: none; }
+  .notice.open { border-radius: 12px; grid-column: 1 / -1; }
+  .notice.open .d { display: block; margin-top: 2px; }
+  .notice .act { display: none; } .notice.open .act { display: block; }
   .notice .t { font-weight: 600; }
   .notice .d { color: var(--muted); }
   .notice.warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
@@ -209,7 +216,7 @@
       <div class="slider"><input type="range" id="widthR" min="256" max="2048" step="16"><input type="number" id="widthN" min="256" max="2048" step="16" placeholder="preset"></div>
       <label for="heightN">Height <span class="help" title="Any aspect ratio works; a tall or wide image costs the same as a square with the same pixel count.">?</span></label>
       <div class="slider"><input type="range" id="heightR" min="256" max="2048" step="16"><input type="number" id="heightN" min="256" max="2048" step="16" placeholder="preset"></div>
-      <div class="ptools" style="margin-top:6px"><button class="btn ghost" data-ar="1:1">1:1</button><button class="btn ghost" data-ar="4:3">4:3</button><button class="btn ghost" data-ar="3:4">3:4</button><button class="btn ghost" data-ar="16:9">16:9</button><button class="btn ghost" data-ar="9:16">9:16</button></div>
+      <div class="ptools ar" style="margin-top:6px"><button class="btn ghost" data-ar="1:1">1:1</button><button class="btn ghost" data-ar="4:3">4:3</button><button class="btn ghost" data-ar="3:4">3:4</button><button class="btn ghost" data-ar="16:9">16:9</button><button class="btn ghost" data-ar="9:16">9:16</button></div>
       <h3>Sampling</h3>
       <label for="stepsN">Steps <span class="help" title="Denoising passes. FLUX schnell is distilled to 4: more only costs time. Qwen-Image uses 50. Empty = preset.">?</span></label>
       <div class="slider"><input type="range" id="stepsR" min="1" max="100" step="1"><input type="number" id="stepsN" min="1" max="100" placeholder="preset"></div>
@@ -246,7 +253,7 @@
           <input type="number" class="seed" id="seed" placeholder="seed: random" title="Same prompt, settings and seed reproduce the image; empty = random.">
         </div>
       </div>
-      <button class="btn primary go" id="go" disabled><span>Generate</span><small id="goSub">about …</small></button>
+      <button class="btn primary go" id="go" disabled title="Ctrl+Enter"><span>Generate</span><small id="goSub">about …</small></button>
     </div>
     <div class="meterline">
       <div class="bar"><i id="fill"></i></div>
@@ -422,8 +429,8 @@
   // ---------- plan / meter / notices
   let planTimer = null; function schedulePlan() { clearTimeout(planTimer); planTimer = setTimeout(plan, 220); }
   function updateGo() { $("go").disabled = !(S.plan && S.plan.installed) || !$("prompt").value.trim(); }
-  function notice(kind, title, detail, action) { const n = document.createElement("div"); n.className = `notice ${kind}`; n.innerHTML = `<div class="ic">${kind === "bad" ? "!" : kind === "warn" ? "!" : "i"}</div><div><div class="t">${esc(title)}</div>${detail ? `<div class="d">${esc(detail)}</div>` : ""}</div>`; if (action) n.querySelector("div:last-child").appendChild(action); return n; }
-  function splitWarn(w) { const m = w.match(/^(.{10,90}?[.;:])\s+(.*)$/s); return m ? [m[1], m[2]] : [w, ""]; }
+  function notice(kind, title, detail, action) { const n = document.createElement("div"); n.className = `notice ${kind}`; n.title = detail || ""; n.onclick = (e) => { if (!e.target.closest("button")) n.classList.toggle("open"); }; n.innerHTML = `<div class="ic">${kind === "bad" ? "!" : kind === "warn" ? "!" : "i"}</div><div><div class="t">${esc(title)}</div>${detail ? `<div class="d">${esc(detail)}</div>` : ""}</div>`; if (action) n.querySelector("div:last-child").appendChild(action); return n; }
+  function splitWarn(w) { const m = w.match(/^(.{10,90}?)[.;:]\s+(.*)$/s); return m ? [m[1], m[2]] : [w.replace(/[.;:]$/, ""), ""]; }
   async function plan() {
     const s = settings(); const q = new URLSearchParams();
     for (const k of ["preset", "width", "height", "model", "steps", "cfg_scale", "sampler", "variant"]) if (s[k] != null && s[k] !== "") q.set(k, s[k]);
@@ -433,13 +440,13 @@
       $("load").innerHTML = `<span class="lab-over">refused</span>`; $("loadnums").textContent = ""; $("planText").textContent = ""; $("goSub").textContent = "not possible";
       const [t, rest] = splitWarn(d.error); const act = document.createElement("div"); act.className = "act";
       if (/locked/i.test(d.error)) { const b = document.createElement("button"); b.className = "btn"; b.textContent = "Open Settings"; b.onclick = () => showTab("machine"); act.appendChild(b); }
-      N.appendChild(notice("bad", t, rest, act)); updateGo(); return;
+      const nb = notice("bad", t, rest, act); nb.classList.add("open"); N.appendChild(nb); updateGo(); return;
     }
     S.plan = d; const L = d.load; const cls = { "comfortable": "lab-comfortable", "tight": "lab-tight", "will swap": "lab-swap", "over budget": "lab-over" }[L.label];
     $("fill").style.width = Math.min(100, L.score) + "%"; $("fill").style.background = cls === "lab-comfortable" ? "var(--ok)" : cls === "lab-over" ? "var(--bad)" : "var(--warn)";
     $("load").innerHTML = `load ${L.score}% · <span class="${cls}">${L.label}</span>`; $("loadnums").textContent = `needs ${L.required_gib} GiB · budget ${L.budget_gib} · free ${L.available_gib}`;
     $("planText").textContent = `${d.model} [${d.variant}] · ${d.width}×${d.height} · ${d.steps} steps · cfg ${d.cfg_scale} · ${d.sampler}${d.estimate.calibrated ? "" : " · estimate uncalibrated"}`;
-    $("goSub").textContent = `about ${d.estimate.human}`;
+    $("goSub").textContent = `${S.preset} · about ${d.estimate.human}`;
     if (d.fit_note) { const [t, rest] = splitWarn(d.fit_note); N.appendChild(notice("info", t, rest)); }
     for (const w of d.warnings || []) { const [t, rest] = splitWarn(w); N.appendChild(notice("warn", t, rest)); }
     if (!d.installed) {
@@ -488,7 +495,7 @@
       const eta = j.phase === "sampling" ? `step ${j.step}/${j.total_steps} · ${fmtEta(j.eta_seconds)} left` : j.status === "queued" ? `queued · ~${fmtEta(j.eta_seconds)}` : `${j.phase} · ~${fmtEta(j.eta_seconds)} left`;
       html += `<div class="overlay"><div><b>${j.status === "running" ? "Rendering" : "Queued"}</b><div class="m">${eta}</div></div><div class="bar"><i style="width:${Math.round((j.progress || 0) * 100)}%"></i></div><button class="btn" id="cancelBtn">Cancel</button></div>`;
     } else if (j.status === "done") {
-      html += `<div class="overlay"><div><b>Done</b><div class="m">${j.preset} · ${j.width}×${j.height} · seed ${j.seed} · ${fmtDur(j.total_seconds)}</div></div><button class="btn" id="openGal">Open in gallery</button></div>`;
+      html += `<div class="overlay"><span class="m">${j.preset} · ${j.width}×${j.height} · seed ${j.seed} · ${fmtDur(j.total_seconds)}</span><button class="btn" id="openGal">Open in gallery</button></div>`;
     } else if (j.status === "failed") {
       html += `<div class="overlay"><div><b>Failed</b><div class="m">${esc((j.error || "").split("\n")[0].slice(0, 120))}</div></div></div>`;
     }
