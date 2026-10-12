@@ -76,6 +76,10 @@ class Settings:
         return bool(self.config().get("allow_over_budget", False))
 
     @property
+    def hardware_cache_file(self) -> Path:
+        return self.data_dir / "hardware.json"
+
+    @property
     def worker_lock_file(self) -> Path:
         return self.data_dir / "worker.lock"
 

@@ -23,7 +23,7 @@ import psutil
 from imagestudio import download as dl
 from imagestudio.config import ENV_SD_BIN, ENV_SD_FLAVOR, ENV_THREADS, Settings
 from imagestudio.engine.base import EngineError, EngineResult, GenerateSpec, Progress, ProgressFn
-from imagestudio.registry import SDCPP_TAG, EngineAsset, find_engine_asset
+from imagestudio.registry import SDCPP_COMMIT, SDCPP_TAG, EngineAsset, find_engine_asset
 
 _STEP_RE = re.compile(r"(\d+)/(\d+)\s*-\s*([\d.]+)\s*(s/it|it/s)")
 _TAKING_RE = re.compile(r"taking\s+([\d.]+)\s*s", re.IGNORECASE)
@@ -45,6 +45,7 @@ class SdCppEngine:
         self._proc: subprocess.Popen[bytes] | None = None
         self._lock = threading.Lock()
         self._cancelled = False
+        self._version_cache: str | None = None
 
     # -- locating / installing ------------------------------------------------------------
 
@@ -79,15 +80,19 @@ class SdCppEngine:
         b = self.binary()
         if not b:
             return None
+        if self._version_cache is not None:
+            return self._version_cache
         try:
             out = subprocess.run(
                 [str(b), "--version"], capture_output=True, text=True, timeout=30, check=False
             )
         except (OSError, subprocess.SubprocessError):
-            return None
+            return f"stable-diffusion.cpp {SDCPP_COMMIT} (pinned; version probe timed out)"
         text = (out.stdout or "") + (out.stderr or "")
         m = _VERSION_RE.search(text)
-        return f"stable-diffusion.cpp {m.group(1)}" if m else text.strip().splitlines()[0:1] or None
+        first = text.strip().splitlines()[0] if text.strip() else None
+        self._version_cache = f"stable-diffusion.cpp {m.group(1)}" if m else first
+        return self._version_cache
 
     def install(
         self, consent: ConsentFn, progress: Callable[[int, int], None] | None = None

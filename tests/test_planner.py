@@ -181,3 +181,21 @@ def test_over_budget_is_locked_unless_allowed(settings):
     assert plan.over_budget and plan.load.label == "over budget"
     plan = unlocked.plan("qwen-image", "best")
     assert plan.over_budget and plan.variant.name == "q4"
+
+
+def test_hardware_cache_is_reused_but_available_ram_is_live(tmp_path, monkeypatch):
+    from imagestudio import hardware as hwmod
+
+    calls = []
+
+    def fake_probe():
+        calls.append(1)
+        return laptop()
+
+    monkeypatch.setattr(hwmod, "_probe", fake_probe)
+    cache = tmp_path / "hardware.json"
+    a = hwmod.detect(cache)
+    b = hwmod.detect(cache)
+    assert len(calls) == 1 and cache.exists()
+    assert a.cpu_name == b.cpu_name and b.gpus[0].name == a.gpus[0].name
+    assert b.ram_available_bytes > 0

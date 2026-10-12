@@ -47,7 +47,7 @@ class Studio:
     ) -> None:
         self.settings = settings or Settings.load()
         self.settings.ensure_dirs()
-        self.hardware = hardware or detect()
+        self.hardware = hardware or detect(self.settings.hardware_cache_file)
         self.models = ModelStore(self.settings)
         self.calibration = Calibration(self.settings.calibration_file, self.hardware)
         self.planner = Planner(
@@ -205,6 +205,7 @@ class Studio:
             position = queued_ids.index(job_id) + 1 if job_id in queued_ids else None
         return {
             "id": job.id,
+            "prompt": job.prompt,
             "status": job.status,
             "phase": job.phase,
             "progress": round(job.progress_fraction(), 3),

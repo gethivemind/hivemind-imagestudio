@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import json
 import os
 import platform
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 import psutil
 
 GIB = 1024**3
+PROBE_TIMEOUT = 25.0  # PowerShell/CIM probes can take many seconds on a loaded machine
+CACHE_MAX_AGE = 24 * 3600
 
 
 @dataclass
@@ -54,7 +59,7 @@ class Hardware:
         return d
 
 
-def _run(cmd: list[str], timeout: float = 10) -> str:
+def _run(cmd: list[str], timeout: float = PROBE_TIMEOUT) -> str:
     try:
         return subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout, check=False
@@ -158,7 +163,44 @@ def _mac_gpus() -> list[Gpu]:
     return gpus
 
 
-def detect() -> Hardware:
+def detect(cache_file: Path | None = None) -> Hardware:
+    """Detect hardware. Static facts (CPU name, cores, GPUs, total RAM) are cached in
+    ``cache_file`` for a day because the probes are slow; available RAM is always live."""
+    cached = _read_cache(cache_file)
+    vm = psutil.virtual_memory()
+    if cached is not None:
+        cached.ram_available_bytes = vm.available
+        return cached
+    hw = _probe()
+    _write_cache(cache_file, hw)
+    return hw
+
+
+def _read_cache(cache_file: Path | None) -> Hardware | None:
+    if cache_file is None or not cache_file.exists():
+        return None
+    try:
+        if time.time() - cache_file.stat().st_mtime > CACHE_MAX_AGE:
+            return None
+        d = json.loads(cache_file.read_text(encoding="utf-8"))
+        gpus = [Gpu(**g) for g in d.pop("gpus", [])]
+        d = {k: d[k] for k in Hardware.__dataclass_fields__ if k in d and k != "gpus"}
+        return Hardware(gpus=gpus, **d)
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _write_cache(cache_file: Path | None, hw: Hardware) -> None:
+    if cache_file is None:
+        return
+    try:
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(json.dumps(asdict(hw), indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _probe() -> Hardware:
     gpus = _nvidia_gpus()
     if sys.platform == "win32":
         seen = {g.name for g in gpus}

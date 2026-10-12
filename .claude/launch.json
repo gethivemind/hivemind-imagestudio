@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "imagestudio-ui",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "imagestudio", "ui", "--no-worker", "--port", "8766"],
+      "port": 8766
+    }
+  ]
+}

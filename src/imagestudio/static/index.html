@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Studio</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e3e1dc;
+    --accent: #2f6fed; --ok: #2e8b57; --warn: #d19a16; --bad: #c8463c; --meter-bg: #ebe9e4;
+    --radius: 12px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141414; --panel: #1e1e1e; --ink: #ececea; --muted: #a09f9a; --line: #2c2c2c;
+      --accent: #6b9cff; --ok: #4fbf7a; --warn: #e2b23a; --bad: #ef6b60; --meter-bg: #2a2a2a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141414; --panel: #1e1e1e; --ink: #ececea; --muted: #a09f9a; --line: #2c2c2c;
+    --accent: #6b9cff; --ok: #4fbf7a; --warn: #e2b23a; --bad: #ef6b60; --meter-bg: #2a2a2a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; padding: 18px 16px 10px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  header .hw { color: var(--muted); font-size: 13px; }
+  main { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+  .panel h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 0 0 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  textarea, input, select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
+  textarea { min-height: 84px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .presets button { padding: 10px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); cursor: pointer; text-align: left; font: inherit; }
+  .presets button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .presets .name { font-weight: 600; display: block; }
+  .presets .t { font-size: 12px; color: var(--muted); display: block; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .meter { margin-top: 14px; }
+  .meter .bar { height: 12px; border-radius: 6px; background: var(--meter-bg); overflow: hidden; position: relative; }
+  .meter .fill { height: 100%; width: 0; background: var(--ok); transition: width .3s, background .3s; }
+  .meter .limit { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); left: 100%; transform: translateX(-2px); }
+  .meter .legend { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .meter .label { font-weight: 600; }
+  .meter .label.comfortable { color: var(--ok); } .meter .label.tight { color: var(--warn); }
+  .meter .label.swap { color: var(--warn); } .meter .label.over { color: var(--bad); }
+  .est { margin-top: 10px; font-size: 14px; }
+  .est b { font-size: 18px; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .warn { font-size: 13px; color: var(--warn); margin-top: 6px; }
+  .err { font-size: 13px; color: var(--bad); margin-top: 6px; }
+  .go { margin-top: 14px; width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  .go:disabled { opacity: .5; cursor: default; }
+  .jobs { display: flex; flex-direction: column; gap: 10px; }
+  .job { display: grid; grid-template-columns: 96px 1fr auto; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--bg); }
+  .job img, .job .ph { width: 96px; height: 96px; border-radius: 8px; object-fit: cover; background: var(--meter-bg); display: grid; place-items: center; color: var(--muted); font-size: 12px; }
+  .job .p { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job .m { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .job .prog { height: 6px; border-radius: 3px; background: var(--meter-bg); margin-top: 6px; overflow: hidden; }
+  .job .prog i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .5s; }
+  .job button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; font: inherit; font-size: 13px; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 14px; }
+  .gallery a { display: block; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--bg); }
+  .gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .gallery .cap { padding: 6px 8px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hivemind Image Studio</h1>
+  <span class="hw" id="hw">loading…</span>
+  <span class="hw" id="mode"></span>
+</header>
+<main>
+  <section class="panel">
+    <h2>New image</h2>
+    <label for="prompt">Prompt</label>
+    <textarea id="prompt" placeholder="What to draw: subject, setting, style, lighting…"></textarea>
+    <label>Preset <span class="pill">quality is a setting</span></label>
+    <div class="presets" id="presets"></div>
+    <div class="row">
+      <div><label for="width">Width</label><input id="width" type="number" step="16" min="256" max="2048" placeholder="preset"></div>
+      <div><label for="height">Height</label><input id="height" type="number" step="16" min="256" max="2048" placeholder="preset"></div>
+    </div>
+    <div class="row">
+      <div><label for="seed">Seed</label><input id="seed" type="number" placeholder="random"></div>
+      <div><label for="model">Model</label><select id="model"><option value="auto">auto (strongest that fits)</option></select></div>
+    </div>
+    <details>
+      <summary>Advanced: steps, guidance, sampler, quantisation, threads</summary>
+      <label for="negative">Negative prompt</label><input id="negative" placeholder="what to avoid (little effect on FLUX schnell)">
+      <div class="row3">
+        <div><label for="steps">Steps</label><input id="steps" type="number" min="1" max="100" placeholder="preset"></div>
+        <div><label for="cfg">Guidance</label><input id="cfg" type="number" step="0.1" min="0" max="20" placeholder="preset"></div>
+        <div><label for="sampler">Sampler</label><select id="sampler"><option value="">euler</option><option>euler_a</option><option>heun</option><option>dpm2</option><option>dpm++2s_a</option><option>dpm++2m</option><option>dpm++2mv2</option><option>ipndm</option><option>ipndm_v</option><option>lcm</option><option>ddim_trailing</option><option>tcd</option></select></div>
+      </div>
+      <div class="row3">
+        <div><label for="variant">Quantisation</label><select id="variant"><option value="">by memory fit</option><option>q8</option><option>q6</option><option>q5</option><option>q4</option></select></div>
+        <div><label for="threads">Threads</label><input id="threads" type="number" min="1" max="256" placeholder="cores"></div>
+        <div><label for="tiling">VAE tiling</label><select id="tiling"><option value="">off</option><option value="1">on (saves memory)</option></select></div>
+      </div>
+    </details>
+    <div class="meter">
+      <div class="bar"><div class="fill" id="fill"></div><div class="limit" title="this machine's memory budget"></div></div>
+      <div class="legend"><span id="load">load: …</span><span id="loadnums"></span></div>
+      <div class="est" id="est"></div>
+      <div class="note" id="fit"></div>
+      <div class="warn" id="warns"></div>
+      <div class="err" id="error"></div>
+    </div>
+    <button class="go" id="go" disabled>Generate</button>
+  </section>
+  <section>
+    <div class="panel">
+      <h2>Queue</h2>
+      <div class="jobs" id="jobs"><span class="note">No jobs yet.</span></div>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h2>Gallery</h2>
+      <div class="gallery" id="gallery"></div>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { preset: "best", caps: null, planOk: false };
+  const val = (id) => { const v = $(id).value.trim(); return v === "" ? null : v; };
+
+  function settings() {
+    return {
+      prompt: $("prompt").value, preset: state.preset,
+      width: val("width") ? +val("width") : null, height: val("height") ? +val("height") : null,
+      seed: val("seed") ? +val("seed") : null, model: $("model").value,
+      negative_prompt: $("negative").value, steps: val("steps") ? +val("steps") : null,
+      cfg_scale: val("cfg") ? +val("cfg") : null, sampler: val("sampler"),
+      variant: val("variant"), threads: val("threads") ? +val("threads") : null,
+      vae_tiling: $("tiling").value === "1",
+    };
+  }
+
+  async function loadCaps() {
+    const caps = await (await fetch("/api/capabilities")).json();
+    state.caps = caps;
+    const hw = caps.hardware;
+    const gpu = hw.gpus && hw.gpus.length ? hw.gpus.map(g => g.name + (g.vram_gib ? ` ${g.vram_gib} GiB` : "")).join(", ") : "no GPU";
+    $("hw").textContent = `${hw.cpu_name} · ${hw.physical_cores} cores · ${hw.ram_total_gib} GiB RAM (${hw.ram_available_gib} free) · ${gpu} · engine ${caps.engine.available ? caps.engine.version : "not installed"}`;
+    $("mode").textContent = caps.queue.worker_in_this_process ? "" : `rendering in another process (pid ${caps.queue.worker_pid})`;
+    const sel = $("model");
+    for (const m of caps.models) {
+      const o = document.createElement("option");
+      o.value = m.name;
+      o.textContent = `${m.display_name} (${m.licence})${m.installed_variants.length ? "" : " · not downloaded"}`;
+      sel.appendChild(o);
+    }
+    renderPresets();
+  }
+
+  function renderPresets() {
+    const box = $("presets"); box.innerHTML = "";
+    const model = state.caps.models.find(m => m.name === $("model").value) || state.caps.models.find(m => m.installed_variants.length) || state.caps.models[0];
+    for (const name of ["best", "balanced", "fast"]) {
+      const p = model.presets.find(x => x.preset === name) || { preset: name, tradeoff: "" };
+      const b = document.createElement("button");
+      b.className = name === state.preset ? "active" : "";
+      const t = p.expected_time ? p.expected_time.human : "";
+      b.innerHTML = `<span class="name">${name}${name === "best" ? " · default" : ""}</span><span class="t">${p.width ? p.width + " px · " : ""}${t}</span>`;
+      b.title = p.tradeoff || "";
+      b.onclick = () => { state.preset = name; renderPresets(); plan(); };
+      box.appendChild(b);
+    }
+  }
+
+  let planTimer = null;
+  function schedulePlan() { clearTimeout(planTimer); planTimer = setTimeout(plan, 250); }
+
+  async function plan() {
+    const s = settings();
+    const q = new URLSearchParams();
+    for (const k of ["preset", "width", "height", "model", "steps", "cfg_scale", "sampler", "variant"]) if (s[k] !== null && s[k] !== "" && s[k] !== undefined) q.set(k, s[k]);
+    const r = await fetch("/api/plan?" + q.toString());
+    const d = await r.json();
+    if (d.error) {
+      state.planOk = false;
+      $("error").textContent = d.error; $("est").textContent = ""; $("fit").textContent = ""; $("warns").textContent = "";
+      $("fill").style.width = "100%"; $("fill").style.background = "var(--bad)";
+      $("load").innerHTML = `load: <span class="label over">refused</span>`; $("loadnums").textContent = "";
+      $("go").disabled = true; return;
+    }
+    state.planOk = true; $("error").textContent = "";
+    const L = d.load; const pct = Math.min(100, L.score);
+    const cls = { "comfortable": "comfortable", "tight": "tight", "will swap": "swap", "over budget": "over" }[L.label];
+    $("fill").style.width = pct + "%";
+    $("fill").style.background = cls === "comfortable" ? "var(--ok)" : cls === "over" ? "var(--bad)" : "var(--warn)";
+    $("load").innerHTML = `load ${L.score}% of budget: <span class="label ${cls}">${L.label}</span>`;
+    $("loadnums").textContent = `needs ${L.required_gib} GiB · budget ${L.budget_gib} · free ${L.available_gib}`;
+    $("est").innerHTML = `<b>${d.estimate.human}</b> expected · ${d.model} [${d.variant}] ${d.width}×${d.height}, ${d.steps} steps, cfg ${d.cfg_scale}, ${d.sampler}<div class="note">${d.estimate.basis}</div>`;
+    $("fit").textContent = d.fit_note || "";
+    $("warns").textContent = (d.warnings || []).join(" ");
+    $("go").disabled = !d.installed || !$("prompt").value.trim();
+    if (!d.installed) $("warns").textContent += ` Model files not downloaded: run "imagestudio download-model ${d.model}".`;
+  }
+
+  async function generate() {
+    $("go").disabled = true;
+    const r = await fetch("/api/generate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(settings()) });
+    const d = await r.json();
+    if (d.error) { $("error").textContent = d.error; } else { $("error").textContent = ""; }
+    await refreshJobs(); plan();
+  }
+
+  function fmtEta(s) { if (s == null) return ""; if (s < 60) return `${s}s`; const m = Math.round(s / 60); return m < 60 ? `${m} min` : `${(m / 60).toFixed(1)} h`; }
+
+  async function refreshJobs() {
+    const d = await (await fetch("/api/jobs")).json();
+    const jobs = d.jobs || [];
+    const box = $("jobs"); box.innerHTML = "";
+    const active = jobs.filter(j => j.status === "queued" || j.status === "running");
+    if (!active.length) box.innerHTML = '<span class="note">Nothing queued. Finished images are in the gallery below.</span>';
+    for (const j of active) {
+      const el = document.createElement("div"); el.className = "job";
+      const prog = Math.round((j.progress || 0) * 100);
+      const eta = j.status === "running" && j.phase === "sampling" ? `step ${j.step}/${j.total_steps} · ${fmtEta(j.eta_seconds)} left` : j.status === "queued" ? `queued #${j.queue_position} · ~${fmtEta(j.eta_seconds)}` : `${j.phase} · ~${fmtEta(j.eta_seconds)} left`;
+      el.innerHTML = `<div class="ph">${j.status}</div><div><div class="p">${j.prompt || j.id}</div><div class="m">${j.model} [${j.variant}] ${j.preset} ${j.width}×${j.height} seed ${j.seed}${j.over_budget ? " · over budget" : ""}</div><div class="m">${eta}</div><div class="prog"><i style="width:${prog}%"></i></div></div><button data-id="${j.id}">Cancel</button>`;
+      el.querySelector("button").onclick = async (e) => { await fetch(`/api/jobs/${e.target.dataset.id}/cancel`, { method: "POST" }); refreshJobs(); };
+      box.appendChild(el);
+    }
+    const done = jobs.filter(j => j.status === "done");
+    const key = done.map(j => j.id).join(",");
+    const g = $("gallery");
+    if (g.dataset.key !== key) {
+    g.dataset.key = key; g.innerHTML = "";
+    for (const j of done) {
+      const a = document.createElement("a"); a.href = `/api/image/${j.id}`; a.target = "_blank";
+      a.innerHTML = `<img loading="lazy" src="/api/image/${j.id}" alt=""><div class="cap" title="${(j.prompt || "").replace(/"/g, "&quot;")}">${j.preset} ${j.width}×${j.height} · seed ${j.seed}${j.peak_rss_gib ? ` · ${j.peak_rss_gib} GiB` : ""}</div>`;
+      g.appendChild(a);
+    }
+    }
+    const failed = jobs.filter(j => j.status === "failed").slice(0, 3);
+    for (const j of failed) {
+      const el = document.createElement("div"); el.className = "job";
+      el.innerHTML = `<div class="ph">failed</div><div><div class="p">${j.prompt || j.id}</div><div class="err">${j.error || ""}</div></div><span></span>`;
+      box.appendChild(el);
+    }
+  }
+
+  for (const id of ["width", "height", "model", "steps", "cfg", "sampler", "variant"]) $(id).addEventListener("input", () => { if (id === "model") renderPresets(); schedulePlan(); });
+  $("prompt").addEventListener("input", () => { $("go").disabled = !state.planOk || !$("prompt").value.trim(); });
+  $("go").onclick = generate;
+  loadCaps().then(plan).then(refreshJobs);
+  setInterval(refreshJobs, 5000);
+})();
+</script>
+</body>
+</html>
