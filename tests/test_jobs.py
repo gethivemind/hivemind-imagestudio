@@ -197,3 +197,22 @@ def test_low_memory_plan_passes_mmap_to_engine(settings: Settings):
         assert "--mmap" in engine.calls[0].extra_args
     finally:
         studio.close()
+
+
+def test_threads_and_vae_tiling_reach_the_engine(studio: Studio):
+    job = studio.generate("knobs", threads=4, vae_tiling=True)
+    wait_done(studio, job.id)
+    spec = studio.engine.calls[-1]
+    assert spec.threads == 4 and "--vae-tiling" in spec.extra_args
+    with pytest.raises(StudioError):
+        studio.generate("x", threads=0)
+
+
+def test_config_file_unlocks_over_budget(settings: Settings):
+    from conftest import FLUX_SCHNELL, fake_install
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q8"))
+    settings.config_file.write_text('{"allow_over_budget": true}')
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop(), start_worker=False)
+    plan = studio.plan("flux-schnell", "best", None, None, "q8")
+    assert plan.over_budget

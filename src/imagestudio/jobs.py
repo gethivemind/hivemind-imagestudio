@@ -63,6 +63,8 @@ class Job:
     sampling_seconds: float | None = None
     total_seconds: float | None = None
     peak_rss_bytes: int | None = None
+    threads: int | None = None
+    over_budget: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -245,6 +247,7 @@ class Worker:
             output=self.store.settings.out_dir / f"{job.id}.png",
             component_paths={k: Path(v) for k, v in job.component_paths.items()},
             extra_args=tuple(job.extra_args),
+            threads=job.threads,
         )
         try:
             result = self.engine.generate(spec, on_progress)

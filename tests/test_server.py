@@ -19,6 +19,7 @@ EXPECTED_TOOLS = {
     "cancel_job",
     "capabilities",
     "download_model",
+    "plan",
 }
 
 
@@ -112,3 +113,14 @@ async def test_download_model_requires_consent(studio: Studio):
         await server.call_tool("download_model", {"name": "flux-schnell", "variant": "q5"})
     )
     assert r["already_installed"] is True
+
+
+async def test_plan_tool_is_a_dry_run_with_load_meter(studio: Studio):
+    server = build_server(studio)
+    before = len(studio.list_jobs())
+    p = _payload(await server.call_tool("plan", {"preset": "balanced"}))
+    assert p["width"] == 768 and p["load"]["label"] in ("comfortable", "tight", "will swap")
+    assert p["estimate"]["human"]
+    assert len(studio.list_jobs()) == before
+    r = _payload(await server.call_tool("plan", {"variant": "q8"}))
+    assert "error" in r and "locked" in r["error"]

@@ -97,11 +97,11 @@ def test_installed_lower_variant_is_preferred_over_uninstalled_higher(settings):
     assert any("not downloaded" in w for w in plan.warnings)  # said, not silent
 
 
-def test_explicit_variant_that_does_not_fit_warns_but_is_allowed(settings):
+def test_explicit_variant_that_does_not_fit_is_refused_with_numbers(settings):
     planner, _ = make_planner(settings, laptop())
-    plan = planner.plan("flux-schnell", "best", variant_name="q8")
-    assert plan.variant.name == "q8"
-    assert any("may swap" in w for w in plan.warnings)
+    with pytest.raises(PlanError, match="GiB") as e:
+        planner.plan("flux-schnell", "best", variant_name="q8")
+    assert "budget" in str(e.value)
 
 
 def test_estimate_is_labelled_uncalibrated_then_learns(settings):
@@ -152,3 +152,32 @@ def test_low_free_ram_turns_on_memory_mapping(settings):
     hw.ram_available_bytes = 14 * GIB
     planner, _ = make_planner(settings, hw)
     assert not planner.plan("flux-schnell", "best").low_memory
+
+
+def test_load_meter_labels(settings):
+    planner, _ = make_planner(settings, workstation())
+    plan = planner.plan("flux-schnell", "best")
+    assert plan.load.label == "comfortable" and plan.load.score < 70
+    hw = laptop()
+    hw.ram_available_bytes = 2 * GIB
+    planner, _ = make_planner(settings, hw)
+    plan = planner.plan("flux-schnell", "best")
+    assert plan.load.label == "will swap" and plan.load.score <= 100
+    assert plan.to_dict()["load"]["meaning"]
+
+
+def test_over_budget_is_locked_unless_allowed(settings):
+    planner, _ = make_planner(settings, laptop())
+    with pytest.raises(PlanError, match="locked"):
+        planner.plan("flux-schnell", "best", variant_name="q8")
+    with pytest.raises(PlanError, match="locked"):
+        planner.plan("qwen-image", "best")
+    hw = laptop()
+    store = ModelStore(settings)
+    unlocked = Planner(
+        hw, store, Calibration(settings.calibration_file, hw), allow_over_budget=True
+    )
+    plan = unlocked.plan("flux-schnell", "best", variant_name="q8")
+    assert plan.over_budget and plan.load.label == "over budget"
+    plan = unlocked.plan("qwen-image", "best")
+    assert plan.over_budget and plan.variant.name == "q4"

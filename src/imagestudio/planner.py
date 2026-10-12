@@ -43,6 +43,56 @@ class PlanError(ValueError):
     pass
 
 
+UNLOCK_HINT = (
+    "Over-budget runs are locked by default. To try anyway, set "
+    'IMAGESTUDIO_ALLOW_OVER_BUDGET=1 or put {"allow_over_budget": true} in config.json '
+    "in the data directory; the run may swap for hours or fail to allocate."
+)
+
+
+@dataclass
+class Load:
+    """The performance meter: what the job needs against what the machine has."""
+
+    required_bytes: int
+    budget_bytes: int
+    available_bytes: int
+
+    @property
+    def score(self) -> int:
+        """0-100+ : percent of the machine's memory budget this job needs."""
+        if self.budget_bytes <= 0:
+            return 999
+        return round(100 * self.required_bytes / self.budget_bytes)
+
+    @property
+    def label(self) -> str:
+        if self.score > 100:
+            return "over budget"
+        if self.required_bytes > self.available_bytes:
+            return "will swap"
+        if self.score >= 70:
+            return "tight"
+        return "comfortable"
+
+    def to_dict(self) -> dict:
+        return {
+            "score": self.score,
+            "label": self.label,
+            "required_gib": round(self.required_bytes / GIB, 1),
+            "budget_gib": round(self.budget_bytes / GIB, 1),
+            "available_gib": round(self.available_bytes / GIB, 1),
+            "meaning": {
+                "comfortable": "fits in free memory with room to spare",
+                "tight": "fits the budget; close to the machine's limit",
+                "will swap": "fits total memory but not what is free now; expect it to be "
+                "several times slower",
+                "over budget": "needs more memory than this machine has; locked unless "
+                "allow_over_budget is set",
+            }[self.label],
+        }
+
+
 @dataclass
 class Fit:
     variant: Variant
@@ -69,6 +119,8 @@ class Plan:
     installed: bool = True
     warnings: list[str] = field(default_factory=list)
     low_memory: bool = False  # weights exceed free RAM: engine memory-maps them
+    load: Load | None = None
+    over_budget: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -85,6 +137,8 @@ class Plan:
             "installed": self.installed,
             "warnings": list(self.warnings),
             "low_memory": self.low_memory,
+            "load": self.load.to_dict() if self.load else None,
+            "over_budget": self.over_budget,
         }
 
 
@@ -125,7 +179,14 @@ def snap_side(value: int, name: str) -> int:
 
 
 class Planner:
-    def __init__(self, hw: Hardware, store: ModelStore, calibration: Calibration) -> None:
+    def __init__(
+        self,
+        hw: Hardware,
+        store: ModelStore,
+        calibration: Calibration,
+        allow_over_budget: bool = False,
+    ) -> None:
+        self.allow_over_budget = allow_over_budget
         self.hw = hw
         self.store = store
         self.calibration = calibration
@@ -180,28 +241,38 @@ class Planner:
 
         warnings: list[str] = []
         fit_note: str | None = None
+        over_budget = False
         installed_names = {v.name for v in self.store.installed_variants(model)}
 
         if variant_name:
             variant = model.variant(variant_name)
             fit = next(f for f in fit_variants(model, self.hw, w, h) if f.variant is variant)
             if not fit.fits:
-                warnings.append(
-                    f"{model.name} [{variant.name}] needs about "
-                    f"{fit.required_bytes / GIB:.1f} GiB but this machine has a budget of "
-                    f"{fit.budget_bytes / GIB:.1f} GiB; it may swap heavily or fail."
+                msg = (
+                    f"{model.display_name} [{variant.name}] at {w}x{h} needs about "
+                    f"{fit.required_bytes / GIB:.1f} GiB; this machine's budget is "
+                    f"{fit.budget_bytes / GIB:.1f} GiB."
                 )
+                if not self.allow_over_budget:
+                    raise PlanError(f"{msg} {UNLOCK_HINT}")
+                over_budget = True
+                warnings.append(f"{msg} Running over budget because allow_over_budget is set.")
         else:
             fits = fit_variants(model, self.hw, w, h)
             top = fits[0]
             chosen = next((f for f in fits if f.fits), None)
             if chosen is None:
-                raise PlanError(
+                msg = (
                     f"{model.display_name} does not fit in this machine's memory in any "
-                    f"quantisation: the smallest set needs about "
+                    f"quantisation at {w}x{h}: the smallest set needs about "
                     f"{fits[-1].required_bytes / GIB:.1f} GiB, the budget is "
-                    f"{top.budget_bytes / GIB:.1f} GiB. Choose another model."
+                    f"{top.budget_bytes / GIB:.1f} GiB."
                 )
+                if not self.allow_over_budget:
+                    raise PlanError(f"{msg} Choose another model or a smaller size. {UNLOCK_HINT}")
+                chosen = fits[-1]
+                over_budget = True
+                warnings.append(f"{msg} Running over budget because allow_over_budget is set.")
             variant = chosen.variant
             if chosen is not top:
                 fit_note = (
@@ -249,6 +320,12 @@ class Planner:
                 f"count and {n_steps} will take proportionally longer without improving "
                 "the image."
             )
+        load = Load(
+            required_bytes=required_bytes(variant, w, h),
+            budget_bytes=memory_budget(self.hw),
+            available_bytes=self.hw.ram_available_bytes
+            + ((self.hw.usable_gpu.vram_bytes or 0) if self.hw.usable_gpu else 0),
+        )
         return Plan(
             model=model,
             variant=variant,
@@ -263,6 +340,8 @@ class Planner:
             installed=variant.name in installed_names,
             warnings=warnings,
             low_memory=low_memory,
+            load=load,
+            over_budget=over_budget,
         )
 
     def preset_table(self, model: ModelSpec) -> list[dict]:
@@ -286,6 +365,7 @@ class Planner:
                     "expected_time": plan.estimate.to_dict(),
                     "fit_note": plan.fit_note,
                     "installed": plan.installed,
+                    "load": plan.load.to_dict() if plan.load else None,
                 }
             )
         return out

@@ -191,6 +191,8 @@ def cmd_generate(args: argparse.Namespace) -> int:
             steps=args.steps,
             cfg_scale=args.cfg_scale,
             sampler=args.sampler,
+            threads=args.threads,
+            vae_tiling=args.vae_tiling,
         )
     except StudioError as e:
         print(f"error: {e}")
@@ -241,6 +243,48 @@ def cmd_generate(args: argparse.Namespace) -> int:
         print(f"{st['status']}: {st['error'] or st['message']}")
     studio.close()
     return 0 if st["status"] == "done" else 1
+
+
+def cmd_plan(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    try:
+        p = studio.plan(
+            args.model,
+            args.preset,
+            args.width,
+            args.height,
+            args.variant,
+            args.steps,
+            args.cfg_scale,
+            args.sampler,
+        )
+    except StudioError as e:
+        print(f"refused: {e}")
+        return 1
+    d = p.to_dict()
+    if args.json:
+        print(json.dumps(d, indent=2))
+        return 0
+    load = d["load"]
+    bar = "#" * min(40, load["score"] * 40 // 100) + "-" * max(0, 40 - load["score"] * 40 // 100)
+    print(
+        f"{d['model']} [{d['variant']}] preset {d['preset']}: {d['width']}x{d['height']}, "
+        f"{d['steps']} steps, cfg {d['cfg_scale']}, sampler {d['sampler']}"
+    )
+    print(f"Expected time: {d['estimate']['human']} ({d['estimate']['basis']})")
+    print(
+        f"Load [{bar}] {load['score']}% of budget: {load['label']} "
+        f"(needs {load['required_gib']} GiB, budget {load['budget_gib']} GiB, "
+        f"free now {load['available_gib']} GiB)"
+    )
+    print(f"  {load['meaning']}")
+    if d["fit_note"]:
+        print(f"Fit: {d['fit_note']}")
+    for w in d["warnings"]:
+        print(f"Warning: {w}")
+    if not d["installed"]:
+        print("Model files not downloaded yet.")
+    return 0
 
 
 def cmd_jobs(args: argparse.Namespace) -> int:
@@ -300,8 +344,22 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--steps", type=int, help="advanced: override the step count of the preset")
     g.add_argument("--cfg-scale", type=float, help="advanced: override guidance strength")
     g.add_argument("--sampler", help="advanced: euler (default), euler_a, heun, dpm++2m, ...")
+    g.add_argument("--threads", type=int, help="CPU threads (default: physical cores)")
+    g.add_argument("--vae-tiling", action="store_true", help="decode in tiles to save memory")
     g.add_argument("--no-wait", action="store_true", help="queue and exit (needs serve running)")
     g.set_defaults(fn=cmd_generate)
+
+    pl = sub.add_parser("plan", help="dry run: expected time and load meter for settings")
+    pl.add_argument("--preset", choices=PRESET_NAMES, default="best")
+    pl.add_argument("--width", type=int)
+    pl.add_argument("--height", type=int)
+    pl.add_argument("--model", choices=list(MODELS))
+    pl.add_argument("--variant", choices=["q8", "q6", "q5", "q4"])
+    pl.add_argument("--steps", type=int)
+    pl.add_argument("--cfg-scale", type=float)
+    pl.add_argument("--sampler")
+    pl.add_argument("--json", action="store_true")
+    pl.set_defaults(fn=cmd_plan)
 
     j = sub.add_parser("jobs", help="list jobs")
     j.add_argument("--json", action="store_true")

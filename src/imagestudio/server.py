@@ -56,7 +56,12 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             + ". Advanced overrides, normally left unset because the presets hold the tested "
             "values: steps (1-100; FLUX schnell is distilled to 4 and gains nothing from more), "
             "cfg_scale (0-20 guidance strength; 1.0 for FLUX schnell, 2.5 for Qwen-Image; above "
-            "1 doubles the work), sampler (euler default; euler_a, heun, dpm++2m, ...). "
+            "1 doubles the work), sampler (euler default; euler_a, heun, dpm++2m, ...), "
+            "variant (q8|q6|q5|q4 weight quantisation; default: highest fidelity that fits "
+            "memory), threads (CPU threads; default: physical cores), vae_tiling (decode in "
+            "tiles to save memory on large images, slightly slower). Settings the memory "
+            "budget cannot hold are refused with the exact numbers unless the human has set "
+            "allow_over_budget; use plan() first to see the load meter. "
             "Returns {job_id, status, estimate_seconds, estimate_human, estimate_basis, "
             "model, variant, preset, width, height, steps, seed, fit_note, warnings}. "
             "Then poll job_status(job_id) every 10-15 seconds and fetch job_result(job_id) when "
@@ -75,6 +80,9 @@ def build_server(studio: Studio | None = None) -> FastMCP:
         steps: int | None = None,
         cfg_scale: float | None = None,
         sampler: str | None = None,
+        variant: str | None = None,
+        threads: int | None = None,
+        vae_tiling: bool = False,
     ) -> dict[str, Any]:
         try:
             job = studio.generate(
@@ -85,9 +93,12 @@ def build_server(studio: Studio | None = None) -> FastMCP:
                 seed,
                 negative_prompt,
                 model,
+                variant=variant,
                 steps=steps,
                 cfg_scale=cfg_scale,
                 sampler=sampler,
+                threads=threads,
+                vae_tiling=vae_tiling,
             )
         except StudioError as e:
             return _err(e)
@@ -109,8 +120,39 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             "sampler": job.sampler,
             "seed": job.seed,
             "fit_note": job.fit_note,
+            "over_budget": job.over_budget,
             "warnings": job.warnings,
         }
+
+    @mcp.tool(
+        name="plan",
+        description=(
+            "Dry run of generate(): same parameters, nothing is queued. Returns the resolved "
+            "plan {model, variant, preset, width, height, steps, cfg_scale, sampler, estimate "
+            "{seconds, human, calibrated, basis}, load {score 0-100+ percent of this "
+            "machine's memory budget, label comfortable|tight|will swap|over budget, "
+            "required_gib, budget_gib, available_gib, meaning}, fit_note, warnings, installed, "
+            "over_budget}. Use it as the performance meter: call it while choosing settings "
+            "to see expected time and memory before committing, and to explain to the human "
+            "why a setting is refused. Returns {error} for settings over the memory budget "
+            "when allow_over_budget is not set."
+        ),
+    )
+    def plan(
+        preset: str = "best",
+        width: int | None = None,
+        height: int | None = None,
+        model: str | None = None,
+        steps: int | None = None,
+        cfg_scale: float | None = None,
+        sampler: str | None = None,
+        variant: str | None = None,
+    ) -> dict[str, Any]:
+        try:
+            p = studio.plan(model, preset, width, height, variant, steps, cfg_scale, sampler)
+        except StudioError as e:
+            return _err(e)
+        return p.to_dict()
 
     @mcp.tool(
         name="job_status",

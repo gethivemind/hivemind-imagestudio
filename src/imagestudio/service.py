@@ -39,7 +39,12 @@ class Studio:
         self.hardware = hardware or detect()
         self.models = ModelStore(self.settings)
         self.calibration = Calibration(self.settings.calibration_file, self.hardware)
-        self.planner = Planner(self.hardware, self.models, self.calibration)
+        self.planner = Planner(
+            self.hardware,
+            self.models,
+            self.calibration,
+            allow_over_budget=self.settings.allow_over_budget,
+        )
         self.engine: Engine = engine or SdCppEngine(self.settings)
         self.jobs = JobStore(self.settings)
         self.worker = Worker(self.jobs, self.engine, on_finished=self._on_finished)
@@ -106,6 +111,8 @@ class Studio:
         steps: int | None = None,
         cfg_scale: float | None = None,
         sampler: str | None = None,
+        threads: int | None = None,
+        vae_tiling: bool = False,
     ) -> Job:
         if not prompt or not prompt.strip():
             raise StudioError("prompt must not be empty")
@@ -122,6 +129,8 @@ class Studio:
                 f"({missing / GIB:.1f} GiB). Run `imagestudio download-model {plan.model.name}` "
                 f"or call download_model(name={plan.model.name!r}, consent=true)."
             )
+        if threads is not None and not 1 <= threads <= 256:
+            raise StudioError(f"threads must be between 1 and 256, got {threads}")
         if seed is None or seed < 0:
             seed = secrets.randbelow(MAX_SEED)
         paths = {
@@ -147,7 +156,11 @@ class Studio:
             seed=seed,
             sampler=plan.sampler,
             component_paths=paths,
-            extra_args=list(plan.preset.extra_args) + (["--mmap"] if plan.low_memory else []),
+            extra_args=list(plan.preset.extra_args)
+            + (["--mmap"] if plan.low_memory else [])
+            + (["--vae-tiling"] if vae_tiling else []),
+            threads=threads,
+            over_budget=plan.over_budget,
             estimate_seconds=plan.estimate.seconds,
             estimate_basis=plan.estimate.basis,
             fit_note=plan.fit_note,
@@ -187,6 +200,7 @@ class Studio:
             "steps": job.steps,
             "seed": job.seed,
             "fit_note": job.fit_note,
+            "over_budget": job.over_budget,
             "warnings": job.warnings,
             "message": job.message,
             "error": job.error,
