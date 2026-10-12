@@ -267,3 +267,35 @@ def test_read_only_studio_does_not_requeue_running_jobs(settings: Settings):
     store.put(job)
     Studio(settings=settings, engine=FakeEngine(), hardware=laptop(), start_worker=False)
     assert JobStore(settings).get("job_live").status == "running"
+
+
+def test_second_process_submits_and_first_worker_runs_it(settings: Settings):
+    """Two Studios on one data dir: the first holds the worker lock, the second only submits,
+    and the first picks the job up by polling the directory."""
+    from conftest import FLUX_SCHNELL, fake_install
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    first = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    first.worker.poll_seconds = 0.05
+    second = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        assert first.worker_active and not second.worker_active
+        assert second.worker_owner_pid == first.worker_owner_pid
+        job = second.generate("from the second process")
+        wait_done(second, job.id)
+        assert first.engine.calls and first.engine.calls[0].prompt == "from the second process"
+        assert not second.engine.calls
+        assert second.job_status(job.id)["status"] == "done"
+    finally:
+        second.close()
+        first.close()
+    assert not settings.worker_lock_file.exists()
+
+
+def test_stale_lock_from_dead_pid_is_taken_over(settings: Settings):
+    settings.worker_lock_file.write_text("999999999")
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        assert studio.worker_active
+    finally:
+        studio.close()

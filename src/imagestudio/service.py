@@ -59,8 +59,19 @@ class Studio:
         self.engine: Engine = engine or SdCppEngine(self.settings)
         self.jobs = JobStore(self.settings)
         self.worker = Worker(self.jobs, self.engine, on_finished=self._on_finished)
+        self.worker_wanted = start_worker
         if start_worker:
             self.worker.start()
+
+    @property
+    def worker_active(self) -> bool:
+        """True when this process renders jobs; False when another process holds the lock
+        and this one only submits."""
+        return self.worker.active
+
+    @property
+    def worker_owner_pid(self) -> int | None:
+        return self.worker.lock.owner()
 
     def close(self) -> None:
         self.worker.stop()
@@ -190,7 +201,8 @@ class Studio:
         eta = job.eta_seconds(ahead)
         position = None
         if job.status == "queued":
-            position = [j.id for j in self.jobs.queued()].index(job_id) + 1
+            queued_ids = [j.id for j in self.jobs.queued()]
+            position = queued_ids.index(job_id) + 1 if job_id in queued_ids else None
         return {
             "id": job.id,
             "status": job.status,
@@ -418,5 +430,7 @@ class Studio:
             "queue": {
                 "running": running.id if (running := self.jobs.running()) else None,
                 "queued": len(self.jobs.queued()),
+                "worker_in_this_process": self.worker_active,
+                "worker_pid": self.worker_owner_pid,
             },
         }

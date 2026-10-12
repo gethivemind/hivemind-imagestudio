@@ -62,7 +62,7 @@ async def test_tools_are_listed_with_ai_facing_descriptions(studio: Studio):
 async def test_generate_status_result_round_trip(studio: Studio):
     server = build_server(studio)
     r = _payload(await server.call_tool("generate", {"prompt": "a red bicycle"}))
-    assert r["status"] == "queued" and r["preset"] == "best"
+    assert r["status"] in ("queued", "running") and r["preset"] == "best"
     assert r["estimate_seconds"] > 0 and r["estimate_human"]
     job_id = r["job_id"]
     for _ in range(200):

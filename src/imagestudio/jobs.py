@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import queue
 import secrets
 import threading
@@ -16,6 +17,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+import psutil
 
 from imagestudio.config import Settings
 from imagestudio.engine.base import Engine, EngineError, GenerateSpec, Progress
@@ -104,17 +107,37 @@ class Job:
 
 
 class JobStore:
+    """Jobs as JSON files. Several processes may share one directory: exactly one runs a
+    worker, the others submit jobs and read status. ``refresh`` picks up files changed by
+    another process; jobs this process is executing (``owned``) are never overwritten."""
+
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._lock = threading.RLock()
         self._jobs: dict[str, Job] = {}
+        self._mtimes: dict[str, float] = {}
+        self.owned: set[str] = set()
         self.settings.jobs_dir.mkdir(parents=True, exist_ok=True)
-        for p in sorted(self.settings.jobs_dir.glob("*.json")):
-            try:
-                job = Job.from_dict(json.loads(p.read_text(encoding="utf-8")))
-            except (OSError, ValueError, TypeError):
-                continue
-            self._jobs[job.id] = job
+        self.refresh()
+
+    def refresh(self) -> None:
+        with self._lock:
+            for p in self.settings.jobs_dir.glob("*.json"):
+                job_id = p.stem
+                if job_id in self.owned:
+                    continue
+                try:
+                    mtime = p.stat().st_mtime
+                except OSError:
+                    continue
+                if self._mtimes.get(job_id) == mtime:
+                    continue
+                try:
+                    job = Job.from_dict(json.loads(p.read_text(encoding="utf-8")))
+                except (OSError, ValueError, TypeError):
+                    continue  # half-written by another process; next refresh gets it
+                self._jobs[job.id] = job
+                self._mtimes[job_id] = mtime
 
     def new_id(self) -> str:
         return "job_" + secrets.token_hex(6)
@@ -124,14 +147,19 @@ class JobStore:
             self._jobs[job.id] = job
             tmp = self.settings.jobs_dir / f"{job.id}.json.tmp"
             tmp.write_text(json.dumps(job.to_dict(), indent=2), encoding="utf-8")
-            tmp.replace(self.settings.jobs_dir / f"{job.id}.json")
+            final = self.settings.jobs_dir / f"{job.id}.json"
+            tmp.replace(final)
+            with contextlib.suppress(OSError):
+                self._mtimes[job.id] = final.stat().st_mtime
 
     def get(self, job_id: str) -> Job | None:
         with self._lock:
+            self.refresh()
             return self._jobs.get(job_id)
 
     def all(self) -> list[Job]:
         with self._lock:
+            self.refresh()
             return sorted(self._jobs.values(), key=lambda j: j.created_at)
 
     def queued(self) -> list[Job]:
@@ -141,8 +169,57 @@ class JobStore:
         return next((j for j in self.all() if j.status == "running"), None)
 
 
+def _pid_alive(pid: int) -> bool:
+    try:
+        return psutil.pid_exists(pid) and psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
+    except psutil.Error:
+        return False
+
+
+_HELD_IN_PROCESS: set[Path] = set()  # several Studios in one process share one pid
+
+
+class WorkerLock:
+    """One worker per data directory. The lock file holds the owner's pid; a dead owner's
+    lock is taken over."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.held = False
+
+    def owner(self) -> int | None:
+        try:
+            pid = int(self.path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            return None
+        return pid if _pid_alive(pid) else None
+
+    def acquire(self) -> bool:
+        if self.path in _HELD_IN_PROCESS:
+            return False
+        owner = self.owner()
+        if owner is not None and owner != os.getpid():
+            return False
+        _HELD_IN_PROCESS.add(self.path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(str(os.getpid()), encoding="utf-8")
+        self.held = True
+        return True
+
+    def release(self) -> None:
+        if self.held:
+            _HELD_IN_PROCESS.discard(self.path)
+            with contextlib.suppress(OSError):
+                if self.owner() in (None, os.getpid()):
+                    self.path.unlink()
+            self.held = False
+
+
 class Worker:
-    """One background thread draining the queue through the engine, in FIFO order."""
+    """One background thread draining the queue through the engine, in FIFO order.
+
+    Only the process holding the worker lock runs jobs; it also polls the store so jobs
+    submitted by other processes (CLI, UI, another server) are picked up."""
 
     def __init__(
         self,
@@ -157,6 +234,9 @@ class Worker:
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, name="imagestudio-worker", daemon=True)
         self._current: str | None = None
+        self._seen: set[str] = set()
+        self.lock = WorkerLock(store.settings.worker_lock_file)
+        self.poll_seconds = 2.0
 
     def start(self) -> None:
         """Recover jobs left running by a previous worker, then start draining the queue.
@@ -165,24 +245,40 @@ class Worker:
         doctor/plan/jobs commands) never touch a job another process is still running.
         """
         if self._thread.is_alive():
-            return
+            return True
+        if not self.lock.acquire():
+            return False
         for job in self.store.all():
             if job.status == "running":
                 job.status, job.phase, job.message = "queued", "queued", "re-queued after restart"
                 self.store.put(job)
         for job in self.store.queued():
-            self._q.put(job.id)
+            self._enqueue(job.id)
         self._thread.start()
+        return True
+
+    @property
+    def active(self) -> bool:
+        return self._thread.is_alive()
+
+    def _enqueue(self, job_id: str) -> None:
+        if job_id not in self._seen:
+            self._seen.add(job_id)
+            self._q.put(job_id)
 
     def stop(self, timeout: float = 5.0) -> None:
         self._stop.set()
         self._q.put("")  # wake
         if self._thread.is_alive():
             self._thread.join(timeout)
+        self.lock.release()
 
     def submit(self, job: Job) -> None:
+        """Persist the job. If this process runs the worker it is queued at once; otherwise
+        the process holding the lock picks it up on its next poll."""
         self.store.put(job)
-        self._q.put(job.id)
+        if self.active:
+            self._enqueue(job.id)
 
     def cancel(self, job_id: str) -> bool:
         job = self.store.get(job_id)
@@ -211,7 +307,12 @@ class Worker:
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            job_id = self._q.get()
+            try:
+                job_id = self._q.get(timeout=self.poll_seconds)
+            except queue.Empty:
+                for job in self.store.queued():  # submitted by another process
+                    self._enqueue(job.id)
+                continue
             if not job_id or self._stop.is_set():
                 continue
             job = self.store.get(job_id)
@@ -222,6 +323,7 @@ class Worker:
             self._current = None
 
     def _execute(self, job: Job) -> None:
+        self.store.owned.add(job.id)
         job.status, job.phase, job.started_at = "running", "loading", _now()
         self.store.put(job)
         last_write = 0.0
@@ -274,6 +376,7 @@ class Worker:
             job.message = "finished"
         job.finished_at = _now()
         self.store.put(job)
+        self.store.owned.discard(job.id)
         if self.on_finished:
             with contextlib.suppress(Exception):
                 self.on_finished(job)

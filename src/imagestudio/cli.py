@@ -352,6 +352,13 @@ def cmd_jobs(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ui(args: argparse.Namespace) -> int:
+    from imagestudio.ui import serve_ui
+
+    serve_ui(args.host, args.port, start_worker=not args.no_worker)
+    return 0
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     from imagestudio.server import serve
 
@@ -420,6 +427,16 @@ def build_parser() -> argparse.ArgumentParser:
     j = sub.add_parser("jobs", help="list jobs")
     j.add_argument("--json", action="store_true")
     j.set_defaults(fn=cmd_jobs)
+
+    u = sub.add_parser("ui", help="run the local web UI")
+    u.add_argument("--host", default="127.0.0.1")
+    u.add_argument("--port", type=int, default=8766)
+    u.add_argument(
+        "--no-worker",
+        action="store_true",
+        help="only submit and view jobs; another process renders them",
+    )
+    u.set_defaults(fn=cmd_ui)
 
     s = sub.add_parser("serve", help="run the MCP server")
     s.add_argument("--transport", choices=["stdio", "http"], default="stdio")
