@@ -248,7 +248,12 @@ def reproducible(job: Any) -> str:
         parts.append(f"--lora {n}:{float(w):g}")
     src = getattr(job, "source_job", None) or getattr(job, "input_path", None)
     if src and getattr(job, "tool", "generate") in ("generate", "variations", "edit"):
-        parts.append(f"--from {src} --strength {getattr(job, 'strength', 0.45):g}")
+        from imagestudio.registry import MODELS
+
+        if getattr(MODELS.get(getattr(job, "model", "")), "role", "") == "edit":
+            parts.append(f"--from {src}")
+        else:
+            parts.append(f"--from {src} --strength {getattr(job, 'strength', 0.45):g}")
     if job.negative_prompt:
         parts.append(f"--no {job.negative_prompt}")
     return " ".join(parts)

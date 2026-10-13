@@ -198,7 +198,9 @@ class Planner:
             if name not in MODELS:
                 raise PlanError(f"unknown model {name!r}; known: {', '.join(MODELS)}")
             return MODELS[name]
-        ranked = sorted(MODELS.values(), key=lambda m: m.quality_rank)
+        ranked = sorted(
+            (m for m in MODELS.values() if m.role == "generate"), key=lambda m: m.quality_rank
+        )
         for m in ranked:
             if self.store.installed_variants(m) and best_fitting_variant(m, self.hw, width, height):
                 return m
@@ -261,6 +263,20 @@ class Planner:
             fits = fit_variants(model, self.hw, w, h)
             top = fits[0]
             chosen = next((f for f in fits if f.fits), None)
+            if self.allow_over_budget:
+                # The unlock is set: a higher-fidelity set that is already downloaded beats a
+                # smaller one that would have to be fetched. Never a silent downgrade.
+                have = next((f for f in fits if f.variant.name in installed_names), None)
+                if have is not None and (chosen is None or have.variant.rank < chosen.variant.rank):
+                    if not have.fits:
+                        over_budget = True
+                        warnings.append(
+                            f"{model.display_name} [{have.variant.name}] at {w}x{h} needs about "
+                            f"{have.required_bytes / GIB:.1f} GiB; the budget is "
+                            f"{have.budget_bytes / GIB:.1f} GiB. Running over budget because "
+                            "allow_over_budget is set."
+                        )
+                    chosen = have
             if chosen is None:
                 msg = (
                     f"{model.display_name} does not fit in this machine's memory in any "

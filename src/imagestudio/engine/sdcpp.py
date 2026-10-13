@@ -184,7 +184,9 @@ class SdCppEngine:
         ]
         if spec.negative_prompt:
             args += ["-n", spec.negative_prompt]
-        if spec.init_image is not None:
+        for ref in spec.ref_images:
+            args += ["-r", str(ref)]
+        if spec.init_image is not None and not spec.ref_images:
             args += ["-i", str(spec.init_image), "--strength", f"{spec.strength:.2f}"]
             if spec.mask_image is not None:
                 args += ["--mask", str(spec.mask_image)]

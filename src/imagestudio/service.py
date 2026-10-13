@@ -51,6 +51,7 @@ from imagestudio.registry import (
     build_custom_model,
     default_tool_model,
     default_vision_model,
+    edit_models,
     register_custom_models,
 )
 
@@ -537,6 +538,20 @@ class Studio:
             prompt = self.jobs.get(source_job).prompt  # type: ignore[union-attr]
         if not prompt.strip():
             raise StudioError("edit and variations need a prompt (what the result should show)")
+        # Instruction edits without a mask go to an installed edit model (Qwen-Image-Edit) unless
+        # the caller named a model. Masks and variations stay on image-to-image.
+        if tool == "edit" and mask_path is None and not (model and model != "auto"):
+            chosen = self.edit_model()
+            if chosen is not None:
+                model = chosen.name
+        edit_role = bool(model) and getattr(MODELS.get(model), "role", "") == "edit"
+        if edit_role and mask_path is not None:
+            raise StudioError(
+                f"{MODELS[model].display_name} edits by instruction and does not take a mask; "
+                "leave the model on auto for masked edits"
+            )
+        if edit_role and tool != "edit":
+            raise StudioError(f"{MODELS[model].display_name} is an edit model; use edit()")
         job = self.generate(
             prompt,
             preset=preset,
@@ -555,10 +570,18 @@ class Studio:
         job.input_path = str(src)
         job.source_job = source_job
         job.mask_path = str(mask_path) if mask_path else None
-        job.strength = strength
-        job.estimate_seconds *= max(0.15, strength)  # fewer effective steps at low strength
+        job.strength = 1.0 if edit_role else strength
+        if not edit_role:
+            job.estimate_seconds *= max(0.15, strength)  # fewer effective steps at low strength
         self.worker.submit(job)
         return job
+
+    def edit_model(self) -> ModelSpec | None:
+        """The strongest installed edit model (Qwen-Image-Edit), or None → image-to-image."""
+        for m in edit_models():
+            if self.models.installed_variants(m):
+                return m
+        return None
 
     def variations(self, image: str, strength: float = 0.4, prompt: str = "", **kw) -> Job:
         """Same picture, re-imagined: image-to-image at a moderate strength.
@@ -1792,6 +1815,7 @@ class Studio:
             "display_name": model.display_name,
             "licence": model.licence,
             "tier": model.tier,
+            "role": model.role,
             "family": model.family,
             "quality_rank": model.quality_rank,
             "description": model.description,
@@ -1843,6 +1867,7 @@ class Studio:
             "vision_models": self.vision_report(),
             "loras": self.loras(),
             "loras_dir": str(self.settings.loras_dir),
+            "edit_model": getattr(self.edit_model(), "name", None),
             "custom_families": self.custom_families(),
             "custom_model_problems": self.custom_model_problems,
             "vision_engine": {

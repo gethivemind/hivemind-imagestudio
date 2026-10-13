@@ -186,3 +186,29 @@ def test_engine_backend_setting_and_switching(settings, monkeypatch):
         assert studio._engine_for("image:vulkan").flavor == "vulkan"
     finally:
         studio.close()
+
+
+def test_build_args_reference_images_replace_init(tmp_path, fake_sd):
+    settings = Settings(data_dir=tmp_path / "data")
+    eng = SdCppEngine(settings)
+    spec = GenerateSpec(
+        prompt="make it night",
+        negative_prompt="",
+        width=512,
+        height=512,
+        steps=12,
+        cfg_scale=2.5,
+        seed=1,
+        sampler="euler",
+        output=tmp_path / "o.png",
+        component_paths={},
+        init_image=tmp_path / "src.png",
+        strength=0.45,
+        ref_images=(tmp_path / "src.png",),
+    )
+    args = eng.build_args(spec)
+    assert args[args.index("-r") + 1] == str(tmp_path / "src.png")
+    assert "-i" not in args and "--strength" not in args
+    spec.ref_images = ()
+    args = eng.build_args(spec)
+    assert "-r" not in args and args[args.index("-i") + 1] == str(tmp_path / "src.png")

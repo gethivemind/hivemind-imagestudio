@@ -418,3 +418,54 @@ def test_custom_models_register_plan_and_generate(settings: Settings, tmp_path):
         _ = build_custom_model
     finally:
         studio.close()
+
+
+def test_edit_model_routes_instruction_edits_and_auto_never_picks_it(settings: Settings):
+    from imagestudio.registry import MODELS, QWEN_IMAGE_EDIT
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        assert MODELS["qwen-image-edit"].role == "edit"
+        src = studio.generate("a teapot", preset="fast")
+        wait(studio, src.id)
+        # without the edit model installed, edits are image-to-image with a strength
+        e1 = studio.edit(src.id, "the same teapot but blue", preset="fast")
+        assert e1.model == "flux-schnell" and e1.strength == 0.45
+        wait(studio, e1.id)
+        assert studio.engine.calls[-1].init_image is not None
+        assert studio.engine.calls[-1].ref_images == ()
+        # install the edit model (stubs); maskless edits now go to it with a reference image
+        fake_install(settings, QWEN_IMAGE_EDIT, QWEN_IMAGE_EDIT.variant("q4"))
+        studio.models._load()  # the store read the manifest at startup
+        studio.settings.config_file.parent.mkdir(parents=True, exist_ok=True)
+        studio.settings.config_file.write_text(
+            json.dumps({"allow_over_budget": True}), encoding="utf-8"
+        )
+        studio.planner.allow_over_budget = True
+        assert studio.edit_model() is QWEN_IMAGE_EDIT
+        e2 = studio.edit(src.id, "the same teapot at night, lit by candles", preset="fast")
+        assert e2.model == "qwen-image-edit" and e2.strength == 1.0 and e2.tool == "edit"
+        assert e2.component_paths["--llm_vision"].endswith("mmproj-Q8_0.gguf")
+        assert "--flow-shift" in e2.extra_args
+        wait(studio, e2.id)
+        spec = studio.engine.calls[-1]
+        assert spec.ref_images and spec.init_image is None
+        rp = studio.job_status(e2.id)["reproducible_prompt"]
+        assert "--model qwen-image-edit" in rp and "--strength" not in rp
+        # masked edits and variations stay on image-to-image; auto generation never picks it
+        from pathlib import Path
+
+        mask = studio.save_upload(Path(studio.job_result(src.id)["path"]).read_bytes())
+        e3 = studio.edit(src.id, "blue", mask=str(mask), preset="fast")
+        assert e3.model == "flux-schnell"
+        v = studio.variations(src.id, preset="fast")
+        assert v.model == "flux-schnell"
+        assert studio.plan(None, "fast", None, None).model.name == "flux-schnell"
+        with pytest.raises(StudioError, match="does not take a mask"):
+            studio.edit(src.id, "blue", mask=str(mask), model="qwen-image-edit", preset="fast")
+        assert studio.capabilities()["edit_model"] == "qwen-image-edit"
+        for j in (e3, v):
+            wait(studio, j.id)
+    finally:
+        studio.close()

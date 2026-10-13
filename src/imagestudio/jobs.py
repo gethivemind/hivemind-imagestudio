@@ -443,6 +443,9 @@ class Worker:
 
         threading.Thread(target=watch_cancel, name=f"cancel-watch-{job.id}", daemon=True).start()
 
+        from imagestudio.registry import MODELS
+
+        edit_model = job.tool == "edit" and getattr(MODELS.get(job.model), "role", "") == "edit"
         prompt = job.prompt
         if job.loras:
             # stable-diffusion.cpp reads <lora:name:weight> from the prompt and loads the
@@ -466,11 +469,12 @@ class Worker:
             threads=job.threads,
             init_image=(
                 Path(job.input_path)
-                if job.input_path and job.tool in ("variations", "edit")
+                if job.input_path and job.tool in ("variations", "edit") and not edit_model
                 else None
             ),
-            mask_image=Path(job.mask_path) if job.mask_path else None,
+            mask_image=Path(job.mask_path) if job.mask_path and not edit_model else None,
             strength=job.strength,
+            ref_images=(Path(job.input_path),) if edit_model and job.input_path else (),
         )
         try:
             result = self._run_tool(job, spec, on_progress)

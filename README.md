@@ -183,6 +183,21 @@ Same image, 2.4× faster, less resident memory: the Vulkan build is worth instal
 an integrated GPU. Both runs were on a loaded machine (browser, IDE), so absolute numbers vary;
 the ratio is the point.
 
+### Qwen-Image-Edit: editing by instruction
+
+`qwen-image-edit` (Qwen-Image-Edit 2509, Apache-2.0, QuantStack GGUF with pinned hashes) is an
+*edit model*: it takes the picture plus an instruction ("the same scene at night, lit windows",
+"turn this sketch into a photo of a cabin") and keeps what you did not mention. Once a
+variant is downloaded (`imagestudio download-model qwen-image-edit`, or Settings → Models and
+engines), Edit without a mask and Sketch → Paint it use it automatically; masked edits,
+Remove object and Variations stay on image-to-image with the base model, where the strength
+slider applies. `auto` never picks an edit model for plain generation; name it with
+`--model qwen-image-edit` only on edits. It shares the VAE and the 7B text encoder with
+Qwen-Image and is just as memory-hungry: the q3 set is about 15 GB of weights, so on a 16 GB
+machine it runs over budget (memory-mapped, slow) and needs the explicit unlock. With the
+unlock set, the planner prefers a downloaded higher-fidelity set over a smaller one it would
+have to fetch, and says so.
+
 ### LoRA
 
 Drop adapter files (`.safetensors`, `.gguf`) into `<models>/loras`, or import them on
@@ -209,7 +224,7 @@ pinned, hash-checked catalogue.
 | --- | --- |
 | `generate(prompt, preset="best", width?, height?, seed?, negative_prompt?, model?, steps?, cfg_scale?, sampler?, variant?, threads?, vae_tiling?)` | Queue a text-to-image job; returns job id, estimate and the plan. Inline `--parameters` in the prompt are honoured. |
 | `variations(image, strength=0.4, prompt?, preset?, seed?, model?)` | Image-to-image re-roll of a job id or local image. Strength is a cliff on 4-step models: up to about 0.45 keeps the composition, from about 0.5 it is re-invented (measured). |
-| `edit(image, prompt, strength=0.45, mask?, preset?, seed?, model?)` | Change an image by instruction; with a black/white mask only the white area is repainted. |
+| `edit(image, prompt, strength=0.45, mask?, preset?, seed?, model?)` | Change an image by instruction. Without a mask and with `qwen-image-edit` installed, the edit model does it (no strength); otherwise image-to-image on the base model, where strength applies; with a black/white mask only the white area is repainted. |
 | `upscale(image, model?, repeats=1)` | 4× (or 16×) with Real-ESRGAN. |
 | `remove_background(image, model?)` | Transparent PNG with IS-Net or U²-Net. |
 | `describe(image, task="describe", question?, model?)` | Image to text with llama.cpp and Qwen2.5-VL: description, prompt, alt text, tags, or your own question. Synchronous. |

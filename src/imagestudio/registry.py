@@ -75,6 +75,7 @@ class ModelSpec:
     components: dict[str, str] = field(default_factory=dict)  # sd.cpp flag -> filename prefix
     tier: str = "verified"  # verified (Hivemind catalogue, pinned hashes) | custom (your own)
     note: str = ""
+    role: str = "generate"  # generate | edit (takes a reference image; never picked by "auto")
 
     def variant(self, name: str) -> Variant:
         for v in self.variants:
@@ -399,7 +400,170 @@ QWEN_IMAGE = ModelSpec(
     },
 )
 
-MODELS: dict[str, ModelSpec] = {m.name: m for m in (QWEN_IMAGE, FLUX_SCHNELL)}
+
+def _qwen_edit(quant: str, sha: str, size: int) -> FileSpec:
+    fn = f"Qwen-Image-Edit-2509-{quant}.gguf"
+    return FileSpec(
+        filename=fn,
+        url=HF.format(repo="QuantStack/Qwen-Image-Edit-2509-GGUF", path=fn),
+        sha256=sha,
+        size=size,
+        licence="Apache-2.0",
+        source="QuantStack/Qwen-Image-Edit-2509-GGUF (Qwen/Qwen-Image-Edit-2509, Apache-2.0)",
+    )
+
+
+_QWEN_LLM_MMPROJ = FileSpec(
+    filename="Qwen2.5-VL-7B-Instruct.mmproj-Q8_0.gguf",
+    url=HF.format(
+        repo="mradermacher/Qwen2.5-VL-7B-Instruct-GGUF",
+        path="Qwen2.5-VL-7B-Instruct.mmproj-Q8_0.gguf",
+    ),
+    sha256="2185ca0adf339f96845318c7b666f5d242f86bbace5657a89cb834785d0cea57",
+    size=853119712,
+    licence="Apache-2.0",
+    source="mradermacher/Qwen2.5-VL-7B-Instruct-GGUF (vision projector)",
+)
+
+_QWEN_EDIT_PRESETS = {
+    "best": Preset(
+        "best",
+        1024,
+        1024,
+        30,
+        2.5,
+        "Full resolution, 30 steps with guidance 2.5. The default for edits.",
+        ("--flow-shift", "3", "--diffusion-fa"),
+    ),
+    "balanced": Preset(
+        "balanced",
+        768,
+        768,
+        20,
+        2.5,
+        "768 px and 20 steps: roughly a third of the time, slightly less refined.",
+        ("--flow-shift", "3", "--diffusion-fa"),
+    ),
+    "fast": Preset(
+        "fast",
+        512,
+        512,
+        12,
+        2.5,
+        "512 px and 12 steps: a quick preview of the edit.",
+        ("--flow-shift", "3", "--diffusion-fa"),
+    ),
+}
+
+QWEN_IMAGE_EDIT = ModelSpec(
+    name="qwen-image-edit",
+    display_name="Qwen-Image-Edit 2509",
+    licence="Apache-2.0",
+    family="qwen-image-edit",
+    quality_rank=0,
+    role="edit",
+    sampler="euler",
+    compute_factor=3.6,  # Qwen-Image plus the reference image in the sequence
+    homepage="https://huggingface.co/Qwen/Qwen-Image-Edit-2509",
+    description=(
+        "Alibaba's instruction-following image editor: give it a picture and say what should "
+        "change ('the same scene at night, lit windows', 'turn this sketch into a photo of a "
+        "cabin'). It keeps what you did not mention. Used by Edit and Sketch when installed; "
+        "shares the VAE and the 7B text encoder with Qwen-Image. Memory-hungry like its sibling."
+    ),
+    components={
+        "--diffusion-model": "Qwen-Image-Edit-2509",
+        "--vae": "qwen_image_vae",
+        "--llm": "Qwen2.5-VL-7B-Instruct.Q",
+        "--llm_vision": "Qwen2.5-VL-7B-Instruct.mmproj",
+    },
+    variants=(
+        Variant(
+            "q8",
+            0,
+            (
+                _qwen_edit(
+                    "Q8_0",
+                    "f8f0773e56f94f7f4508ca15a5bc9acf1d6ca2863bebaba7a1b80fbf76198e02",
+                    21761817120,
+                ),
+                _QWEN_LLM_Q8,
+                _QWEN_LLM_MMPROJ,
+                _QWEN_VAE,
+            ),
+            "8-bit weights throughout.",
+        ),
+        Variant(
+            "q6",
+            1,
+            (
+                _qwen_edit(
+                    "Q6_K",
+                    "ec5694f11a2908c10ef5324c50c79b1bb433547a39a211996551417b4b16f0ce",
+                    16824990240,
+                ),
+                _QWEN_LLM_Q8,
+                _QWEN_LLM_MMPROJ,
+                _QWEN_VAE,
+            ),
+            "6-bit transformer, 8-bit text encoder.",
+        ),
+        Variant(
+            "q5",
+            2,
+            (
+                _qwen_edit(
+                    "Q5_K_S",
+                    "3e1360f542502f7bc7cc923dad0f16ee6f331bda85fdd2558c989617aa75f4e0",
+                    14117698080,
+                ),
+                _QWEN_LLM_Q5,
+                _QWEN_LLM_MMPROJ,
+                _QWEN_VAE,
+            ),
+            "5-bit transformer and text encoder.",
+        ),
+        Variant(
+            "q4",
+            3,
+            (
+                _qwen_edit(
+                    "Q4_K_S",
+                    "07e64364812e527e0e39db3770440f76a5ed4732926c54a0a0e7da841cbe0ce6",
+                    12204309024,
+                ),
+                _QWEN_LLM_Q4,
+                _QWEN_LLM_MMPROJ,
+                _QWEN_VAE,
+            ),
+            "4-bit transformer and text encoder.",
+        ),
+        Variant(
+            "q3",
+            4,
+            (
+                _qwen_edit(
+                    "Q3_K_S",
+                    "03e46bb9666f15c282d316989bd082c449074e5f4cf186382444d4dfad1e8308",
+                    9037543968,
+                ),
+                _QWEN_LLM_Q4,
+                _QWEN_LLM_MMPROJ,
+                _QWEN_VAE,
+            ),
+            "3-bit transformer: the smallest set that still edits sensibly; visible quality loss.",
+        ),
+    ),
+    presets=_QWEN_EDIT_PRESETS,
+)
+
+MODELS: dict[str, ModelSpec] = {m.name: m for m in (QWEN_IMAGE, FLUX_SCHNELL, QWEN_IMAGE_EDIT)}
+
+
+def edit_models() -> list[ModelSpec]:
+    """Catalogue models that take a reference image, strongest first."""
+    return sorted((m for m in MODELS.values() if m.role == "edit"), key=lambda m: m.quality_rank)
+
 
 # --- your own models -----------------------------------------------------------------------
 # A custom model is a family template (presets, sampler, cost factor, which sd.cpp flags it
