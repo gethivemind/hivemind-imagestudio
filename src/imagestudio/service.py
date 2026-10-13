@@ -164,6 +164,8 @@ class Studio:
     # -- calibration feedback --------------------------------------------------------------
 
     def _on_finished(self, job: Job) -> None:
+        if job.status == "done":
+            self._maybe_auto_caption(job)
         if job.status != "done" or job.sampling_seconds is None or job.sampling_seconds <= 0:
             return
         if job.tool != "generate":
@@ -186,6 +188,48 @@ class Studio:
             job.load_seconds or 0.0,
             job.sampling_seconds,
         )
+
+    # -- auto-captions ----------------------------------------------------------------------
+
+    _caption_lock = threading.Lock()
+    _caption_warned = False
+
+    def auto_caption_ready(self) -> bool:
+        vm = default_vision_model()
+        return (
+            bool(self.settings.config().get("auto_caption", False))
+            and vm is not None
+            and self.describe_engine.available()
+            and self.models.vision_installed(vm)
+        )
+
+    def _maybe_auto_caption(self, job: Job) -> None:
+        """When the user turned on auto-captions and the vision stack is installed, caption a
+        finished image in a background thread (one at a time, never blocking the queue).
+        Upscales and cutouts keep their source's content, so they inherit its caption."""
+        if job.caption or job.tool == "remove_background":
+            return
+        if job.tool == "upscale" and job.source_job:
+            src = self.jobs.get(job.source_job)
+            if src is not None and src.caption:
+                job.caption = src.caption
+                self.jobs.put(job)
+                return
+        if not self.auto_caption_ready():
+            return
+
+        def run() -> None:
+            with self._caption_lock:
+                try:
+                    self.describe(job.id, "describe")
+                except StudioError as e:
+                    if not Studio._caption_warned:
+                        Studio._caption_warned = True
+                        import sys
+
+                        print(f"auto-caption skipped: {e}", file=sys.stderr)
+
+        threading.Thread(target=run, name=f"caption-{job.id}", daemon=True).start()
 
     # -- generate -------------------------------------------------------------------------
 
@@ -650,6 +694,7 @@ class Studio:
         job.finished_at = job.started_at = datetime.now(UTC).isoformat(timespec="seconds")
         job.total_seconds = 0.0
         self.jobs.put(job)
+        self._maybe_auto_caption(job)
         return job
 
     def lineage(self, job_id: str) -> dict[str, Any]:
@@ -1149,6 +1194,8 @@ class Studio:
             "allow_over_budget_from_env": bool(os.environ.get(ENV_ALLOW_OVER_BUDGET)),
             "default_threads": cfg.get("default_threads"),
             "live_preview": bool(cfg.get("live_preview", True)),
+            "auto_caption": bool(cfg.get("auto_caption", False)),
+            "auto_caption_ready": self.auto_caption_ready(),
             "data_dir": str(self.settings.data_dir),
             "config_file": str(self.settings.config_file),
         }
@@ -1160,6 +1207,8 @@ class Studio:
             cfg["allow_over_budget"] = bool(changes["allow_over_budget"])
         if "live_preview" in changes:
             cfg["live_preview"] = bool(changes["live_preview"])
+        if "auto_caption" in changes:
+            cfg["auto_caption"] = bool(changes["auto_caption"])
         if "default_threads" in changes:
             v = changes["default_threads"]
             cfg["default_threads"] = int(v) if v not in (None, "", 0) else None

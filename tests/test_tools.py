@@ -284,3 +284,38 @@ def test_delete_restore_favorite_import_lineage(tools_studio: Studio):
     assert tools_studio.job_status(imp.id)["title"].endswith("imported · 12×10")
     up = tools_studio.remove_background(imp.id)
     wait(tools_studio, up.id)
+
+
+def test_auto_caption_runs_in_the_background_when_enabled(settings: Settings):
+    from imagestudio.engine.fake import FakeDescribeEngine
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    fake_vision(settings)
+    fake_tool(settings, "realesrgan-x4plus")
+    settings.config_file.parent.mkdir(parents=True, exist_ok=True)
+    settings.config_file.write_text(json.dumps({"auto_caption": True}), encoding="utf-8")
+    vision = FakeDescribeEngine()
+    studio = Studio(
+        settings=settings, engine=FakeEngine(), hardware=laptop(), describe_engine=vision
+    )
+    try:
+        assert studio.get_config()["auto_caption"] is True
+        assert studio.get_config()["auto_caption_ready"] is True
+        src = studio.generate("a cat", preset="fast")
+        wait(studio, src.id)
+        for _ in range(100):
+            if studio.jobs.get(src.id).caption:
+                break
+            time.sleep(0.05)
+        assert studio.jobs.get(src.id).caption
+        assert len(vision.calls) == 1
+        # an upscale of a captioned image inherits the caption without a second model run
+        up = studio.upscale(src.id)
+        wait(studio, up.id)
+        time.sleep(0.2)
+        assert studio.jobs.get(up.id).caption == studio.jobs.get(src.id).caption
+        assert len(vision.calls) == 1
+        studio.set_config({"auto_caption": False})
+        assert studio.get_config()["auto_caption"] is False
+    finally:
+        studio.close()

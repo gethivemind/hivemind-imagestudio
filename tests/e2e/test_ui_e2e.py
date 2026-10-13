@@ -150,4 +150,29 @@ def test_home_cards_reflect_readiness(page):
     page.wait_for_selector("#prompt", state="visible")
     page.click("#tabs button[data-tab='sketch']")
     page.wait_for_selector("#skC")
+    assert page.is_visible("#brushbar")  # size, opacity, softness, pressure
+    page.keyboard.press("o")
+    assert page.get_attribute("#palette .tb.on", "data-tool") == "ellipse"
+    page.keyboard.press("b")
+    assert page.get_attribute("#palette .tb.on", "data-tool") == "brush"
+    assert page.errors == []
+
+
+def test_first_run_guide_and_shortcuts_overlay(page):
+    page.click("#tabs button[data-tab='home']")
+    # no benchmark and no finished image yet -> the guide shows with those steps open
+    page.wait_for_selector("#guide .step")
+    text = page.inner_text("#guide")
+    assert "Getting started" in text and "Run the benchmark" in text
+    assert page.locator("#guide .step.done").count() >= 2  # engine + model are installed
+    page.click("#guide .step:not(.done) >> nth=0")  # jumps to the tab that completes it
+    assert page.is_visible("#machine") or page.is_visible("#create")
+    page.keyboard.press("?")
+    page.wait_for_selector("#keysDlg[open]")
+    assert "Keyboard shortcuts" in page.inner_text("#keysDlg")
+    page.keyboard.press("Escape")
+    page.wait_for_selector("#keysDlg", state="hidden")
+    page.click("#tabs button[data-tab='home']")
+    page.click("#guideHide")
+    page.wait_for_selector("#guide .step", state="detached")
     assert page.errors == []

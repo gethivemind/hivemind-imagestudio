@@ -269,7 +269,15 @@ Increment 2 (shipped): `upscale` (Real-ESRGAN, BSD-3-Clause), `remove_background
 U²-Net, Apache-2.0, via ONNX Runtime), `variations` and `edit` with inpainting masks, a sketch
 canvas in the UI, prompt parameters and reproducible prompts, the local web UI.
 Also shipped: `describe` (image to text with llama.cpp and Qwen2.5-VL 3B/7B), a Home screen
-of tasks with per-machine readiness.
+of tasks with per-machine readiness and a getting-started checklist, optional auto-captions
+(Settings → Preferences: every finished image is described in the background once the vision
+stack is installed; captions show in the viewer and are searchable), a keyboard-shortcuts
+overlay (`?`), and a purpose-built sketch canvas: brush with opacity, softness and pen
+pressure, eraser, line, rectangle, ellipse (Shift constrains), fill, eyedropper, a faded
+reference layer under the drawing, pan (Space, middle button, wheel) and zoom towards the
+cursor. The sketch is deliberately not a paint program: at the strengths that make
+sketch-to-image work, fine detail is re-invented by the model anyway. Better control will
+come from conditioning (scribble or edge ControlNet) rather than from more brushes.
 Next: Qwen-Image-Edit as an instruction-edit model, LoRA, GPU builds (Vulkan, CUDA), optional
 cloud engines behind the same interface, a marketing site.
 Later: optional ComfyUI engine, GPU builds (CUDA, ROCm), the Hivemind catalogue entry,
