@@ -23,7 +23,7 @@ jobs:
         # setup-uv activates a project .venv; install into it (not --system, which the
         # Ubuntu runner's externally managed interpreter refuses) and run tools with uv run
         run: |
-          uv venv --python ${{ matrix.python }}
+          uv venv --clear --python ${{ matrix.python }}
           uv pip install -e ".[dev]"
       - name: Ruff lint
         run: uv run ruff check src tests
@@ -42,7 +42,7 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: |
-          uv venv --python 3.12
+          uv venv --clear --python 3.12
           uv pip install -e ".[dev,e2e]"
       - name: Install Chromium
         run: uv run playwright install --with-deps chromium
