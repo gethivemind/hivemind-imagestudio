@@ -113,7 +113,10 @@ expected time per preset. `install-engine` fetches the pinned stable-diffusion.c
 for your OS (about 20 to 40 MB, hash-verified); set `IMAGESTUDIO_SD_BIN` to use a build of
 your own instead, or put `sd-cli` on PATH. `download-model` picks the highest-fidelity set
 that fits your memory (override with `--variant q8|q6|q5|q4`), about 10 GB for a 16 GB
-machine, and asks before downloading unless `--yes` is given.
+machine, and asks before downloading unless `--yes` is given. It also takes tool models
+(`realesrgan-x4plus`, `isnet-general-use`, ...) and vision models (`qwen2.5-vl-3b`). For
+image to text, install the second engine with `imagestudio install-engine --vision`
+(llama.cpp, MIT, about 20 MB).
 
 Generate from the command line:
 
@@ -166,6 +169,7 @@ stable-diffusion.cpp release; its SHA-256 is in `registry.py`. Allow it, or add 
 | `edit(image, prompt, strength=0.75, mask?, preset?, seed?, model?)` | Change an image by instruction; with a black/white mask only the white area is repainted. |
 | `upscale(image, model?, repeats=1)` | 4× (or 16×) with Real-ESRGAN. |
 | `remove_background(image, model?)` | Transparent PNG with IS-Net or U²-Net. |
+| `describe(image, task="describe", question?, model?)` | Image to text with llama.cpp and Qwen2.5-VL: description, prompt, alt text, tags, or your own question. Synchronous. |
 | `plan(...)` | Dry run of generate(): expected time and the load meter. |
 | `job_status(job_id)` | Status, phase, progress, step, ETA, queue position. |
 | `job_result(job_id, as_base64=false)` | Path to the PNG, plus base64 on request. |
@@ -264,8 +268,10 @@ model and engine downloads, calibration, CLI, MCP server.
 Increment 2 (shipped): `upscale` (Real-ESRGAN, BSD-3-Clause), `remove_background` (IS-Net /
 U²-Net, Apache-2.0, via ONNX Runtime), `variations` and `edit` with inpainting masks, a sketch
 canvas in the UI, prompt parameters and reproducible prompts, the local web UI.
-Next: `describe` (image to text with llama.cpp and Qwen2.5-VL), Qwen-Image-Edit as an
-instruction-edit model, LoRA, GPU builds.
+Also shipped: `describe` (image to text with llama.cpp and Qwen2.5-VL 3B/7B), a Home screen
+of tasks with per-machine readiness.
+Next: Qwen-Image-Edit as an instruction-edit model, LoRA, GPU builds (Vulkan, CUDA), optional
+cloud engines behind the same interface, a marketing site.
 Later: optional ComfyUI engine, GPU builds (CUDA, ROCm), the Hivemind catalogue entry,
 and a three-tier model list (Hivemind-verified, compatible-but-unverified, bring your own
 model with a declared licence).
