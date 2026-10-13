@@ -86,7 +86,15 @@ Requires Python 3.11+.
 pip install "hivemind-imagestudio[bg]"
 ```
 
+or, kept out of every other environment:
+
+```bash
+uv tool install "hivemind-imagestudio[bg]"
+```
+
 The `bg` extra adds ONNX Runtime for background removal; without it everything else works.
+Releases on PyPI and the entries in the signed Hivemind catalog feed are the official
+builds (see NOTICE). Inside Hivemind, Settings → Tools installs and connects it for you.
 
 or from a checkout:
 
@@ -310,6 +318,10 @@ user may always pick a slower setting. Every later job refines the same calibrat
 | FLUX VAE `ae.safetensors` | Apache-2.0 |
 | Qwen-Image weights (GGUF by city96), Qwen-Image VAE | Apache-2.0 |
 | Qwen2.5-VL-7B-Instruct text encoder (GGUF) | Apache-2.0 |
+
+The code is Apache-2.0: use it, fork it, ship it. The names "Hivemind" and "Hivemind
+Image Studio" and the logos are trademarks and are not licensed (Apache §6); a fork keeps
+the code and takes its own name. Details in NOTICE.
 
 ## Development
 

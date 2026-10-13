@@ -4,6 +4,7 @@ version = "0.2.0"
 description = "Free, local, permissively licensed image MCP server. Quality is a setting, never a consequence."
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
 authors = [{ name = "Hivemind" }]
 keywords = ["mcp", "image-generation", "stable-diffusion.cpp", "flux", "local"]
@@ -20,6 +21,12 @@ dependencies = [
   "truststore>=0.9",
   "pillow>=10",
 ]
+
+[project.urls]
+Homepage = "https://github.com/gethivemind/hivemind-imagestudio"
+Source = "https://github.com/gethivemind/hivemind-imagestudio"
+Issues = "https://github.com/gethivemind/hivemind-imagestudio/issues"
+Changelog = "https://github.com/gethivemind/hivemind-imagestudio/releases"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]

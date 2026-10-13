@@ -1,0 +1,15 @@
+Hivemind Image Studio
+Copyright 2026 Ratul Roy and the Hivemind contributors
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+Trademarks. "Hivemind" and "Hivemind Image Studio", and the Hivemind logos, are
+trademarks of Ratul Roy. The Apache License grants no trademark rights (section 6).
+You may use the code under the licence, fork it, and ship it; please do not call a
+fork or a derived service "Hivemind" or "Hivemind Image Studio", or present it as
+official. "A fork of Hivemind Image Studio" is fine.
+
+Official channel. Releases on PyPI (hivemind-imagestudio) and the entries in the
+signed Hivemind catalog feed are the official builds; anything else is unverified.
+
+Third-party components keep their own licences; see the Licences table in README.md.
