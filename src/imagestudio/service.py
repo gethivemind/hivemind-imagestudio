@@ -450,7 +450,8 @@ class Studio:
             if "Access is denied" in msg or "Permission denied" in msg:
                 msg += (
                     ". On Windows this is usually endpoint protection (Trend Micro, Defender) "
-                    "blocking a newly downloaded program: allow it or trust the studio's tools folder."
+                    "blocking a newly downloaded program: allow it or trust the studio's tools "
+                    "folder."
                 )
             raise StudioError(msg) from e
         if source_job and task in ("describe", "alt"):
