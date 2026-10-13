@@ -116,3 +116,47 @@ def test_tool_models_are_pinned_and_permissive():
     for t in TOOL_MODELS.values():
         assert len(t.file.sha256) == 64 and t.file.size > 0
         assert t.licence in ("Apache-2.0", "BSD-3-Clause", "MIT")
+
+
+def test_variations_and_edit_are_image_to_image_jobs(tools_studio: Studio, tmp_path):
+    src = tools_studio.generate("a teapot", preset="fast", seed=5)
+    wait(tools_studio, src.id)
+    var = tools_studio.variations(src.id, strength=0.4)
+    assert var.tool == "variations" and var.prompt == "a teapot" and var.strength == 0.4
+    assert var.source_job == src.id and var.input_path.endswith(f"{src.id}.png")
+    st = wait(tools_studio, var.id)
+    assert st["status"] == "done" and st["strength"] == 0.4
+    spec = tools_studio.engine.calls[-1]
+    assert spec.init_image is not None and spec.strength == 0.4 and spec.mask_image is None
+    assert "--from" in st["reproducible_prompt"] and "--strength 0.4" in st["reproducible_prompt"]
+
+    from imagestudio.engine.fake import tiny_png
+
+    mask = tmp_path / "mask.png"
+    mask.write_bytes(tiny_png(16, 16, (255, 255, 255)))
+    ed = tools_studio.edit(src.id, "the same teapot but blue", strength=0.8, mask=str(mask))
+    assert ed.tool == "edit" and ed.mask_path == str(mask)
+    wait(tools_studio, ed.id)
+    spec = tools_studio.engine.calls[-1]
+    assert spec.mask_image == mask and spec.strength == 0.8
+    with pytest.raises(StudioError, match="strength"):
+        tools_studio.edit(src.id, "x", strength=1.5)
+    with pytest.raises(StudioError, match="need a prompt"):
+        tools_studio.edit(str(mask), "", strength=0.5)
+
+
+def test_from_param_in_prompt_runs_variations(tools_studio: Studio):
+    src = tools_studio.generate("a teapot", preset="fast")
+    wait(tools_studio, src.id)
+    job = tools_studio.generate(f"a copper teapot --from {src.id} --strength 0.3 --preset fast")
+    assert job.tool == "variations" and job.prompt == "a copper teapot" and job.strength == 0.3
+    wait(tools_studio, job.id)
+
+
+def test_upload_roundtrip(tools_studio: Studio):
+    from imagestudio.engine.fake import tiny_png
+
+    p = tools_studio.save_upload(tiny_png(8, 8))
+    assert p.exists() and p.suffix == ".png"
+    with pytest.raises(StudioError, match="not an image"):
+        tools_studio.save_upload(b"hello")

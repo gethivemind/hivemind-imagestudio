@@ -26,6 +26,15 @@ class GenerateSpec:
     extra_args: tuple[str, ...] = ()
     threads: int | None = None
     preview_path: Path | None = None  # engine writes a cheap preview here after each step
+    init_image: Path | None = None  # image-to-image: start from this picture
+    mask_image: Path | None = None  # inpainting: white = repaint, black = keep
+    strength: float = 0.6  # image-to-image: how far from the source (0 = same, 1 = ignore it)
+    init_image: Path | None = None  # image-to-image: start from this picture
+    mask_image: Path | None = None  # inpainting: white = repaint, black = keep
+    strength: float = 0.6  # image-to-image: how far from the source (0 = same, 1 = ignore it)
+    init_image: Path | None = None  # image-to-image: start from this picture
+    mask_image: Path | None = None  # inpainting: white = repaint, black = keep
+    strength: float = 0.6  # image-to-image: how far from the source (0 = same, 1 = ignore it)
 
 
 @dataclass

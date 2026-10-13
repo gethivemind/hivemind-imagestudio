@@ -190,6 +190,74 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             return _err(e)
 
     @mcp.tool(
+        name="variations",
+        description=(
+            "Queue variations of an existing image (image-to-image) and return a job id. image is "
+            "a job id or a local image path; prompt defaults to the source job's prompt; strength "
+            "0-1 is how far to move from the source (0.3 subtle, 0.55 default, 0.8 loose). Same "
+            "presets and settings as generate(); the output keeps the source size. Poll job_status."
+        ),
+    )
+    def variations(
+        image: str,
+        strength: float = 0.55,
+        prompt: str = "",
+        preset: str = "best",
+        seed: int | None = None,
+        model: str | None = None,
+    ) -> dict[str, Any]:
+        try:
+            job = studio.variations(image, strength, prompt, preset=preset, seed=seed, model=model)
+        except StudioError as e:
+            return _err(e)
+        st = studio.job_status(job.id)
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "estimate_seconds": round(job.estimate_seconds),
+            "estimate_human": st["eta_human"],
+            "width": job.width,
+            "height": job.height,
+            "seed": job.seed,
+            "strength": job.strength,
+        }
+
+    @mcp.tool(
+        name="edit",
+        description=(
+            "Queue an edit of an existing image by instruction and return a job id. image is a job "
+            "id or a local image path; prompt describes the wanted result ('the same scene at "
+            "night'); strength 0-1 is how much may change (0.75 default). mask: optional job id or "
+            "path to a black/white image of the same size; only the white area is repainted "
+            "(inpainting). Same presets and settings as generate(). Poll job_status."
+        ),
+    )
+    def edit(
+        image: str,
+        prompt: str,
+        strength: float = 0.75,
+        mask: str | None = None,
+        preset: str = "best",
+        seed: int | None = None,
+        model: str | None = None,
+    ) -> dict[str, Any]:
+        try:
+            job = studio.edit(image, prompt, strength, mask, preset=preset, seed=seed, model=model)
+        except StudioError as e:
+            return _err(e)
+        st = studio.job_status(job.id)
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "estimate_seconds": round(job.estimate_seconds),
+            "estimate_human": st["eta_human"],
+            "width": job.width,
+            "height": job.height,
+            "seed": job.seed,
+            "strength": job.strength,
+        }
+
+    @mcp.tool(
         name="upscale",
         description=(
             "Queue a 4x upscale of a finished image with Real-ESRGAN (BSD licence) and return a "

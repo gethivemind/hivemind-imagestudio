@@ -62,6 +62,8 @@ def job_title(job: Job) -> str:
         stamp = job.id
     size = f"{job.width}²" if job.width == job.height else f"{job.width}×{job.height}"
     kind = job.preset if job.tool == "generate" else job.tool.replace("_", " ")
+    if job.tool in ("variations", "edit"):
+        kind = f"{job.tool} · {job.preset}"
     return f"{stamp} · {kind} · {size}"
 
 
@@ -211,6 +213,7 @@ class Studio:
         sampler: str | None = None,
         threads: int | None = None,
         vae_tiling: bool = False,
+        _defer: bool = False,
     ) -> Job:
         if not prompt or not prompt.strip():
             raise StudioError("prompt must not be empty")
@@ -236,6 +239,22 @@ class Studio:
         sampler = p.get("sampler", sampler)
         threads = p.get("threads", threads)
         vae_tiling = p.get("vae_tiling", vae_tiling)
+        if "init" in p and not _defer:
+            # --from in the prompt: hand over to image-to-image with the remaining settings
+            return self._img2img(
+                "variations",
+                p["init"],
+                prompt,
+                p.get("strength", 0.55),
+                None,
+                preset=preset,
+                seed=seed,
+                negative_prompt=negative_prompt,
+                model=model,
+                steps=steps,
+                cfg_scale=cfg_scale,
+                sampler=sampler,
+            )
         if not self.engine.available():
             raise StudioError(
                 "the image engine (stable-diffusion.cpp) is not installed. Run "
@@ -287,8 +306,93 @@ class Studio:
             fit_note=plan.fit_note,
             warnings=list(plan.warnings),
         )
+        if not _defer:
+            self.worker.submit(job)
+        return job
+
+    # -- image-to-image: variations and edit ----------------------------------------------
+
+    def _img2img(
+        self,
+        tool: str,
+        image: str,
+        prompt: str,
+        strength: float,
+        mask: str | None = None,
+        preset: str = "best",
+        seed: int | None = None,
+        negative_prompt: str = "",
+        model: str | None = None,
+        steps: int | None = None,
+        cfg_scale: float | None = None,
+        sampler: str | None = None,
+    ) -> Job:
+        if not 0.0 <= strength <= 1.0:
+            raise StudioError("strength must be between 0 and 1")
+        src, source_job = self._resolve_input(image)
+        mask_path: Path | None = None
+        if mask:
+            mask_path, _ = self._resolve_input(mask)
+        from PIL import Image
+
+        with Image.open(src) as im:
+            w, h = im.size
+        # keep the source size, snapped to the engine's multiple of 16
+        w, h = max(256, (w // 16) * 16), max(256, (h // 16) * 16)
+        if source_job and not prompt.strip():
+            prompt = self.jobs.get(source_job).prompt  # type: ignore[union-attr]
+        if not prompt.strip():
+            raise StudioError("edit and variations need a prompt (what the result should show)")
+        job = self.generate(
+            prompt,
+            preset=preset,
+            width=w,
+            height=h,
+            seed=seed,
+            negative_prompt=negative_prompt,
+            model=model,
+            steps=steps,
+            cfg_scale=cfg_scale,
+            sampler=sampler,
+            _defer=True,
+        )
+        job.tool = tool
+        job.input_path = str(src)
+        job.source_job = source_job
+        job.mask_path = str(mask_path) if mask_path else None
+        job.strength = strength
+        job.estimate_seconds *= max(0.15, strength)  # fewer effective steps at low strength
         self.worker.submit(job)
         return job
+
+    def variations(self, image: str, strength: float = 0.55, prompt: str = "", **kw) -> Job:
+        """Same picture, re-imagined: image-to-image at a moderate strength."""
+        return self._img2img("variations", image, prompt, strength, None, **kw)
+
+    def edit(
+        self, image: str, prompt: str, strength: float = 0.75, mask: str | None = None, **kw
+    ) -> Job:
+        """Change a picture by instruction; with a mask only the white area is repainted."""
+        return self._img2img("edit", image, prompt, strength, mask, **kw)
+
+    def save_upload(self, data: bytes, name: str = "upload.png") -> Path:
+        """Store an uploaded image (sketch, photo) under the data dir and return its path."""
+        import io
+
+        from PIL import Image
+
+        try:
+            with Image.open(io.BytesIO(data)) as im:
+                im.load()
+                fmt = (im.format or "PNG").lower()
+        except Exception as e:
+            raise StudioError(f"not an image: {e}") from e
+        ext = {"jpeg": ".jpg", "png": ".png", "webp": ".webp"}.get(fmt, ".png")
+        folder = self.settings.data_dir / "uploads"
+        folder.mkdir(parents=True, exist_ok=True)
+        p = folder / f"up_{secrets.token_hex(6)}{ext}"
+        p.write_bytes(data)
+        return p
 
     # -- task tools: upscale, remove_background -------------------------------------------
 
@@ -439,8 +543,12 @@ class Studio:
             "tool": job.tool,
             "source_job": job.source_job,
             "tool_model": job.tool_model,
+            "strength": job.strength,
+            "mask_path": job.mask_path,
             "prompt": job.prompt,
-            "reproducible_prompt": reproducible(job) if job.tool == "generate" else "",
+            "reproducible_prompt": reproducible(job)
+            if job.tool in ("generate", "variations", "edit")
+            else "",
             "title": job_title(job),
             "status": job.status,
             "phase": job.phase,

@@ -22,6 +22,8 @@ EXPECTED_TOOLS = {
     "plan",
     "upscale",
     "remove_background",
+    "variations",
+    "edit",
 }
 
 

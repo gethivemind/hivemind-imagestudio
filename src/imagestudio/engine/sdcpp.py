@@ -174,6 +174,18 @@ class SdCppEngine:
         ]
         if spec.negative_prompt:
             args += ["-n", spec.negative_prompt]
+        if spec.init_image is not None:
+            args += ["-i", str(spec.init_image), "--strength", f"{spec.strength:.2f}"]
+            if spec.mask_image is not None:
+                args += ["--mask", str(spec.mask_image)]
+        if spec.init_image is not None:
+            args += ["-i", str(spec.init_image), "--strength", f"{spec.strength:.2f}"]
+            if spec.mask_image is not None:
+                args += ["--mask", str(spec.mask_image)]
+        if spec.init_image is not None:
+            args += ["-i", str(spec.init_image), "--strength", f"{spec.strength:.2f}"]
+            if spec.mask_image is not None:
+                args += ["--mask", str(spec.mask_image)]
         if threads > 0:
             args += ["-t", str(threads)]
         for flag, path in spec.component_paths.items():

@@ -66,3 +66,9 @@ def test_reproducible_round_trip():
     assert p.params["seed"] == 42 and p.params["width"] == 1024 and p.params["height"] == 768
     assert p.params["negative_prompt"] == "blurry" and p.params["variant"] == "q5"
     assert "--sampler" not in line  # default sampler is implied
+
+
+def test_from_and_strength_params():
+    p = parse("a copper teapot --from job_abc123 --strength 0.3")
+    assert p.prompt == "a copper teapot" and p.params == {"init": "job_abc123", "strength": 0.3}
+    assert any("--strength" in e for e in parse("x --strength 3").errors)

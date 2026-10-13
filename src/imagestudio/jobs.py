@@ -74,6 +74,12 @@ class Job:
     input_path: str | None = None  # upscale / remove_background: the source image
     source_job: str | None = None  # the job the source image came from, if any
     tool_model: str | None = None  # upscale / remove_background: which tool model
+    mask_path: str | None = None  # edit: inpainting mask
+    strength: float = 0.6  # variations / edit: distance from the source image
+    mask_path: str | None = None  # edit: inpainting mask
+    strength: float = 0.6  # variations / edit: distance from the source image
+    mask_path: str | None = None  # edit: inpainting mask
+    strength: float = 0.6  # variations / edit: distance from the source image
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -372,7 +378,7 @@ class Worker:
 
     def _run_tool(self, job: Job, spec: GenerateSpec, on_progress):
         out = self.store.settings.out_dir / f"{job.id}.png"
-        if job.tool == "generate":
+        if job.tool in ("generate", "variations", "edit"):
             return self.engine.generate(spec, on_progress)
         if not job.input_path or not Path(job.input_path).exists():
             raise EngineError(f"input image not found: {job.input_path}")
@@ -452,6 +458,13 @@ class Worker:
             component_paths={k: Path(v) for k, v in job.component_paths.items()},
             extra_args=tuple(job.extra_args),
             threads=job.threads,
+            init_image=(
+                Path(job.input_path)
+                if job.input_path and job.tool in ("variations", "edit")
+                else None
+            ),
+            mask_image=Path(job.mask_path) if job.mask_path else None,
+            strength=job.strength,
         )
         try:
             result = self._run_tool(job, spec, on_progress)

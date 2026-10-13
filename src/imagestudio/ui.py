@@ -124,7 +124,26 @@ def build_app(studio: Studio) -> Starlette:
         body = await request.json()
         tool = request.path_params["tool"]
         try:
-            if tool == "upscale":
+            if tool == "variations":
+                job = studio.variations(
+                    body.get("image", ""),
+                    float(body.get("strength", 0.55)),
+                    body.get("prompt", ""),
+                    preset=body.get("preset", "best"),
+                    seed=body.get("seed") or None,
+                    model=_str(body.get("model")),
+                )
+            elif tool == "edit":
+                job = studio.edit(
+                    body.get("image", ""),
+                    body.get("prompt", ""),
+                    float(body.get("strength", 0.75)),
+                    _str(body.get("mask")),
+                    preset=body.get("preset", "best"),
+                    seed=body.get("seed") or None,
+                    model=_str(body.get("model")),
+                )
+            elif tool == "upscale":
                 job = studio.upscale(
                     body.get("image", ""), _str(body.get("model")), int(body.get("repeats", 1))
                 )
@@ -135,6 +154,25 @@ def build_app(studio: Studio) -> Starlette:
         except (StudioError, ValueError, TypeError) as e:
             return JSONResponse({"error": str(e)}, status_code=400)
         return JSONResponse(studio.job_status(job.id))
+
+    async def upload(request: Request) -> JSONResponse:
+        data = await request.body()
+        if not data or len(data) > 64 * 1024 * 1024:
+            return JSONResponse({"error": "empty or too large (64 MB max)"}, status_code=400)
+        try:
+            p = studio.save_upload(data)
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse({"path": str(p)})
+
+    async def upload_view(request: Request):
+        p = (studio.settings.data_dir / "uploads" / request.path_params["name"]).resolve()
+        if (
+            not str(p).startswith(str((studio.settings.data_dir / "uploads").resolve()))
+            or not p.exists()
+        ):
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return FileResponse(str(p))
 
     async def tool_download(request: Request) -> JSONResponse:
         body = await request.json()
@@ -239,6 +277,8 @@ def build_app(studio: Studio) -> Starlette:
             Route("/api/parse", parse_prompt),
             Route("/api/tools/{tool}", run_tool, methods=["POST"]),
             Route("/api/tools/download", tool_download, methods=["POST"]),
+            Route("/api/upload", upload, methods=["POST"]),
+            Route("/api/uploads/{name}", upload_view),
             Route("/api/memory", memory),
             Route("/api/config", set_config, methods=["POST"]),
             Route("/api/samples", samples),
