@@ -83,16 +83,18 @@ def build_server(studio: Studio | None = None) -> FastMCP:
         variant: str | None = None,
         threads: int | None = None,
         vae_tiling: bool = False,
+        count: int = 1,
     ) -> dict[str, Any]:
         try:
-            job = studio.generate(
+            jobs = studio.generate_many(
                 prompt,
-                preset,
-                width,
-                height,
-                seed,
-                negative_prompt,
-                model,
+                count=count,
+                preset=preset,
+                width=width,
+                height=height,
+                seed=seed,
+                negative_prompt=negative_prompt,
+                model=model,
                 variant=variant,
                 steps=steps,
                 cfg_scale=cfg_scale,
@@ -102,9 +104,11 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             )
         except StudioError as e:
             return _err(e)
+        job = jobs[0]
         st = studio.job_status(job.id)
         return {
             "job_id": job.id,
+            "job_ids": [j.id for j in jobs],
             "status": job.status,
             "estimate_seconds": round(job.estimate_seconds),
             "estimate_human": st["eta_human"],

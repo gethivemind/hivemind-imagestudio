@@ -43,6 +43,9 @@ ALIASES = {
     "tiling": "vae_tiling",
     "vae-tiling": "vae_tiling",
     "from": "init",
+    "n": "count",
+    "count": "count",
+    "batch": "count",
     "init": "init",
     "strength": "strength",
     "str": "strength",
@@ -152,6 +155,10 @@ def parse(text: str) -> Parsed:
             v = _int(name, raw, 1, 256, errors)
             if v is not None:
                 params["threads"] = v
+        elif key == "count":
+            v = _int(name, raw, 1, 16, errors)
+            if v is not None:
+                params["count"] = v
         elif key == "cfg_scale":
             try:
                 v = float(raw)
@@ -252,12 +259,15 @@ def reproducible(job: Any) -> str:
     src = getattr(job, "source_job", None) or getattr(job, "input_path", None)
     if src and getattr(job, "tool", "generate") in ("generate", "variations", "edit"):
         parts.append(f"--from {src} --strength {getattr(job, 'strength', 0.6):g}")
-    src = getattr(job, "source_job", None) or getattr(job, "input_path", None)
-    if src and getattr(job, "tool", "generate") in ("generate", "variations", "edit"):
-        parts.append(f"--from {src} --strength {getattr(job, 'strength', 0.6):g}")
-    src = getattr(job, "source_job", None) or getattr(job, "input_path", None)
-    if src and getattr(job, "tool", "generate") in ("generate", "variations", "edit"):
-        parts.append(f"--from {src} --strength {getattr(job, 'strength', 0.6):g}")
     if job.negative_prompt:
         parts.append(f"--no {job.negative_prompt}")
     return " ".join(parts)
+
+
+_BATCH_TOKENS = re.compile(r"(?:(?<=\s)|^)--(?:n|count|batch|seed|s)\s+\S+", re.IGNORECASE)
+
+
+def without_batch_and_seed(text: str) -> str:
+    """The prompt text with any --n/--count and --seed parameters removed, for the members of a
+    batch, whose seeds are assigned one by one."""
+    return re.sub(r"\s{2,}", " ", _BATCH_TOKENS.sub("", text)).strip()

@@ -33,7 +33,12 @@ from imagestudio.planner import (
     memory_budget as memory_budget_bytes,
 )
 from imagestudio.profile import MachineProfile, now_iso, recommend
-from imagestudio.promptparams import apply_aspect, parse, reproducible
+from imagestudio.promptparams import (
+    apply_aspect,
+    parse,
+    reproducible,
+    without_batch_and_seed,
+)
 from imagestudio.registry import (
     EXCLUDED_BY_POLICY,
     LICENCES,
@@ -165,6 +170,7 @@ class Studio:
 
     def _on_finished(self, job: Job) -> None:
         if job.status == "done":
+            self._write_metadata(job)
             self._maybe_auto_caption(job)
         if job.status != "done" or job.sampling_seconds is None or job.sampling_seconds <= 0:
             return
@@ -188,6 +194,90 @@ class Studio:
             job.load_seconds or 0.0,
             job.sampling_seconds,
         )
+
+    # -- PNG metadata -----------------------------------------------------------------------
+
+    def metadata_for(self, job: Job) -> dict[str, str]:
+        """The text chunks written into a finished PNG: ``parameters`` in the widely read
+        Automatic1111 layout, and ``imagestudio`` as JSON with the reproducible prompt."""
+        generated = job.tool in ("generate", "variations", "edit")
+        if generated:
+            lines = [job.prompt]
+            if job.negative_prompt:
+                lines.append(f"Negative prompt: {job.negative_prompt}")
+            lines.append(
+                f"Steps: {job.steps}, Sampler: {job.sampler}, CFG scale: {job.cfg_scale:g}, "
+                f"Seed: {job.seed}, Size: {job.width}x{job.height}, Model: {job.model} "
+                f"[{job.variant}], Preset: {job.preset}, Tool: {job.tool}"
+            )
+            params = "\n".join(lines)
+        else:
+            params = (
+                f"Tool: {job.tool}, Model: {job.tool_model or '-'}, Size: {job.width}x{job.height}"
+            )
+        info = {
+            "app": f"Hivemind Image Studio {__version__}",
+            "job": job.id,
+            "tool": job.tool,
+            "prompt": job.prompt,
+            "negative_prompt": job.negative_prompt,
+            "reproducible_prompt": reproducible(job) if generated else "",
+            "model": job.model,
+            "variant": job.variant,
+            "preset": job.preset,
+            "width": job.width,
+            "height": job.height,
+            "steps": job.steps,
+            "cfg_scale": job.cfg_scale,
+            "seed": job.seed,
+            "sampler": job.sampler,
+            "source_job": job.source_job,
+            "tool_model": job.tool_model,
+            "caption": job.caption,
+        }
+        return {"parameters": params, "imagestudio": json.dumps(info, ensure_ascii=False)}
+
+    def _write_metadata(self, job: Job) -> None:
+        """Re-save the finished PNG with its text chunks (lossless). Never fails the job."""
+        if not job.output_path or job.tool == "import":
+            return
+        try:
+            from PIL import Image
+            from PIL.PngImagePlugin import PngInfo
+
+            info = PngInfo()
+            for k, v in self.metadata_for(job).items():
+                info.add_text(k, v)
+            path = Path(job.output_path)
+            tmp = path.with_suffix(".tmp.png")
+            with Image.open(path) as im:
+                im.load()
+                im.save(tmp, "PNG", pnginfo=info)
+            tmp.replace(path)
+        except Exception as e:  # metadata is a convenience, never fail the job
+            job.warnings = [*job.warnings, f"metadata not written: {e}"]
+            self.jobs.put(job)
+
+    @staticmethod
+    def read_metadata(path: Path) -> dict[str, Any]:
+        """Our own chunk if the file carries one, else whatever ``parameters`` text exists."""
+        from PIL import Image
+
+        try:
+            with Image.open(path) as im:
+                text = dict(getattr(im, "text", {}) or {})
+        except Exception:
+            return {}
+        out: dict[str, Any] = {}
+        if text.get("imagestudio"):
+            try:
+                out = json.loads(text["imagestudio"])
+            except ValueError:
+                out = {}
+        if not out.get("prompt") and text.get("parameters"):
+            out["prompt"] = text["parameters"].split("\n", 1)[0].strip()
+            out["parameters"] = text["parameters"]
+        return out
 
     # -- auto-captions ----------------------------------------------------------------------
 
@@ -271,6 +361,7 @@ class Studio:
     ) -> Job:
         if not prompt or not prompt.strip():
             raise StudioError("prompt must not be empty")
+        parsed_text = prompt
         parsed = parse(prompt)
         if parsed.errors:
             raise StudioError("; ".join(parsed.errors))
@@ -293,6 +384,25 @@ class Studio:
         sampler = p.get("sampler", sampler)
         threads = p.get("threads", threads)
         vae_tiling = p.get("vae_tiling", vae_tiling)
+        if p.get("count", 1) > 1 and not _defer:
+            # --n: a batch of seeds for one prompt. The first job is returned; the others follow
+            # it in the queue and all are listed by generate_many.
+            return self.generate_many(
+                parsed_text,
+                count=p["count"],
+                preset=preset,
+                width=width,
+                height=height,
+                seed=seed,
+                negative_prompt=negative_prompt,
+                model=model,
+                variant=variant,
+                steps=steps,
+                cfg_scale=cfg_scale,
+                sampler=sampler,
+                threads=threads,
+                vae_tiling=vae_tiling,
+            )[0]
         if "init" in p and not _defer:
             # --from in the prompt: hand over to image-to-image with the remaining settings
             return self._img2img(
@@ -363,6 +473,23 @@ class Studio:
         if not _defer:
             self.worker.submit(job)
         return job
+
+    def generate_many(
+        self, prompt: str, count: int = 1, seed: int | None = None, **kw
+    ) -> list[Job]:
+        """``count`` jobs of one prompt with consecutive seeds (random start when no seed is
+        given). Each is a normal job in the queue; the list is in queue order."""
+        count = max(1, min(16, int(count)))
+        parsed = parse(prompt)
+        count = max(count, int(parsed.params.get("count", 1)))
+        if parsed.params.get("seed") is not None:
+            seed = parsed.params["seed"]
+        if count == 1:
+            return [self.generate(prompt, seed=seed, **kw)]
+        if seed is None or seed < 0:
+            seed = secrets.randbelow(MAX_SEED - count)
+        text = without_batch_and_seed(prompt)
+        return [self.generate(text, seed=seed + i, **kw) for i in range(count)]
 
     # -- image-to-image: variations and edit ----------------------------------------------
 
@@ -686,6 +813,20 @@ class Studio:
             live_preview=False,
         )
         dest = self.settings.out_dir / f"{job.id}.png"
+        meta = self.read_metadata(src)
+        if meta.get("prompt"):
+            job.prompt = str(meta["prompt"])
+            job.negative_prompt = str(meta.get("negative_prompt") or "")
+            if meta.get("caption"):
+                job.caption = str(meta["caption"])
+            for k in ("model", "variant", "preset", "sampler"):
+                if meta.get(k):
+                    setattr(job, k, str(meta[k]))
+            for k in ("steps", "seed"):
+                if isinstance(meta.get(k), int):
+                    setattr(job, k, meta[k])
+            if isinstance(meta.get("cfg_scale"), (int, float)):
+                job.cfg_scale = float(meta["cfg_scale"])
         with Image.open(src) as im:
             im.save(dest, "PNG")
         from datetime import UTC, datetime
@@ -1141,7 +1282,12 @@ class Studio:
             if lossy:
                 im.convert("RGB").save(buf, pil_name, quality=quality, optimize=True)
             else:
-                im.save(buf, pil_name, optimize=True)
+                from PIL.PngImagePlugin import PngInfo
+
+                info = PngInfo()
+                for k, v in self.metadata_for(job).items():
+                    info.add_text(k, v)
+                im.save(buf, pil_name, optimize=True, pnginfo=info)
         suffix = f"-q{quality}" if lossy else ""
         return buf.getvalue(), mime, f"{stem}-{size[0]}x{size[1]}{suffix}.{ext}"
 
@@ -1196,6 +1342,7 @@ class Studio:
             "live_preview": bool(cfg.get("live_preview", True)),
             "auto_caption": bool(cfg.get("auto_caption", False)),
             "auto_caption_ready": self.auto_caption_ready(),
+            "pinned_prompts": list(cfg.get("pinned_prompts") or []),
             "data_dir": str(self.settings.data_dir),
             "config_file": str(self.settings.config_file),
         }
@@ -1209,6 +1356,13 @@ class Studio:
             cfg["live_preview"] = bool(changes["live_preview"])
         if "auto_caption" in changes:
             cfg["auto_caption"] = bool(changes["auto_caption"])
+        if "pinned_prompts" in changes:
+            seen: list[str] = []
+            for t in changes["pinned_prompts"] or []:
+                t = str(t).strip()
+                if t and t not in seen:
+                    seen.append(t)
+            cfg["pinned_prompts"] = seen[:50]
         if "default_threads" in changes:
             v = changes["default_threads"]
             cfg["default_threads"] = int(v) if v not in (None, "", 0) else None

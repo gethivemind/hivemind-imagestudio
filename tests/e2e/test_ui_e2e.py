@@ -119,8 +119,41 @@ def test_gallery_lightbox_and_reproducible_prompt(page):
     text = page.inner_text("#lbPrompt")
     assert "a lighthouse" in text and "--seed 3" in text and "--preset fast" in text
     assert page.locator("#lbTitle").inner_text().count("·") == 2  # "Oct 13, 00:24 · fast · 512²"
+    # viewer: fit by default, wheel zooms, badge shows the percentage, double-click returns to fit
+    assert page.inner_text("#lbZoom") == "fit"
+    page.hover("#lbImg")
+    page.mouse.wheel(0, -300)
+    page.wait_for_function("document.getElementById('lbZoom').textContent !== 'fit'")
+    assert page.inner_text("#lbZoom").endswith("%")
+    page.dblclick("#lbImg")
+    page.wait_for_function("document.getElementById('lbZoom').textContent === 'fit'")
     page.keyboard.press("Escape")
     page.wait_for_selector("#lb[open]", state="hidden")
+    assert page.errors == []
+
+
+def test_batch_history_and_compare(page):
+    page.select_option("#count", "2")
+    page.fill("#prompt", "two teapots --seed 11 --preset fast")
+    page.wait_for_function("!document.getElementById('go').disabled")
+    page.click("#go")
+    page.wait_for_function("document.querySelectorAll('.qcard img').length >= 2", timeout=20000)
+    page.click("#histBtn")
+    page.wait_for_selector("#hist.open .hrow")
+    assert "two teapots" in page.inner_text("#hist")
+    page.click("#hist .hrow >> nth=0 >> .pin")
+    page.wait_for_function("document.querySelector('#hist .pin.on') !== null")
+    page.keyboard.press("Escape")
+    page.click("#tabs button[data-tab='gallery']")
+    page.wait_for_selector("#grid .card")
+    assert page.locator("#grid .card").count() >= 2
+    page.click("#grid .card >> nth=0")
+    page.wait_for_selector("#lb[open]")
+    page.click("#lbCompare")  # the other image in the list is a candidate
+    page.wait_for_selector("#lbimg.compare")
+    assert page.locator("#cmpSel option").count() >= 1
+    page.click("#cmpX")
+    page.wait_for_selector("#lbimg.compare", state="detached")
     assert page.errors == []
 
 

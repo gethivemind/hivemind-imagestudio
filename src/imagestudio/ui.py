@@ -56,8 +56,9 @@ def build_app(studio: Studio) -> Starlette:
     async def generate(request: Request) -> JSONResponse:
         body: dict[str, Any] = await request.json()
         try:
-            job = studio.generate(
-                prompt=body.get("prompt", ""),
+            jobs = studio.generate_many(
+                body.get("prompt", ""),
+                count=int(body.get("count") or 1),
                 preset=body.get("preset", "best"),
                 width=body.get("width") or None,
                 height=body.get("height") or None,
@@ -75,7 +76,9 @@ def build_app(studio: Studio) -> Starlette:
             )
         except (StudioError, ValueError, TypeError) as e:
             return JSONResponse({"error": str(e)}, status_code=400)
-        return JSONResponse(studio.job_status(job.id))
+        out = studio.job_status(jobs[0].id)
+        out["jobs"] = [j.id for j in jobs]
+        return JSONResponse(out)
 
     async def jobs(_: Request) -> JSONResponse:
         rows = []

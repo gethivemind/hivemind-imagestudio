@@ -152,7 +152,9 @@
   .skwrapc { position: relative; transform-origin: center center; box-shadow: var(--shadow); border-radius: 6px; background: #fff; }
   .skwrapc canvas { display: block; position: absolute; left: 0; top: 0; }
   .skwrapc canvas#skC { position: relative; }
-  .cursor { position: absolute; pointer-events: none; border: 1.5px solid rgba(0,0,0,.7); outline: 1px solid rgba(255,255,255,.7); border-radius: 50%; transform: translate(-50%, -50%); display: none; }
+  .cursor { position: absolute; pointer-events: none; z-index: 4; border: 1.5px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); display: none; mix-blend-mode: difference; }
+  .cursor.eraser { border-style: dashed; } .cursor .in { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,.75); border-radius: 50%; display: none; } .cursor.soft .in { display: block; }
+  .cursor .dot { position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px; border-radius: 50%; background: #fff; }
   .palette { position: absolute; left: 16px; top: 16px; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); user-select: none; }
   .palette .grip { cursor: grab; color: var(--muted); font-size: 11px; letter-spacing: -2px; padding: 2px 0 4px; }
   .palette .tb { width: 34px; height: 34px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--ink2); cursor: pointer; font-size: 15px; display: grid; place-items: center; }
@@ -198,7 +200,12 @@
   .keys h4 { margin: 12px 0 2px; font-size: 11px; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); }
   .brushbar { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 12px; padding: 6px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); font-size: 11.5px; color: var(--muted); user-select: none; white-space: nowrap; max-width: calc(100% - 140px); overflow-x: auto; }
   .brushbar label { display: flex; align-items: center; gap: 6px; margin: 0; } .brushbar input[type=range] { width: 76px; accent-color: var(--accent); padding: 0; margin: 0; height: 18px; border: 0; background: transparent; } .brushbar .v { font-family: var(--mono); min-width: 26px; text-align: right; color: var(--ink2); }
-  .brushbar .sep { width: 1px; height: 18px; background: var(--line); } .brushbar input[type=checkbox] { width: auto; height: auto; accent-color: var(--accent); }
+  .brushbar .sep { width: 1px; height: 18px; background: var(--line); }
+  .hist { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); max-height: 320px; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-lg); padding: 6px; display: none; z-index: 30; } .hist.open { display: block; }
+  .hist .hrow { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 9px; cursor: pointer; font-size: 12.5px; } .hist .hrow:hover { background: var(--surface2); } .hist .hrow .tx { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .hist .hrow .pin { border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: 13px; } .hist .hrow .pin.on { color: var(--honey); }
+  .hist .hh { font-size: 10.5px; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); padding: 6px 10px 2px; font-weight: 600; }
+  .cnt { height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface2); color: var(--ink2); font-size: 12px; padding: 0 6px; }
+ .brushbar input[type=checkbox] { width: auto; height: auto; accent-color: var(--accent); }
   .skview.hand { cursor: grab; } .skview.hand.panning { cursor: grabbing; } .skview.cross { cursor: crosshair; }
   .skwrapc canvas#skR { position: absolute; }
 
@@ -206,7 +213,15 @@
   dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(4px); }
   .lbwrap { display: grid; grid-template-columns: minmax(0, 1fr) 420px; grid-template-rows: minmax(0, 1fr); height: 100%; }
   .lbimg { position: relative; background: #0b0b0d; display: grid; place-items: center; overflow: hidden; border-radius: 18px 0 0 18px; }
-  .lbimg img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .lbimg img { width: 100%; height: 100%; object-fit: contain; transform-origin: center center; cursor: zoom-in; user-select: none; -webkit-user-drag: none; }
+  .lbimg.zoomed img { cursor: grab; } .lbimg.zoomed.panning img { cursor: grabbing; }
+  .lbimg .zb { position: absolute; left: 14px; bottom: 12px; font-family: var(--mono); font-size: 11px; color: #fff; background: rgba(20,20,22,.7); border: 1px solid rgba(255,255,255,.15); border-radius: 999px; padding: 3px 9px; cursor: pointer; z-index: 2; }
+  .lbimg .cmp { position: absolute; inset: 0; display: none; } .lbimg.compare .cmp { display: block; } .lbimg.compare > img { visibility: hidden; }
+  .cmp img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; } .cmp .b { clip-path: inset(0 0 0 var(--x, 50%)); }
+  .cmp .h { position: absolute; top: 0; bottom: 0; left: var(--x, 50%); width: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.4); transform: translateX(-1px); }
+  .cmp .h::after { content: '⇆'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; border-radius: 50%; background: #fff; color: #111; display: grid; place-items: center; font-size: 14px; }
+  .cmp .lab { position: absolute; top: 12px; font-size: 11px; color: #fff; background: rgba(20,20,22,.7); border-radius: 999px; padding: 3px 9px; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cmp .lab.l { left: 14px; } .cmp .lab.r { right: 14px; }
+  .cmp input[type=range] { position: absolute; left: 0; right: 0; bottom: 0; top: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: ew-resize; }
   .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.15); background: rgba(20,20,22,.7); color: #fff; cursor: pointer; display: grid; place-items: center; font-size: 18px; }
   .nav.prev { left: 14px; } .nav.next { right: 14px; } .nav:disabled { opacity: .3; cursor: default; }
   .lbside { padding: 18px 20px; overflow: auto; display: flex; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; } .lbside > * { min-width: 0; }
@@ -313,7 +328,7 @@
       <span class="sep" id="skRefSep" style="display:none"></span>
       <label id="skRefL" style="display:none" title="How visible the imported reference is, in the editor and in the exported sketch">reference <input type="range" id="skRef" min="0" max="100" value="45"><span class="v" id="skRefV">45</span><button class="tb" id="skRefX" title="Remove the reference" style="width:22px;height:22px;font-size:11px">✕</button></label>
     </div>
-    <div class="skview" id="skview"><div class="skwrapc" id="skwrapc"><canvas id="skR" width="1024" height="1024"></canvas><canvas id="skC" width="1024" height="1024"></canvas><canvas id="skO" width="1024" height="1024"></canvas></div><div class="cursor" id="skCursor"></div></div>
+    <div class="skview" id="skview"><div class="skwrapc" id="skwrapc"><canvas id="skR" width="1024" height="1024"></canvas><canvas id="skC" width="1024" height="1024"></canvas><canvas id="skO" width="1024" height="1024"></canvas></div><div class="cursor" id="skCursor"><span class="in"></span><span class="dot"></span></div></div>
     <div class="skbottom">
       <div class="box skbox">
         <textarea id="skPrompt" rows="1" placeholder="describe what the sketch should become, e.g. a cosy cabin by a lake at dusk, warm window light, painterly"></textarea>
@@ -370,6 +385,7 @@
         <div class="alerts" id="alerts"></div>
         <div class="box">
           <textarea id="prompt" rows="1" placeholder="a red fox on a mossy log in a misty pine forest at sunrise, soft golden light, 35 mm photograph"></textarea>
+          <div class="hist" id="hist"></div>
           <div class="chips" id="chips"></div>
           <div class="stytext" id="stytext"></div>
           <div class="tools">
@@ -377,6 +393,8 @@
             <div class="seg" id="presetSeg"></div>
             <select id="style" title="Adds wording to your prompt; the exact text is shown above."></select>
             <input type="number" class="seed" id="seed" placeholder="seed: random" title="Same prompt, settings and seed reproduce the image; empty = random.">
+            <select class="cnt" id="count" title="How many images of this prompt to queue, with consecutive seeds. Same as --n."><option value="1">×1</option><option value="2">×2</option><option value="4">×4</option><option value="8">×8</option></select>
+            <button class="ib" id="histBtn" title="Prompt history and pinned prompts">☰</button>
             <span class="eta" id="eta"><span class="meter"><i id="meterFill"></i></span><span id="etaText">…</span></span>
             <button class="btn primary go" id="go" disabled>Generate</button>
           </div>
@@ -400,15 +418,16 @@
   <div class="grid" id="grid"></div>
 </section>
 <dialog class="lb" id="lb"><div class="lbwrap">
-  <div class="lbimg"><img id="lbImg" alt=""><button class="nav prev" id="lbPrev">‹</button><button class="nav next" id="lbNext">›</button>
+  <div class="lbimg" id="lbimg"><img id="lbImg" alt="" draggable="false"><div class="cmp" id="cmp"><img class="a" id="cmpA" alt=""><img class="b" id="cmpB" alt=""><div class="h"></div><span class="lab l" id="cmpLa"></span><span class="lab r" id="cmpLb"></span><input type="range" id="cmpR" min="0" max="100" value="50"></div><button class="zb" id="lbZoom" title="click: fit / 100% · wheel: zoom · drag: pan · double-click: toggle">fit</button><button class="nav prev" id="lbPrev">‹</button><button class="nav next" id="lbNext">›</button>
     <div class="painter" id="painter"><canvas id="maskC"></canvas><div class="paintbar"><span>Paint what to change</span><input type="range" id="mSize" min="6" max="120" value="40"><button class="btn sm" id="mErase">Erase</button><button class="btn sm" id="mClear">Clear</button><button class="btn sm" id="mDone">Done</button></div></div></div>
   <div class="lbside">
     <div class="head"><div><h3 id="lbTitle"></h3><div class="sub" id="lbSub"></div><div class="sub lineage" id="lbLineage"></div></div><div style="display:flex;gap:6px"><button class="ib" id="lbStar" title="favourite">★</button><button class="ib" id="lbDel" title="move to trash">🗑</button><button class="ib" id="lbClose" title="close (Esc)">✕</button></div></div>
     <div class="promptbox"><div class="lab"><span>Prompt · reproducible</span><button class="btn sm" id="lbCopy">Copy</button></div><pre id="lbPrompt"></pre></div>
-    <div class="acts"><button class="btn sm" id="lbReuse">Edit in Create</button><a class="btn sm" id="lbOpen" target="_blank">Open full size</a></div>
+    <div class="acts"><button class="btn sm" id="lbReuse">Edit in Create</button><button class="btn sm" id="lbRecreate" title="Describe the image with the vision model and open Create with that prompt and this size">Recreate</button><button class="btn sm" id="lbCompare" title="Side-by-side slider against the parent, a child, or a favourite">Compare</button><a class="btn sm" id="lbOpen" target="_blank">Open full size</a></div>
+    <div class="row" id="cmpRow" style="display:none;margin-top:6px"><label style="width:auto" class="small muted">against</label><select id="cmpSel" style="flex:1;height:30px"></select><button class="btn sm" id="cmpX">Done</button></div>
     <div class="export" id="imgBox"><div class="lab">Reimagine</div>
       <div class="f"><label>Variations <i class="help" title="Same picture, re-rolled. Strength is how far it may drift: 0.3 subtle, 0.55 default, 0.8 loose.">?</i> <span class="muted" id="varV">0.55</span></label><div class="row" style="margin-top:0"><input type="range" id="varStr" min="0.1" max="0.95" step="0.05" value="0.55"><button class="btn sm primary" id="varBtn">Make variations</button></div></div>
-      <div class="f" style="margin-top:10px"><label>Edit by instruction <i class="help" title="Describe the wanted result. Paint a mask to change only part of the image; without a mask the whole picture is reinterpreted at the chosen strength.">?</i> <span class="muted" id="edV">0.75</span></label><input type="text" id="edPrompt" placeholder="e.g. the same scene at night, lit windows"><div class="row"><input type="range" id="edStr" min="0.2" max="0.95" step="0.05" value="0.75"><button class="btn sm" id="edMask">Paint mask</button><button class="btn sm primary" id="edBtn">Edit</button></div><div class="muted small" id="edNote"></div></div>
+      <div class="f" style="margin-top:10px"><label>Edit by instruction <i class="help" title="Describe the wanted result. Paint a mask to change only part of the image; without a mask the whole picture is reinterpreted at the chosen strength.">?</i> <span class="muted" id="edV">0.75</span></label><input type="text" id="edPrompt" placeholder="e.g. the same scene at night, lit windows"><div class="row"><input type="range" id="edStr" min="0.2" max="0.95" step="0.05" value="0.75"><button class="btn sm" id="edMask">Paint mask</button><button class="btn sm" id="edRemove" title="Paint over something and it is filled in from the surroundings. No prompt needed.">Remove object</button><button class="btn sm primary" id="edBtn">Edit</button></div><div class="muted small" id="edNote"></div></div>
     </div>
     <div class="export" id="toolsBox"><div class="lab">Tools</div>
       <div class="row" style="margin-top:0"><label>Upscale</label><select id="upModel" style="flex:1;height:30px"></select><select id="upRepeats" style="width:92px;height:30px"><option value="1">4×</option><option value="2">16×</option></select><button class="btn sm primary" id="upBtn">Run</button></div>
@@ -440,11 +459,12 @@
     <div class="g2" style="margin-bottom:10px"><div class="f"><label for="benchPreset">Render</label><select id="benchPreset"><option value="fast">fast · quickest</option><option value="balanced">balanced</option><option value="best">best</option></select></div><div class="f"><label for="benchTarget">Target minutes</label><input type="number" id="benchTarget" value="15" min="1"></div></div>
     <div id="benchResult" class="muted small">No benchmark yet. One real image is rendered and measured; the result recommends a preset for your target time. best stays the default.</div>
   </div>
-  <div class="pnl c6"><h2>Memory now <button class="btn sm" id="memBtn">Refresh</button></h2><div id="memPanel" class="muted small">…</div></div>
+  <div class="pnl c6"><h2>Memory now <button class="btn sm" id="memBtn">Refresh</button> <span class="muted small" id="memWhen" style="font-weight:400;letter-spacing:0;text-transform:none"></span></h2><div id="memPanel" class="muted small">…</div></div>
   <div class="pnl c8"><h2>Models and engines <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">· what is installed, where, and how big</span></h2><div id="modelsPanel"></div></div>
   <div class="pnl c4"><h2>Preferences</h2>
     <div class="sw"><div>Live preview<div class="d">Show the image forming while it renders. Costs almost nothing.</div></div><input type="checkbox" id="cfgPreview"></div>
     <div class="sw"><div>Auto-captions<div class="d">Describe every finished image with the local vision model, in the background. Captions show in the viewer and in search. <span id="cfgCaptionNote"></span></div></div><input type="checkbox" id="cfgCaption"></div>
+    <div class="sw"><div>Desktop notifications<div class="d">Tell me when a job finishes or fails while this tab is in the background. Stays on this browser.</div></div><input type="checkbox" id="cfgNotify"></div>
     <div class="sw"><div>Getting-started guide<div class="d">The checklist on Home. It hides itself once the basics are done.</div></div><button class="btn sm" id="cfgGuide">Show again</button></div>
     <div class="sw"><div>Allow over-budget runs<div class="d">Start jobs that need more memory than this machine has. They may swap for hours or fail; each is marked.</div></div><input type="checkbox" id="cfgOver"></div>
     <div class="sw"><div>Default threads<div class="d">Empty = all physical cores.</div></div><input type="number" id="cfgThreads" style="width:84px;height:30px" placeholder="cores"></div>
@@ -585,7 +605,7 @@
     if (p.aspect && e.width == null && e.height == null) { const [a, b] = p.aspect; const base = +$("widthN").placeholder || 1024; const px = base * base; e.width = Math.min(2048, Math.max(256, Math.round(Math.sqrt(px * a / b) / 16) * 16)); e.height = Math.min(2048, Math.max(256, Math.round(Math.sqrt(px * b / a) / 16) * 16)); }
     return e;
   }
-  function payload() { return { prompt: fullPrompt(), preset: S.preset, width: num("widthN") ?? +$("widthN").placeholder, height: num("heightN") ?? +$("heightN").placeholder, seed: num("seed"), model: $("model").value, negative_prompt: $("negative").value, steps: num("stepsN"), cfg_scale: num("cfgN"), sampler: str("sampler"), variant: str("variant"), threads: num("threadsN"), vae_tiling: $("tiling").value === "1" }; }
+  function payload() { return { count: +$("count").value, prompt: fullPrompt(), preset: S.preset, width: num("widthN") ?? +$("widthN").placeholder, height: num("heightN") ?? +$("heightN").placeholder, seed: num("seed"), model: $("model").value, negative_prompt: $("negative").value, steps: num("stepsN"), cfg_scale: num("cfgN"), sampler: str("sampler"), variant: str("variant"), threads: num("threadsN"), vae_tiling: $("tiling").value === "1" }; }
   function bind(r, n, cb) { $(r).addEventListener("input", () => { $(n).value = $(r).value; cb(); }); $(n).addEventListener("input", () => { if ($(n).value !== "") $(r).value = $(n).value; cb(); }); }
   bind("stepsR", "stepsN", schedulePlan); bind("cfgR", "cfgN", schedulePlan);
   // size model: a side the user typed is 'theirs'; the other side follows the ratio
@@ -670,11 +690,23 @@
     if (!d.installed) { const b = document.createElement("button"); b.className = "btn sm primary"; b.textContent = `Download ${d.model} [${d.variant}]`; b.onclick = () => openDownload(d.model, d.variant); const a = alertEl("warn", `${d.model} [${d.variant}] is not downloaded`, "Generate is disabled until the weights are on this machine. The download asks for consent, resumes if interrupted and is hash-verified.", b); a.classList.add("open"); A.appendChild(a); }
     updateGo();
   }
-  async function generate() { $("go").disabled = true; const d = await post("/api/generate", payload()); if (d.error) toast(d.error, 6000); else { S.sel = d.id; toast(`Queued · ≈ ${fmtEta(d.eta_seconds)}`); } await refreshJobs(); plan(); }
+  async function generate() { $("go").disabled = true; const d = await post("/api/generate", payload()); if (d.error) toast(d.error, 6000); else { S.sel = d.id; const n = (d.jobs || []).length; toast(n > 1 ? `Queued ${n} images · ≈ ${fmtEta(d.eta_seconds)} each` : `Queued · ≈ ${fmtEta(d.eta_seconds)}`); rememberPrompt($("prompt").value); } await refreshJobs(); plan(); }
+  // ---- desktop notifications (per browser; Settings → Preferences)
+  const notifyOn = () => { try { return localStorage.getItem("notify") === "1" && "Notification" in window && Notification.permission === "granted"; } catch (e) { return false; } };
+  function notifyTransitions(prev, next) { if (!prev || !prev.length || !notifyOn() || document.visibilityState === "visible") return; const was = new Map(prev.map(j => [j.id, j.status])); for (const j of next) { const b = was.get(j.id); if (b && b !== j.status && (j.status === "done" || j.status === "failed")) { try { const n = new Notification(j.status === "done" ? `Finished · ${j.title}` : `Failed · ${j.title}`, { body: j.status === "done" ? (j.prompt || "").slice(0, 120) : (j.error || "see the queue"), icon: j.status === "done" ? `/api/image/${j.id}` : undefined, tag: j.id }); n.onclick = () => { window.focus(); showTab("gallery"); if (j.status === "done") openLightbox(j.id); n.close(); }; } catch (e) {} } } }
+  // ---- prompt history (recent from the gallery, pins from config.json)
+  function rememberPrompt(t) { t = (t || "").trim(); if (!t) return; try { const h = JSON.parse(localStorage.getItem("promptHist") || "[]").filter(x => x !== t); h.unshift(t); localStorage.setItem("promptHist", JSON.stringify(h.slice(0, 30))); } catch (e) {} }
+  function histItems() { let h = []; try { h = JSON.parse(localStorage.getItem("promptHist") || "[]"); } catch (e) {} const fromJobs = S.jobs.filter(j => j.tool === "generate" && j.prompt).map(j => j.prompt); const seen = new Set(); const out = []; for (const t of [...h, ...fromJobs]) { if (!seen.has(t)) { seen.add(t); out.push(t); } } return out.slice(0, 30); }
+  function renderHist() { const box = $("hist"); const pins = (S.cfg && S.cfg.pinned_prompts) || []; const recent = histItems().filter(t => !pins.includes(t)); const row = (t, pinned) => `<div class="hrow" data-t="${esc(t)}"><span class="tx" title="${esc(t)}">${esc(t)}</span><button class="pin ${pinned ? "on" : ""}" title="${pinned ? "unpin" : "pin"}">★</button></div>`;
+    box.innerHTML = (pins.length ? `<div class="hh">Pinned</div>${pins.map(t => row(t, true)).join("")}` : "") + (recent.length ? `<div class="hh">Recent</div>${recent.map(t => row(t, false)).join("")}` : "") || `<div class="muted small" style="padding:10px">No prompts yet. Generate something, or pin a prompt with ★.</div>`;
+    box.querySelectorAll(".hrow").forEach(r => { r.onclick = (e) => { if (e.target.closest(".pin")) return; $("prompt").value = r.dataset.t; $("prompt").dispatchEvent(new Event("input")); box.classList.remove("open"); $("prompt").focus(); }; r.querySelector(".pin").onclick = async () => { const t = r.dataset.t; const cur = (S.cfg.pinned_prompts || []); const next = cur.includes(t) ? cur.filter(x => x !== t) : [t, ...cur]; S.cfg = await post("/api/config", { pinned_prompts: next }); renderHist(); }; }); }
+  $("histBtn").onclick = (e) => { e.stopPropagation(); const b = $("hist"); if (!b.classList.contains("open")) renderHist(); b.classList.toggle("open"); };
+  document.addEventListener("click", (e) => { if (!e.target.closest("#hist, #histBtn")) $("hist").classList.remove("open"); });
+
   $("go").onclick = generate;
 
   async function refreshJobs() {
-    const d = await api("/api/jobs"); const jobs = d.jobs || []; S.jobs = jobs;
+    const d = await api("/api/jobs"); const jobs = d.jobs || []; notifyTransitions(S.jobs, jobs); S.jobs = jobs;
     const active = jobs.filter(j => j.status === "queued" || j.status === "running");
     const recent = jobs.filter(j => ["done", "failed", "cancelled"].includes(j.status) && j.finished_at && (Date.now() - new Date(j.finished_at)) < 3600e3).slice(0, 5);
     const box = $("queue"); box.innerHTML = ""; $("qcount").textContent = active.length ? `${active.length} active` : "";
@@ -726,11 +758,36 @@
     for (const j of items) { const c = document.createElement("div"); c.className = "card"; c.innerHTML = `<img loading="lazy" src="/api/image/${j.id}" alt=""><button class="star ${j.favorite ? "on" : ""}" title="favourite">★</button><div class="cap">${S.gmode === "compare" ? `<span class="tag">${j.preset}</span>` : ""}<div class="t"><span class="tool">${TAG[j.tool] || j.tool}</span>${esc(j.title)}</div><div class="m" title="${esc(j.prompt || j.caption || "")}">${esc(j.prompt || j.caption || "")}</div></div>`; c.onclick = (e) => { if (e.target.closest(".star")) return; openLightbox(j.id); }; c.querySelector(".star").onclick = async () => { await post(`/api/jobs/${j.id}/favorite`, { favorite: !j.favorite }); j.favorite = !j.favorite; renderGallery(true); }; c.oncontextmenu = (e) => { e.preventDefault(); window.open(`/api/image/${j.id}`, "_blank"); }; g.appendChild(c); }
     if (!items.length) g.innerHTML = '<div class="muted">No images yet.</div>';
   }
+  // ---- viewer: fit by default, wheel zooms towards the cursor, drag pans, double-click toggles fit / 100%
+  const V = { z: 1, pan: [0, 0], drag: null, moved: false };
+  function vApply() { const img = $("lbImg"); img.style.transform = `translate(${V.pan[0]}px, ${V.pan[1]}px) scale(${V.z})`; $("lbimg").classList.toggle("zoomed", V.z > 1.001); $("lbZoom").textContent = V.z <= 1.001 ? "fit" : `${Math.round(V.z * vFitRatio() * 100)}%`; }
+  function vFitRatio() { const img = $("lbImg"); if (!img.naturalWidth) return 1; const box = $("lbimg").getBoundingClientRect(); const fit = Math.min(box.width / img.naturalWidth, box.height / img.naturalHeight); return fit; }
+  function vReset() { V.z = 1; V.pan = [0, 0]; vApply(); }
+  function vZoomAt(z, cx, cy) { z = Math.max(1, Math.min(32, z)); if (z <= 1.001) { vReset(); return; } const box = $("lbimg").getBoundingClientRect(); const px = cx == null ? 0 : cx - box.left - box.width / 2, py = cy == null ? 0 : cy - box.top - box.height / 2; const k = z / V.z; V.pan = [px - (px - V.pan[0]) * k, py - (py - V.pan[1]) * k]; V.z = z; vApply(); }
+  $("lbimg").addEventListener("wheel", (e) => { if ($("lbimg").classList.contains("compare")) return; e.preventDefault(); vZoomAt(V.z * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); }, { passive: false });
+  $("lbImg").addEventListener("pointerdown", (e) => { if (e.button !== 0) return; V.drag = [e.clientX - V.pan[0], e.clientY - V.pan[1]]; V.moved = false; $("lbImg").setPointerCapture(e.pointerId); $("lbimg").classList.add("panning"); });
+  $("lbImg").addEventListener("pointermove", (e) => { if (!V.drag || V.z <= 1.001) return; const np = [e.clientX - V.drag[0], e.clientY - V.drag[1]]; if (Math.hypot(np[0] - V.pan[0], np[1] - V.pan[1]) > 2) V.moved = true; V.pan = np; vApply(); });
+  $("lbImg").addEventListener("pointerup", () => { V.drag = null; $("lbimg").classList.remove("panning"); });
+  $("lbImg").addEventListener("click", (e) => { if (V.moved) { V.moved = false; return; } if (V.z <= 1.001) vZoomAt(1 / vFitRatio(), e.clientX, e.clientY); });
+  $("lbImg").addEventListener("dblclick", (e) => { e.preventDefault(); if (V.z > 1.001) vReset(); else vZoomAt(1 / vFitRatio(), e.clientX, e.clientY); });
+  $("lbZoom").onclick = () => { if (V.z > 1.001) vReset(); else vZoomAt(1 / vFitRatio()); };
+  $("lbImg").addEventListener("load", vApply);
+  // ---- compare: an A/B slider against the parent, a child or a favourite
+  function compareOff() { $("lbimg").classList.remove("compare"); $("cmpRow").style.display = "none"; }
+  async function compareOn() { const j = S.lbJob; const l = await api(`/api/jobs/${j.id}/lineage`); const cands = []; const add = (id, why) => { const o = S.jobs.find(x => x.id === id); if (o && o.id !== j.id && o.status === "done" && !cands.some(c => c.id === id)) cands.push({ id, label: `${why}: ${o.title}` }); }; if (l.parent) add(l.parent, "parent"); (l.children || []).forEach(c => add(c, "child")); S.jobs.filter(x => x.favorite).forEach(x => add(x.id, "favourite")); const i = S.lbList.indexOf(j.id); if (i > 0) add(S.lbList[i - 1], "previous"); if (i < S.lbList.length - 1) add(S.lbList[i + 1], "next");
+    if (!cands.length) { toast("Nothing to compare with yet: make a variation or favourite another image."); return; }
+    $("cmpSel").innerHTML = cands.map(c => `<option value="${c.id}">${esc(c.label)}</option>`).join(""); $("cmpRow").style.display = ""; vReset(); $("lbimg").classList.add("compare"); compareSet(cands[0].id); }
+  function compareSet(id) { const o = S.jobs.find(x => x.id === id); $("cmpA").src = `/api/image/${S.lbJob.id}`; $("cmpB").src = `/api/image/${id}`; $("cmpLa").textContent = S.lbJob.title; $("cmpLb").textContent = o ? o.title : id; $("cmpR").value = 50; $("cmp").style.setProperty("--x", "50%"); }
+  $("cmpR").addEventListener("input", () => $("cmp").style.setProperty("--x", $("cmpR").value + "%"));
+  $("cmpSel").onchange = () => compareSet($("cmpSel").value); $("cmpX").onclick = compareOff;
+  $("lbCompare").onclick = () => { if ($("lbimg").classList.contains("compare")) compareOff(); else compareOn(); };
+  // ---- recreate: prompt from image → Create at the same size
+  $("lbRecreate").onclick = async () => { const j = S.lbJob; const b = $("lbRecreate"); b.disabled = true; b.textContent = "Looking…"; const r = await post("/api/describe", { image: j.id, task: "prompt" }); b.disabled = false; b.textContent = "Recreate"; if (r.error) { toast(r.error, 7000); return; } $("prompt").value = `${r.text.trim()} --size ${j.width}x${j.height}`; $("style").value = ""; $("stytext").textContent = ""; $("lb").close(); showTab("create"); $("prompt").dispatchEvent(new Event("input")); $("prompt").focus(); toast("Prompt written by the vision model. Adjust it, then Generate."); };
   function openLightbox(id) { S.lbList = galleryItems().map(j => j.id); if (!S.lbList.includes(id)) S.lbList = [id, ...S.lbList]; S.lbIdx = S.lbList.indexOf(id); showLb(); if (!$("lb").open) $("lb").showModal(); }
   function lbStep(d) { const n = S.lbIdx + d; if (n < 0 || n >= S.lbList.length) return; S.lbIdx = n; showLb(); }
   function showLb() {
     const j = S.jobs.find(x => x.id === S.lbList[S.lbIdx]); if (!j) return; S.lbJob = j;
-    $("lbImg").src = `/api/image/${j.id}`; $("lbTitle").textContent = j.title; $("lbSub").textContent = `${j.model} [${j.variant}] · ${j.width}×${j.height} · seed ${j.seed} · ${fmtDur(j.total_seconds)}`;
+    vReset(); compareOff(); $("lbImg").src = `/api/image/${j.id}`; $("lbTitle").textContent = j.title; $("lbSub").textContent = `${j.model} [${j.variant}] · ${j.width}×${j.height} · seed ${j.seed} · ${fmtDur(j.total_seconds)}`;
     $("lbPrompt").innerHTML = esc(j.reproducible_prompt).replace(/(--\S+ \S+)/g, '<span class="p">$1</span>'); $("lbOpen").href = `/api/image/${j.id}`;
     const rows = [["Preset", j.preset], ["Steps", j.steps], ["Guidance", j.cfg_scale], ["Sampler", j.sampler], ["Negative", j.negative_prompt || "–"], ["Threads", j.threads || "cores"], ["VAE tiling", j.vae_tiling ? "on" : "off"], ["Sampling", fmtDur(j.sampling_seconds)], ["Peak memory", j.peak_rss_gib ? `${j.peak_rss_gib} GiB` : "–"], ["Finished", (j.finished_at || "").replace("T", " ").slice(0, 16)]];
     $("lbKv").innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><span>${esc(v)}</span></div>`).join("");
@@ -801,15 +858,16 @@
     $("modelsPanel").querySelectorAll("[data-inst]").forEach(b => b.onclick = () => { const [kind, name] = b.dataset.inst.split("|"); if (kind === "model") { const [m, v] = name.split(":"); openDownload(m, v); } else if (kind === "tool") openToolDownload(name); else if (kind === "vision") openVisionDownload(name); else openEngineDownload(name); });
     $("modelsPanel").querySelectorAll("[data-show]").forEach(b => b.onclick = async () => { const r = await post("/api/reveal", { path: b.dataset.show }); if (r.error) toast(r.error); });
     $("modelsPanel").querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { const [kind, name] = b.dataset.rm.split("|"); if (!confirm(`Remove ${name} from this machine? You can install it again later.`)) return; const r = await post("/api/components/remove", { kind, name }); if (r.error) { toast(r.error, 7000); return; } toast(`Removed · ${gib(r.freed_bytes)} freed`); await loadCaps(); renderMachine(); plan(); });
-    const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgCaption").checked = !!cfg.auto_caption; $("cfgCaptionNote").textContent = cfg.auto_caption_ready ? "" : "Needs llama.cpp and a vision model (Models and engines above)."; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
+    const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgCaption").checked = !!cfg.auto_caption; $("cfgNotify").checked = notifyOn(); $("cfgCaptionNote").textContent = cfg.auto_caption_ready ? "" : "Needs llama.cpp and a vision model (Models and engines above)."; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
     if (c.profile) renderProfile(c.profile);
     $("aboutPanel").innerHTML = `Hivemind Image Studio ${esc(c.studio_version)} · Apache-2.0<br>${esc(c.policy.quality)}<br><br>` + (c.licences || []).map(l => `${esc(l.component)}: ${esc(l.licence)}`).join("<br>") + `<br><br>Excluded by policy: ${(c.excluded_by_policy || []).map(e => esc(e.model)).join(", ")}.`;
     renderTasks(); loadMemory();
   }
-  async function loadMemory() { const m = await api("/api/memory"); const max = m.top[0]?.gib || 1; $("memPanel").innerHTML = `<div class="muted small" style="margin-bottom:8px">${m.available_gib} of ${m.total_gib} GiB free. The studio cannot free other programs' memory; close the heavy ones before a long render.</div>` + m.top.map(p => `<div style="display:grid;grid-template-columns:120px 1fr 56px;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(p.name)}">${esc(p.name)}</span><span class="membar"><i style="width:${Math.round(p.gib / max * 100)}%"></i></span><span class="mono" style="text-align:right">${p.gib.toFixed(2)}</span></div>`).join(""); }
+  async function loadMemory() { const b = $("memBtn"); b.disabled = true; b.textContent = "Measuring…"; $("memWhen").textContent = ""; let m; try { m = await api("/api/memory"); } catch (e) { $("memWhen").textContent = "could not measure"; b.disabled = false; b.textContent = "Refresh"; return; } b.disabled = false; b.textContent = "Refresh"; if (m.error) { $("memWhen").textContent = m.error; return; } $("memWhen").textContent = `measured ${new Date().toLocaleTimeString()}`; const max = m.top[0]?.gib || 1; $("memPanel").innerHTML = `<div class="muted small" style="margin-bottom:8px">${m.available_gib} of ${m.total_gib} GiB free. The studio cannot free other programs' memory; close the heavy ones before a long render.</div>` + m.top.map(p => `<div style="display:grid;grid-template-columns:120px 1fr 56px;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(p.name)}">${esc(p.name)}</span><span class="membar"><i style="width:${Math.round(p.gib / max * 100)}%"></i></span><span class="mono" style="text-align:right">${p.gib.toFixed(2)}</span></div>`).join(""); }
   $("memBtn").onclick = loadMemory;
   $("cfgOver").onchange = async () => { S.cfg = await post("/api/config", { allow_over_budget: $("cfgOver").checked }); toast($("cfgOver").checked ? "Over-budget runs allowed. They may swap for hours or fail." : "Over-budget runs locked."); plan(); };
   $("cfgCaption").onchange = async () => { S.cfg = await post("/api/config", { auto_caption: $("cfgCaption").checked }); toast(S.cfg.auto_caption && !S.cfg.auto_caption_ready ? "Saved. Captions start once llama.cpp and a vision model are installed." : "Saved."); };
+  $("cfgNotify").onchange = async () => { if ($("cfgNotify").checked) { if (!("Notification" in window)) { toast("This browser has no notifications."); $("cfgNotify").checked = false; return; } const perm = await Notification.requestPermission(); if (perm !== "granted") { toast("Notifications were not allowed by the browser."); $("cfgNotify").checked = false; return; } } try { localStorage.setItem("notify", $("cfgNotify").checked ? "1" : "0"); } catch (e) {} toast($("cfgNotify").checked ? "You will be told when a job finishes while this tab is in the background." : "Notifications off."); };
   $("cfgGuide").onclick = () => { try { localStorage.removeItem("guideHidden"); } catch (e) {} showTab("home"); };
   $("cfgPreview").onchange = async () => { S.cfg = await post("/api/config", { live_preview: $("cfgPreview").checked }); setLp(); toast("Saved."); };
   $("cfgThreads").onchange = async () => { await post("/api/config", { default_threads: num("cfgThreads") }); toast("Saved."); };
@@ -879,6 +937,7 @@
     x.putImageData(dst, 0, 0);
     const blob = await new Promise(r => out.toBlob(r, "image/png")); const res = await fetch("/api/upload", { method: "POST", body: blob }); const d = await res.json(); return d.path || null;
   }
+  $("edRemove").onclick = async () => { if (!M.dirty) { toast("Paint over the thing to remove first (Paint mask)."); painterOn(true); return; } const mask = await maskUpload(); await runTool("edit", { image: S.lbJob.id, prompt: "the same scene with the masked area filled in naturally from its surroundings, nothing there, seamless", strength: 0.95, mask, preset: S.preset }); };
   $("edBtn").onclick = async () => { const prompt = $("edPrompt").value.trim(); if (!prompt) { toast("Describe the wanted result first."); return; } const mask = await maskUpload(); await runTool("edit", { image: S.lbJob.id, prompt, strength: +$("edStr").value, mask, preset: S.preset }); };
   // ---- sketch tool
   const K = { tool: "brush", prevTool: "brush", drawing: false, last: null, start: null, zoom: 1, pan: [0, 0], undo: [], redo: [], space: false, panning: null, hasRef: false, erasing: false };
@@ -925,7 +984,7 @@
   });
   skv.addEventListener("pointermove", (e) => {
     if (K.panning) { K.pan = [e.clientX - K.panning[0], e.clientY - K.panning[1]]; skApply(); return; }
-    const c = $("skCursor"); const vr = skv.getBoundingClientRect(); const showCur = (K.tool === "brush" || K.tool === "eraser") && !K.space; c.style.display = showCur ? "" : "none"; if (showCur) { c.style.left = (e.clientX - vr.left) + "px"; c.style.top = (e.clientY - vr.top) + "px"; const px = brushPx(e) * K.zoom; c.style.width = c.style.height = px + "px"; }
+    const c = $("skCursor"); const vr = skv.getBoundingClientRect(); const showCur = (K.tool === "brush" || K.tool === "eraser") && !K.space; c.style.display = showCur ? "block" : "none"; if (showCur) { c.style.left = (e.clientX - vr.left) + "px"; c.style.top = (e.clientY - vr.top) + "px"; const px = Math.max(4, brushPx(e) * K.zoom); c.style.width = c.style.height = px + "px"; c.classList.toggle("eraser", K.tool === "eraser"); const soft = softness(); c.classList.toggle("soft", soft > 0.01); if (soft > 0.01) { const inner = Math.max(2, px * (1 - soft * 0.7)); c.querySelector(".in").style.width = c.querySelector(".in").style.height = inner + "px"; } }
     if (!K.drawing) return; const pt = skPos(e);
     if (K.tool === "brush" || K.erasing) { seg(skox, K.last, pt, brushPx(e), K.erasing ? "#ffffff" : $("skColor").value); K.last = pt; }
     else { skox.clearRect(0, 0, sko.width, sko.height); shape(skox, K.start, constrain(K.start, pt, K.tool, e.shiftKey), K.tool, brushPx()); }

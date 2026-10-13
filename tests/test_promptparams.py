@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from imagestudio.promptparams import apply_aspect, parse, reproducible
+from imagestudio.promptparams import (
+    apply_aspect,
+    parse,
+    reproducible,
+    without_batch_and_seed,
+)
 
 
 def test_parse_midjourney_style_params():
@@ -72,3 +77,11 @@ def test_from_and_strength_params():
     p = parse("a copper teapot --from job_abc123 --strength 0.3")
     assert p.prompt == "a copper teapot" and p.params == {"init": "job_abc123", "strength": 0.3}
     assert any("--strength" in e for e in parse("x --strength 3").errors)
+
+
+def test_batch_count_and_stripping():
+    p = parse("a fox --n 4 --seed 9 --preset fast")
+    assert p.params["count"] == 4 and p.params["seed"] == 9 and p.prompt == "a fox"
+    assert parse("x --n 0").errors and parse("x --batch 17").errors
+    assert without_batch_and_seed("a fox --n 4 --seed 9 --preset fast") == "a fox --preset fast"
+    assert without_batch_and_seed("--count 2 a fox --s 3") == "a fox"

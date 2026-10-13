@@ -131,3 +131,41 @@ def test_parse_and_memory_endpoints(studio: Studio):
     )
     m = client.get("/api/memory").json()
     assert m["total_gib"] > 0 and isinstance(m["top"], list) and m["top"][0]["gib"] >= 0
+
+
+def test_batch_metadata_and_pinned_prompts(studio: Studio):
+    client = TestClient(build_app(studio))
+    r = client.post(
+        "/api/generate", json={"prompt": "a teapot --n 3", "preset": "fast", "seed": 10}
+    ).json()
+    assert len(r["jobs"]) == 3 and r["id"] == r["jobs"][0]
+    seeds = [client.get(f"/api/jobs/{i}").json()["seed"] for i in r["jobs"]]
+    assert seeds == [10, 11, 12]
+    assert client.get(f"/api/jobs/{r['id']}").json()["prompt"] == "a teapot"
+    for _ in range(400):
+        if all(client.get(f"/api/jobs/{i}").json()["status"] == "done" for i in r["jobs"]):
+            break
+        time.sleep(0.02)
+    # finished PNGs carry their recipe
+    from io import BytesIO
+
+    from PIL import Image
+
+    png = client.get(f"/api/image/{r['id']}").content
+    with Image.open(BytesIO(png)) as im:
+        text = dict(im.text)
+    assert text["parameters"].startswith("a teapot\n") and "Seed: 10" in text["parameters"]
+    assert '"reproducible_prompt"' in text["imagestudio"]
+    # a re-encoded PNG export keeps them; re-importing the file restores the prompt
+    exported = client.get(f"/api/download/{r['id']}", params={"fmt": "png", "scale": 50}).content
+    with Image.open(BytesIO(exported)) as im:
+        assert "imagestudio" in im.text
+    imp = client.post("/api/import", content=exported, params={"name": "teapot.png"}).json()
+    job = client.get(f"/api/jobs/{imp['id']}").json()
+    assert job["tool"] == "import" and job["prompt"] == "a teapot" and job["seed"] == 10
+    # pinned prompts live in config.json
+    cfg = client.post(
+        "/api/config", json={"pinned_prompts": [" a teapot ", "a teapot", "", "a fox"]}
+    ).json()
+    assert cfg["pinned_prompts"] == ["a teapot", "a fox"]
+    assert client.get("/api/config").json()["pinned_prompts"] == ["a teapot", "a fox"]

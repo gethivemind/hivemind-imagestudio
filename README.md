@@ -196,10 +196,10 @@ CLI (`imagestudio generate --help`) and will be mirrored in Hivemind's duty form
 | `steps` | from preset | Advanced. Denoising steps, 1 to 100. FLUX schnell is distilled to 4 and gains nothing from more; Qwen-Image uses 50. The studio warns when extra steps only cost time. |
 | `cfg_scale` | from preset | Advanced. Guidance strength, 0 to 20. 1.0 for FLUX schnell, 2.5 for Qwen-Image. Above 1 the model runs twice per step. |
 | `sampler` | `euler` | Advanced. `euler`, `euler_a`, `heun`, `dpm2`, `dpm++2s_a`, `dpm++2m`, `dpm++2mv2`, `ipndm`, `ipndm_v`, `lcm`, `ddim_trailing`, `tcd`. |
-
 | `variant` | by memory fit | Weight quantisation `q8`, `q6`, `q5`, `q4`. Default: the highest fidelity that fits this machine's memory budget (reported in `fit_note`). Forcing one that does not fit is refused unless over-budget runs are unlocked. |
 | `threads` | physical cores | CPU threads for the engine. Fewer threads leave the machine more responsive; more than the physical core count rarely helps. |
 | `vae_tiling` | false | Decode the final image in tiles. Saves memory on large images at a small time cost; no quality change. |
+| `count` | 1 | Queue this many images of the prompt with consecutive seeds (1 to 16). In the prompt: `--n 4`. Each is a normal job; the response lists all their ids. |
 
 ### The load meter: `plan`
 
@@ -278,6 +278,15 @@ reference layer under the drawing, pan (Space, middle button, wheel) and zoom to
 cursor. The sketch is deliberately not a paint program: at the strengths that make
 sketch-to-image work, fine detail is re-invented by the model anyway. Better control will
 come from conditioning (scribble or edge ControlNet) rather than from more brushes.
+Also: every finished PNG carries its recipe as metadata (`parameters` in the common
+Automatic1111 layout plus an `imagestudio` JSON chunk with the reproducible prompt; exports
+keep it and re-importing such a file restores the prompt), `--n 4` queues a batch of
+consecutive seeds (also `count` on the MCP tool and the ×N control in the UI), desktop
+notifications when a job finishes while the tab is in the background, a one-click Remove
+object (paint a mask, no prompt), Recreate (vision model writes the prompt, Create opens
+with it at the same size), an A/B compare slider in the viewer, and prompt history with
+pinned prompts stored in config.json. The viewer fits the image to the window, zooms
+towards the cursor with the wheel, pans by dragging, and toggles fit / 100% on double-click.
 Next: Qwen-Image-Edit as an instruction-edit model, LoRA, GPU builds (Vulkan, CUDA), optional
 cloud engines behind the same interface, a marketing site.
 Later: optional ComfyUI engine, GPU builds (CUDA, ROCm), the Hivemind catalogue entry,
