@@ -76,10 +76,13 @@ class Calibration:
 
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
+        # atomic: another process (UI, MCP server) may be reading at the same moment
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(
             json.dumps({k: asdict(v) for k, v in self._data.items()}, indent=2),
             encoding="utf-8",
         )
+        tmp.replace(self.path)
 
     def _seed(self, model: ModelSpec, weight_bytes: int) -> Coefficients:
         if self.hardware.usable_gpu is not None:
