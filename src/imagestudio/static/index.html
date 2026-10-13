@@ -89,6 +89,7 @@
   .canvas .empty b { display: block; color: var(--ink); font-size: 17px; font-weight: 600; margin-bottom: 6px; }
   .canvas .empty code { font-family: var(--mono); font-size: 12px; background: var(--surface2); padding: 2px 6px; border-radius: 6px; }
   .ctools { position: absolute; top: 12px; right: 14px; display: flex; gap: 6px; }
+  .ctools.left { right: auto; left: 14px; }
   .stwrap { display: flex; justify-content: center; margin-bottom: 8px; }
   .stwrap:empty { display: none; }
   .status { display: inline-flex; align-items: center; gap: 12px; height: 38px; padding: 0 8px 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 12.5px; white-space: nowrap; }
@@ -146,14 +147,24 @@
   .tcard .st { font-size: 11.5px; display: flex; align-items: center; gap: 6px; color: var(--muted); }
   /* SKETCH */
   #sketch { flex-direction: column; }
-  .skbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
-  .skbar input[type=color] { width: 34px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: transparent; }
-  .skbar input[type=range] { width: 120px; accent-color: var(--accent); }
-  .skwrap { flex: 1; display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
-  .skcanvas { display: grid; place-items: center; background: var(--bg); overflow: auto; padding: 16px; }
-  .skcanvas canvas { background: #fff; border-radius: 12px; box-shadow: var(--shadow); touch-action: none; cursor: crosshair; max-width: 100%; height: auto; }
-  .skside { border-left: 1px solid var(--line); background: var(--surface); padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
-  .skside textarea { height: auto; min-height: 80px; padding: 8px 10px; resize: vertical; }
+  .skstage { flex: 1; position: relative; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+  .skview { flex: 1; position: relative; overflow: hidden; display: grid; place-items: center; cursor: none; }
+  .skwrapc { position: relative; transform-origin: center center; box-shadow: var(--shadow); border-radius: 6px; background: #fff; }
+  .skwrapc canvas { display: block; position: absolute; left: 0; top: 0; }
+  .skwrapc canvas#skC { position: relative; }
+  .cursor { position: absolute; pointer-events: none; border: 1.5px solid rgba(0,0,0,.7); outline: 1px solid rgba(255,255,255,.7); border-radius: 50%; transform: translate(-50%, -50%); display: none; }
+  .palette { position: absolute; left: 16px; top: 16px; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); user-select: none; }
+  .palette .grip { cursor: grab; color: var(--muted); font-size: 11px; letter-spacing: -2px; padding: 2px 0 4px; }
+  .palette .tb { width: 34px; height: 34px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--ink2); cursor: pointer; font-size: 15px; display: grid; place-items: center; }
+  .palette .tb:hover { background: var(--surface2); } .palette .tb.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+  .palette .sep { width: 24px; height: 1px; background: var(--line); margin: 3px 0; }
+  .palette input[type=color] { width: 30px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: transparent; cursor: pointer; }
+  .palette .sz { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10.5px; color: var(--muted); }
+  .palette .sz input { writing-mode: vertical-lr; direction: rtl; width: 20px; height: 90px; accent-color: var(--accent); padding: 0; margin: 0; }
+  .palette .zoomv { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+  .skbottom { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(820px, calc(100% - 48px)); z-index: 4; }
+  .skbox textarea { height: auto; min-height: 40px; max-height: 140px; border: 0; background: transparent; padding: 6px 6px 4px; resize: none; font-size: 15px; }
+  .skbox textarea:focus { outline: none; }
   /* mask painter in the lightbox */
   .painter { position: absolute; inset: 0; display: none; }
   .painter.on { display: block; }
@@ -172,6 +183,9 @@
   .card .cap { padding: 9px 11px 10px; }
   .card .t { font-weight: 600; font-size: 12.5px; } .card .m { color: var(--muted); font-size: 11.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card .tag { display: inline-block; margin-bottom: 4px; font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .card { position: relative; } .card .star { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; cursor: pointer; font-size: 14px; opacity: 0; transition: opacity .15s; } .card:hover .star, .card .star.on { opacity: 1; } .card .star.on { color: var(--honey); }
+  .drop { position: fixed; inset: 0; z-index: 60; display: none; place-items: center; background: color-mix(in srgb, var(--accent) 18%, rgba(0,0,0,.5)); border: 3px dashed var(--accent); color: #fff; font-size: 18px; font-weight: 600; } .drop.on { display: grid; }
+  .lineage a { color: var(--accent); cursor: pointer; text-decoration: underline; }
 
   dialog.lb { border: 0; border-radius: 18px; padding: 0; background: var(--surface); color: var(--ink); width: min(1400px, 96vw); height: min(900px, 92vh); box-shadow: var(--shadow-lg); }
   dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(4px); }
@@ -240,12 +254,10 @@
 <body>
 <header class="top">
   <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="var(--honey)"/><circle cx="32" cy="32" r="13" fill="var(--ink)"/><circle cx="32" cy="32" r="6" fill="var(--bg)"/></svg><span>Image Studio <small>by Hivemind</small></span></div>
-  <nav class="tabs" id="tabs"><button data-tab="home">Home</button><button data-tab="create" class="active">Create</button><button data-tab="sketch">Sketch</button><button data-tab="gallery">Gallery</button><button data-tab="machine">Machine</button></nav>
+  <nav class="tabs" id="tabs"><button data-tab="home">Home</button><button data-tab="create" class="active">Create</button><button data-tab="sketch">Sketch</button><button data-tab="gallery">Gallery</button><button data-tab="machine">Settings</button></nav>
   <div class="grow"></div>
   <span class="chip" id="hwchip"><span class="dot" id="hwdot"></span><span id="hwtext">…</span></span>
   <span class="chip btn" id="actchip" title="downloads and benchmark"><span class="dot off" id="actdot"></span><span id="acttext">idle</span></span>
-  <button class="ib" id="railBtn" title="settings rail (S)">⚙</button>
-  <button class="ib" id="qBtn" title="queue rail (Q)">☰</button>
   <button class="ib" id="themeBtn" title="light / dark">◐</button>
 </header>
 <div class="pop" id="actpop"></div>
@@ -255,13 +267,39 @@
   <div class="cards" id="cards"></div>
 </section>
 <section class="view" id="sketch">
-  <div class="skbar"><b>Sketch to image</b><span class="muted small">Draw a rough layout, describe the result, and the studio paints it.</span><span class="grow"></span><label class="small muted">Brush</label><input type="range" id="skSize" min="2" max="60" value="14"><input type="color" id="skColor" value="#1b1b19"><button class="btn sm" id="skEraser">Eraser</button><button class="btn sm" id="skClear">Clear</button><button class="btn sm" id="skUpload">Import image…</button><input type="file" id="skFile" accept="image/*" hidden></div>
-  <div class="skwrap"><div class="skcanvas"><canvas id="skC" width="1024" height="1024"></canvas></div>
-    <aside class="skside"><div class="f"><label>Describe the result</label><textarea id="skPrompt" placeholder="e.g. a cosy cabin by a lake at dusk, warm window light, painterly"></textarea></div>
-      <div class="f"><label>How closely to follow the sketch <i class="help" title="Low strength keeps your lines; high strength treats the sketch as a loose hint.">?</i> <span class="muted" id="skStrV">0.65</span></label><input type="range" id="skStr" min="0.2" max="0.95" step="0.05" value="0.65" style="width:100%;accent-color:var(--accent)"></div>
-      <div class="f"><label>Preset</label><div class="seg" id="skPreset"><button data-p="best" class="active">best</button><button data-p="balanced">balanced</button><button data-p="fast">fast</button></div></div>
-      <div class="muted small">Canvas 1024×1024. Use the aspect buttons in Create for other shapes, or import a photo to paint over it.</div>
-      <button class="btn primary" id="skGo">Paint it</button></aside></div>
+  <div class="skstage" id="skstage">
+    <div class="palette" id="palette">
+      <div class="grip" title="drag to move">⋮⋮</div>
+      <button class="tb on" data-tool="brush" title="Brush (B)">✎</button>
+      <button class="tb" data-tool="eraser" title="Eraser (E)">◻</button>
+      <button class="tb" data-tool="line" title="Line (L)">╱</button>
+      <button class="tb" data-tool="rect" title="Rectangle (R)">▭</button>
+      <button class="tb" data-tool="fill" title="Fill (G)">◆</button>
+      <div class="sep"></div>
+      <input type="color" id="skColor" value="#1b1b19" title="Colour">
+      <div class="sz"><input type="range" id="skSize" min="2" max="80" value="14" title="Brush size"><span id="skSizeV">14</span></div>
+      <div class="sep"></div>
+      <button class="tb" id="skUndo" title="Undo (Ctrl+Z)">↶</button>
+      <button class="tb" id="skRedo" title="Redo (Ctrl+Y)">↷</button>
+      <button class="tb" id="skClear" title="Clear canvas">⌫</button>
+      <button class="tb" id="skUpload" title="Import an image to paint over">⤓</button><input type="file" id="skFile" accept="image/*" hidden>
+      <div class="sep"></div>
+      <button class="tb" id="skZoomOut" title="Zoom out">−</button><span class="zoomv" id="skZoomV">100%</span><button class="tb" id="skZoomIn" title="Zoom in">+</button><button class="tb" id="skFit" title="Fit to view">⤢</button>
+    </div>
+    <div class="skview" id="skview"><div class="skwrapc" id="skwrapc"><canvas id="skC" width="1024" height="1024"></canvas><canvas id="skO" width="1024" height="1024"></canvas></div><div class="cursor" id="skCursor"></div></div>
+    <div class="skbottom">
+      <div class="box skbox">
+        <textarea id="skPrompt" rows="1" placeholder="describe what the sketch should become, e.g. a cosy cabin by a lake at dusk, warm window light, painterly"></textarea>
+        <div class="tools">
+          <div class="seg" id="skPreset"><button data-p="best" class="active">best</button><button data-p="balanced">balanced</button><button data-p="fast">fast</button></div>
+          <label class="small muted" style="margin:0;display:flex;align-items:center;gap:8px">follow sketch <input type="range" id="skStr" min="0.2" max="0.95" step="0.05" value="0.65" style="width:120px;accent-color:var(--accent)"><span class="mono" id="skStrV">0.65</span> <i class="help" title="Low = keep your lines closely; high = treat the sketch as a loose hint.">?</i></label>
+          <select id="skSizeSel" title="Canvas size"><option value="1024x1024">1024 × 1024</option><option value="1024x768">1024 × 768</option><option value="768x1024">768 × 1024</option><option value="1152x640">1152 × 640 (16:9)</option><option value="640x1152">640 × 1152 (9:16)</option></select>
+          <span class="eta"></span>
+          <button class="btn primary go" id="skGo">Paint it</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
 <section class="view active" id="create">
   <div class="ws" id="ws">
@@ -272,10 +310,11 @@
       <datalist id="sizeTicks"><option value="512"></option><option value="768"></option><option value="1024"></option><option value="1536"></option><option value="2048"></option></datalist>
       <div class="sec"><h3>Size</h3>
         <div class="g2">
-          <div class="f"><label for="widthN" data-f="widthN">Width <i class="help" title="Pixels, 256 to 2048 in steps of 16. More pixels: more detail, more time, more memory.">?</i></label><div class="sl"><input type="range" id="widthR" min="256" max="2048" step="16" list="sizeTicks"><input type="number" id="widthN" min="256" max="2048" step="16" placeholder="1024"></div></div>
-          <div class="f"><label for="heightN" data-f="heightN">Height <i class="help" title="Any aspect ratio. A tall or wide image costs the same as a square with the same pixel count.">?</i></label><div class="sl"><input type="range" id="heightR" min="256" max="2048" step="16" list="sizeTicks"><input type="number" id="heightN" min="256" max="2048" step="16" placeholder="1024"></div></div>
+          <div class="f"><label for="widthN" data-f="widthN">Width <i class="help" title="Pixels, 256 to 2048, snapped to 16. Type one side and the other follows the chosen ratio; type both to go custom.">?</i></label><input type="number" id="widthN" min="256" max="2048" step="16" placeholder="1024" class="mono"></div>
+          <div class="f"><label for="heightN" data-f="heightN">Height <i class="help" title="A tall or wide image costs the same as a square with the same pixel count.">?</i></label><input type="number" id="heightN" min="256" max="2048" step="16" placeholder="1024" class="mono"></div>
         </div>
-        <div class="ar" id="ar"><button data-ar="1:1">1:1</button><button data-ar="4:3">4:3</button><button data-ar="3:4">3:4</button><button data-ar="3:2">3:2</button><button data-ar="16:9">16:9</button><button data-ar="9:16">9:16</button></div>
+        <div class="ar" id="ar"><button data-ar="1:1">1:1</button><button data-ar="4:3">4:3</button><button data-ar="3:4">3:4</button><button data-ar="3:2">3:2</button><button data-ar="16:9">16:9</button><button data-ar="9:16">9:16</button><button data-ar="custom">Custom</button></div>
+        <div class="muted small" id="sizeNote" style="margin-top:6px"></div>
       </div>
       <div class="sec"><h3>Sampling</h3>
         <div class="g2">
@@ -288,7 +327,7 @@
       </div>
       <div class="sec"><h3>Machine</h3>
         <div class="g2">
-          <div class="f"><label for="threadsN" data-f="threadsN">Threads <i class="help" title="CPU threads for the engine. Default: all physical cores. Fewer keeps the laptop usable while it renders.">?</i></label><div class="sl"><input type="range" id="threadsR" min="1" max="32" step="1"><input type="number" id="threadsN" min="1" max="256" placeholder="cores"></div></div>
+          <div class="f"><label for="threadsN" data-f="threadsN">Threads <i class="help" title="CPU threads for the engine. All cores is fastest; fewer keeps the laptop usable while it renders.">?</i></label><select id="threadsN"><option value="">all cores</option></select></div>
           <div class="f"><label for="tiling" data-f="tiling">VAE tiling <i class="help" title="Decode the final image in tiles: saves memory on large images, slightly slower, no quality change.">?</i></label><select id="tiling"><option value="">off</option><option value="1">on · saves memory</option></select></div>
         </div>
         <div style="margin-top:12px"><button class="btn sm ghost" id="resetBtn">Reset to preset defaults</button></div>
@@ -297,7 +336,8 @@
 
     <main class="canvas" id="canvas">
       <div class="empty" id="empty"><b>Describe what you want to see</b>Type below and press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>. Parameters work inline: <code>--seed 7 --size 1024x768 --preset fast</code></div>
-      <div class="ctools"><button class="ib" id="lpBtn" title="live preview while rendering">◉</button><button class="ib" id="focusBtn" title="focus mode (F)">⤢</button></div>
+      <div class="ctools left"><button class="ib" id="railBtn" title="show or hide the settings rail">⚙</button></div>
+      <div class="ctools"><button class="ib" id="lpBtn" title="live preview while rendering">◉</button><button class="ib" id="focusBtn" title="focus mode">⤢</button><button class="ib" id="qBtn" title="show or hide the queue">☰</button></div>
       <div class="capsule">
         <div class="stwrap" id="stwrap"></div>
         <div class="alerts" id="alerts"></div>
@@ -327,8 +367,8 @@
 <section class="view" id="gallery">
   <div class="gbar">
     <input type="text" id="search" placeholder="search prompts…">
-    <div class="seg" id="gmode"><button class="active" data-m="all">All</button><button data-m="compare">Compare presets</button></div>
-    <span class="muted small" id="gcount"></span>
+    <div class="seg" id="gmode"><button class="active" data-m="all">All</button><button data-m="generate">Generated</button><button data-m="edit">Edits</button><button data-m="variations">Variations</button><button data-m="upscale">Upscaled</button><button data-m="remove_background">Cutouts</button><button data-m="import">Imported</button><button data-m="fav">★ Favourites</button><button data-m="compare">Compare presets</button></div>
+    <span class="muted small" id="gcount"></span><span class="grow"></span><button class="btn sm" id="importBtn">Import image…</button><input type="file" id="importFile" accept="image/*" multiple hidden><button class="btn sm ghost" id="trashBtn">Trash</button>
   </div>
   <div class="grid" id="grid"></div>
 </section>
@@ -336,7 +376,7 @@
   <div class="lbimg"><img id="lbImg" alt=""><button class="nav prev" id="lbPrev">‹</button><button class="nav next" id="lbNext">›</button>
     <div class="painter" id="painter"><canvas id="maskC"></canvas><div class="paintbar"><span>Paint what to change</span><input type="range" id="mSize" min="6" max="120" value="40"><button class="btn sm" id="mErase">Erase</button><button class="btn sm" id="mClear">Clear</button><button class="btn sm" id="mDone">Done</button></div></div></div>
   <div class="lbside">
-    <div class="head"><div><h3 id="lbTitle"></h3><div class="sub" id="lbSub"></div></div><button class="ib" id="lbClose" title="close (Esc)">✕</button></div>
+    <div class="head"><div><h3 id="lbTitle"></h3><div class="sub" id="lbSub"></div><div class="sub lineage" id="lbLineage"></div></div><div style="display:flex;gap:6px"><button class="ib" id="lbStar" title="favourite">★</button><button class="ib" id="lbDel" title="move to trash">🗑</button><button class="ib" id="lbClose" title="close (Esc)">✕</button></div></div>
     <div class="promptbox"><div class="lab"><span>Prompt · reproducible</span><button class="btn sm" id="lbCopy">Copy</button></div><pre id="lbPrompt"></pre></div>
     <div class="acts"><button class="btn sm" id="lbReuse">Edit in Create</button><a class="btn sm" id="lbOpen" target="_blank">Open full size</a></div>
     <div class="export" id="imgBox"><div class="lab">Reimagine</div>
@@ -374,13 +414,14 @@
     <div id="benchResult" class="muted small">No benchmark yet. One real image is rendered and measured; the result recommends a preset for your target time. best stays the default.</div>
   </div>
   <div class="pnl c6"><h2>Memory now <button class="btn sm" id="memBtn">Refresh</button></h2><div id="memPanel" class="muted small">…</div></div>
-  <div class="pnl c8"><h2>Models</h2><div id="modelsPanel"></div></div>
-  <div class="pnl c4"><h2>Settings</h2>
+  <div class="pnl c8"><h2>Models and engines <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">· what is installed, where, and how big</span></h2><div id="modelsPanel"></div></div>
+  <div class="pnl c4"><h2>Preferences</h2>
     <div class="sw"><div>Live preview<div class="d">Show the image forming while it renders. Costs almost nothing.</div></div><input type="checkbox" id="cfgPreview"></div>
     <div class="sw"><div>Allow over-budget runs<div class="d">Start jobs that need more memory than this machine has. They may swap for hours or fail; each is marked.</div></div><input type="checkbox" id="cfgOver"></div>
     <div class="sw"><div>Default threads<div class="d">Empty = all physical cores.</div></div><input type="number" id="cfgThreads" style="width:84px;height:30px" placeholder="cores"></div>
     <p class="muted mono small" id="cfgPath" style="margin:10px 0 0"></p>
     <h2 style="margin-top:16px">Activity</h2><div id="tasksPanel" class="muted small">Nothing running.</div>
+    <h2 style="margin-top:16px">About</h2><div id="aboutPanel" class="muted small"></div>
   </div>
   <div class="pnl c12"><details class="gl"><summary><b>Glossary</b> · what every setting means</summary>
     <dl class="gl">
@@ -403,6 +444,8 @@
   <div class="acts" style="margin-top:12px"><button class="btn primary" id="dlStart" disabled>Start download</button></div>
 </div></dialog>
 <div class="toasts" id="toasts"></div>
+<div class="drop" id="drop">Drop images to import them into the gallery</div>
+<dialog class="dl" id="trashDialog"><div class="dlg"><div class="head"><h3>Trash</h3><button class="ib" id="trashX">✕</button></div><div id="trashBody" class="small"></div><div class="acts" style="margin-top:12px"><button class="btn sm" id="trashEmpty">Empty trash</button></div></div></dialog>
 
 <script>
 (() => {
@@ -437,7 +480,7 @@
       el.innerHTML = `<div class="ic">${t.icon}</div><h3>${t.title}</h3><p>${t.text}</p><div class="st"><span class="dot ${ok ? "" : t.go ? "warn" : "off"}"></span>${ok ? "ready on this machine" : t.need}</div>`;
       if (t.go) el.onclick = () => { if (ok) t.go(); else showTab("machine"); }; box.appendChild(el); }
   }
-  function showTab(n) { S.tab = n; if (n === "home") renderHome(); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === n)); document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === n)); if (n === "gallery") renderGallery(true); if (n === "machine") renderMachine(); }
+  function showTab(n) { S.tab = n; if (n === "home") renderHome(); if (n === "sketch") setTimeout(skFit, 0); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === n)); document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === n)); if (n === "gallery") renderGallery(true); if (n === "machine") renderMachine(); }
   $("tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) showTab(b.dataset.tab); };
   $("themeBtn").onclick = () => { const r = document.documentElement; const cur = r.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); r.dataset.theme = cur === "dark" ? "light" : "dark"; try { localStorage.setItem("theme", r.dataset.theme); } catch (e) {} };
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -456,7 +499,7 @@
   }
   drag($("hL"), "left"); drag($("hR"), "right");
   // per-field reset marks
-  document.querySelectorAll(".f label[data-f]").forEach(l => { const b = document.createElement("button"); b.className = "rst"; b.type = "button"; b.title = "back to the preset value"; b.textContent = "×"; b.onclick = (e) => { e.preventDefault(); const id = l.dataset.f; const el = $(id); el.value = ""; const r = $(id.replace(/N$/, "R")); if (r && el !== r) r.value = el.placeholder || r.value; markChanged(); renderPresets(); markAr(); plan(); }; l.appendChild(b); });
+  document.querySelectorAll(".f label[data-f]").forEach(l => { const b = document.createElement("button"); b.className = "rst"; b.type = "button"; b.title = "back to the preset value"; b.textContent = "×"; b.onclick = (e) => { e.preventDefault(); const id = l.dataset.f; const el = $(id); el.value = ""; const r = $(id.replace(/N$/, "R")); if (r && r !== el && r.type === "range") r.value = el.placeholder || r.value; if (id === "widthN" || id === "heightN") { if ($("widthN").value === "" && $("heightN").value === "") SZ.ratio = "1:1"; } markChanged(); renderPresets(); plan(); }; l.appendChild(b); });
   function markChanged() { document.querySelectorAll(".f label[data-f]").forEach(l => { const el = $(l.dataset.f); l.closest(".f").classList.toggle("changed", el && el.value !== ""); }); }
   document.querySelectorAll(".f input, .f select").forEach(el => el.addEventListener("input", markChanged));
   $("focusBtn").onclick = () => $("ws").classList.toggle("focus");
@@ -472,17 +515,43 @@
   function fullPrompt() { const base = $("prompt").value.trim(); const st = styleText(); if (!st || !base) return base; const m = base.match(/^(.*?)(\s--.*)?$/s); return `${m[1].trim()}, ${st}${m[2] || ""}`; }
   function effective() {
     const p = S.parsed.params || {};
-    const e = { preset: p.preset || S.preset, width: p.width ?? num("widthN"), height: p.height ?? num("heightN"), model: p.model || $("model").value, steps: p.steps ?? num("stepsN"), cfg_scale: p.cfg_scale ?? num("cfgN"), sampler: p.sampler || str("sampler"), variant: p.variant || str("variant") };
+    const e = { preset: p.preset || S.preset, width: p.width ?? (num("widthN") ?? +$("widthN").placeholder), height: p.height ?? (num("heightN") ?? +$("heightN").placeholder), model: p.model || $("model").value, steps: p.steps ?? num("stepsN"), cfg_scale: p.cfg_scale ?? num("cfgN"), sampler: p.sampler || str("sampler"), variant: p.variant || str("variant") };
     if (p.aspect && e.width == null && e.height == null) { const [a, b] = p.aspect; const base = +$("widthN").placeholder || 1024; const px = base * base; e.width = Math.min(2048, Math.max(256, Math.round(Math.sqrt(px * a / b) / 16) * 16)); e.height = Math.min(2048, Math.max(256, Math.round(Math.sqrt(px * b / a) / 16) * 16)); }
     return e;
   }
-  function payload() { return { prompt: fullPrompt(), preset: S.preset, width: num("widthN"), height: num("heightN"), seed: num("seed"), model: $("model").value, negative_prompt: $("negative").value, steps: num("stepsN"), cfg_scale: num("cfgN"), sampler: str("sampler"), variant: str("variant"), threads: num("threadsN"), vae_tiling: $("tiling").value === "1" }; }
+  function payload() { return { prompt: fullPrompt(), preset: S.preset, width: num("widthN") ?? +$("widthN").placeholder, height: num("heightN") ?? +$("heightN").placeholder, seed: num("seed"), model: $("model").value, negative_prompt: $("negative").value, steps: num("stepsN"), cfg_scale: num("cfgN"), sampler: str("sampler"), variant: str("variant"), threads: num("threadsN"), vae_tiling: $("tiling").value === "1" }; }
   function bind(r, n, cb) { $(r).addEventListener("input", () => { $(n).value = $(r).value; cb(); }); $(n).addEventListener("input", () => { if ($(n).value !== "") $(r).value = $(n).value; cb(); }); }
-  bind("widthR", "widthN", () => { markAr(); schedulePlan(); }); bind("heightR", "heightN", () => { markAr(); schedulePlan(); }); bind("stepsR", "stepsN", schedulePlan); bind("cfgR", "cfgN", schedulePlan); bind("threadsR", "threadsN", () => {});
+  bind("stepsR", "stepsN", schedulePlan); bind("cfgR", "cfgN", schedulePlan);
+  // size model: a side the user typed is 'theirs'; the other side follows the ratio
+  const SZ = { ratio: "1:1" };
+  const snap16 = (v) => Math.min(2048, Math.max(256, Math.round(v / 16) * 16));
+  function basePx() { const w = +$("widthN").dataset.preset || 1024, h = +$("heightN").dataset.preset || 1024; return w * h; }
+  function ratioOf(name) { const [a, b] = name.split(":").map(Number); return a / b; }
+  function applySize(changed) {
+    const W = $("widthN"), H = $("heightN"); const uw = W.value !== "" ? +W.value : null, uh = H.value !== "" ? +H.value : null;
+    if (uw != null && uh != null) {
+      const r = uw / uh; const hit = ["1:1", "4:3", "3:4", "3:2", "16:9", "9:16"].find(n => Math.abs(ratioOf(n) - r) < 0.03);
+      SZ.ratio = hit || "custom";
+    } else if (SZ.ratio !== "custom") {
+      const r = ratioOf(SZ.ratio);
+      if (uw != null) H.placeholder = snap16(uw / r);
+      else if (uh != null) W.placeholder = snap16(uh * r);
+      else { const px = basePx(); W.placeholder = snap16(Math.sqrt(px * r)); H.placeholder = snap16(Math.sqrt(px / r)); }
+    } else if (uw == null && uh == null) { W.placeholder = W.dataset.preset || 1024; H.placeholder = H.dataset.preset || 1024; }
+    document.querySelectorAll("#ar button").forEach(b => b.classList.toggle("active", b.dataset.ar === SZ.ratio));
+    const w = uw ?? +W.placeholder, h = uh ?? +H.placeholder;
+    $("sizeNote").textContent = `${w} × ${h} · ${((w * h) / 1e6).toFixed(2)} MP${uw == null && uh == null ? " · from preset" : SZ.ratio === "custom" ? " · custom" : " · " + SZ.ratio}`;
+    markChanged(); schedulePlan();
+  }
+  $("widthN").addEventListener("input", () => applySize("w")); $("heightN").addEventListener("input", () => applySize("h"));
+  $("threadsN").addEventListener("input", markChanged);
   for (const id of ["model", "sampler", "variant"]) $(id).addEventListener("input", () => { if (id === "model") renderPresets(); schedulePlan(); });
-  $("ar").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; const [a, c] = b.dataset.ar.split(":").map(Number); const base = num("widthN") || +$("widthN").placeholder || 1024; const px = base * base; const w = Math.round(Math.sqrt(px * a / c) / 16) * 16, h = Math.round(Math.sqrt(px * c / a) / 16) * 16; $("widthN").value = $("widthR").value = Math.min(2048, Math.max(256, w)); $("heightN").value = $("heightR").value = Math.min(2048, Math.max(256, h)); markAr(); schedulePlan(); };
-  function markAr() { const w = num("widthN") || +$("widthN").placeholder, h = num("heightN") || +$("heightN").placeholder; document.querySelectorAll("#ar button").forEach(b => { const [a, c] = b.dataset.ar.split(":").map(Number); b.classList.toggle("active", Math.abs(w / h - a / c) < 0.03); }); }
-  $("resetBtn").onclick = () => { for (const id of ["widthN", "heightN", "stepsN", "cfgN", "threadsN", "negative"]) $(id).value = ""; $("sampler").value = ""; $("variant").value = ""; $("tiling").value = ""; renderPresets(); plan(); };
+  $("ar").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; SZ.ratio = b.dataset.ar;
+    const W = $("widthN"), H = $("heightN");
+    if (SZ.ratio !== "custom" && W.value !== "" && H.value !== "") H.value = "";  // keep the first side, recompute the other
+    applySize(); };
+  function markAr() { applySize(); }
+  $("resetBtn").onclick = () => { for (const id of ["widthN", "heightN", "stepsN", "cfgN", "threadsN", "negative"]) $(id).value = ""; $("sampler").value = ""; $("variant").value = ""; $("tiling").value = ""; SZ.ratio = "1:1"; markChanged(); renderPresets(); plan(); };
   $("style").addEventListener("input", () => { const st = styleText(); $("stytext").textContent = st ? `+ “${st}”` : ""; });
   const parseLive = debounce(async () => { const d = await api("/api/parse?prompt=" + encodeURIComponent($("prompt").value)); S.parsed = d; renderChips(d); plan(); }, 220);
   $("prompt").addEventListener("input", () => { const t = $("prompt"); t.style.height = "auto"; t.style.height = Math.min(180, t.scrollHeight) + "px"; updateGo(); if (/--/.test(t.value) || Object.keys(S.parsed.params || {}).length || (S.parsed.errors || []).length) parseLive(); });
@@ -494,7 +563,7 @@
     $("hwdot").className = "dot" + (c.engine.available ? "" : " warn");
     S.workerOutdated = !!c.queue.worker_outdated;
     if (S.workerOutdated) $("hwchip").title = "The rendering worker runs an older build (" + (c.queue.worker_version || "unknown") + "). Restart it to get live previews and cancel.";
-    $("threadsR").max = Math.max(4, hw.logical_cores || 16);
+    { const sel = $("threadsN"); const cur = sel.value; sel.innerHTML = `<option value="">all cores (${hw.physical_cores})</option>`; const opts = [...new Set([hw.physical_cores - 2, Math.round(hw.physical_cores / 2), 4, 2, 1].filter(n => n >= 1 && n < hw.physical_cores))].sort((a, b) => b - a); for (const n of opts) { const o = document.createElement("option"); o.value = n; o.textContent = `${n} thread${n > 1 ? "s" : ""}${n <= 2 ? " · laptop stays responsive" : ""}`; sel.appendChild(o); } sel.value = cur; }
     const sel = $("model"); sel.innerHTML = '<option value="auto">auto model</option>';
     for (const m of c.models) { const o = document.createElement("option"); o.value = m.name; o.textContent = m.display_name + (m.installed_variants.length ? "" : " · not downloaded"); sel.appendChild(o); }
     if (!$("style").options.length) for (const [v, n] of STYLES) { const o = document.createElement("option"); o.value = v; o.textContent = n; $("style").appendChild(o); }
@@ -509,8 +578,8 @@
     const m = currentModel(); const seg = $("presetSeg"); seg.innerHTML = "";
     for (const n of ["best", "balanced", "fast"]) { const p = m.presets.find(x => x.preset === n) || {}; const b = document.createElement("button"); b.className = n === S.preset ? "active" : ""; b.textContent = n; b.title = `${p.tradeoff || p.error || ""}${p.width ? `\n${p.width}×${p.height} · ${p.steps} steps · cfg ${p.cfg_scale}` : ""}${p.expected_time ? `\n≈ ${p.expected_time.human} here` : ""}`; b.onclick = () => { S.preset = n; renderPresets(); plan(); }; seg.appendChild(b); }
     const p = m.presets.find(x => x.preset === S.preset);
-    if (p?.width) { $("widthN").placeholder = p.width; $("heightN").placeholder = p.height; $("stepsN").placeholder = p.steps; $("cfgN").placeholder = p.cfg_scale; if ($("widthN").value === "") $("widthR").value = p.width; if ($("heightN").value === "") $("heightR").value = p.height; if ($("stepsN").value === "") $("stepsR").value = p.steps; if ($("cfgN").value === "") $("cfgR").value = p.cfg_scale; }
-    markAr();
+    if (p?.width) { $("widthN").dataset.preset = p.width; $("heightN").dataset.preset = p.height; $("stepsN").placeholder = p.steps; $("cfgN").placeholder = p.cfg_scale; if ($("stepsN").value === "") $("stepsR").value = p.steps; if ($("cfgN").value === "") $("cfgR").value = p.cfg_scale; }
+    applySize();
   }
 
   function updateGo() { $("go").disabled = !(S.plan && S.plan.installed) || !$("prompt").value.trim() || (S.parsed.errors || []).length > 0; }
@@ -576,12 +645,18 @@
 
   $("gmode").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.gmode = b.dataset.m; document.querySelectorAll("#gmode button").forEach(x => x.classList.toggle("active", x === b)); renderGallery(true); };
   $("search").addEventListener("input", () => renderGallery(true));
-  function galleryItems() { const done = S.jobs.filter(j => j.status === "done"); let items = done; if (S.gmode === "compare") { const by = {}; for (const j of done.filter(x => x.tool === "generate")) if (!by[j.preset]) by[j.preset] = j; items = ["best", "balanced", "fast"].map(p => by[p]).filter(Boolean); } const q = $("search").value.trim().toLowerCase(); if (q) items = items.filter(j => (j.prompt || "").toLowerCase().includes(q)); return items; }
+  const TAG = { generate: "generated", variations: "variation", edit: "edit", upscale: "upscaled", remove_background: "cutout", import: "imported" };
+  function galleryItems() { const done = S.jobs.filter(j => j.status === "done"); let items = done;
+    if (S.gmode === "compare") { const by = {}; for (const j of done.filter(x => x.tool === "generate")) if (!by[j.preset]) by[j.preset] = j; items = ["best", "balanced", "fast"].map(p => by[p]).filter(Boolean); }
+    else if (S.gmode === "fav") items = done.filter(j => j.favorite);
+    else if (S.gmode !== "all") items = done.filter(j => j.tool === S.gmode);
+    const q = $("search").value.trim().toLowerCase(); if (q) items = items.filter(j => ((j.prompt || "") + " " + (j.caption || "")).toLowerCase().includes(q)); return items; }
   function renderGallery(force) {
     const items = galleryItems(); const key = S.gmode + "|" + $("search").value + "|" + items.map(j => j.id).join(",");
     if (!force && key === S.gkey) return; S.gkey = key;
     const g = $("grid"); g.className = "grid" + (S.gmode === "compare" ? " compare" : ""); g.innerHTML = ""; $("gcount").textContent = `${items.length} image${items.length === 1 ? "" : "s"}`;
-    for (const j of items) { const c = document.createElement("div"); c.className = "card"; c.innerHTML = `<img loading="lazy" src="/api/image/${j.id}" alt=""><div class="cap">${S.gmode === "compare" ? `<span class="tag">${j.preset}</span>` : ""}<div class="t">${j.tool !== "generate" ? `<span class="tool">${j.tool.replace("_", " ")}</span>` : ""}${esc(j.title)}</div><div class="m" title="${esc(j.prompt)}">${esc(j.prompt)}</div></div>`; c.onclick = () => openLightbox(j.id); c.oncontextmenu = (e) => { e.preventDefault(); window.open(`/api/image/${j.id}`, "_blank"); }; g.appendChild(c); }
+    const key2 = key + "|" + items.map(j => j.favorite ? 1 : 0).join(""); if (!force && key2 === S.gkey2) return; S.gkey2 = key2;
+    for (const j of items) { const c = document.createElement("div"); c.className = "card"; c.innerHTML = `<img loading="lazy" src="/api/image/${j.id}" alt=""><button class="star ${j.favorite ? "on" : ""}" title="favourite">★</button><div class="cap">${S.gmode === "compare" ? `<span class="tag">${j.preset}</span>` : ""}<div class="t"><span class="tool">${TAG[j.tool] || j.tool}</span>${esc(j.title)}</div><div class="m" title="${esc(j.prompt)}">${esc(j.prompt)}</div></div>`; c.onclick = (e) => { if (e.target.closest(".star")) return; openLightbox(j.id); }; c.querySelector(".star").onclick = async () => { await post(`/api/jobs/${j.id}/favorite`, { favorite: !j.favorite }); j.favorite = !j.favorite; renderGallery(true); }; c.oncontextmenu = (e) => { e.preventDefault(); window.open(`/api/image/${j.id}`, "_blank"); }; g.appendChild(c); }
     if (!items.length) g.innerHTML = '<div class="muted">No images yet.</div>';
   }
   function openLightbox(id) { S.lbList = galleryItems().map(j => j.id); if (!S.lbList.includes(id)) S.lbList = [id, ...S.lbList]; S.lbIdx = S.lbList.indexOf(id); showLb(); if (!$("lb").open) $("lb").showModal(); }
@@ -593,6 +668,8 @@
     const rows = [["Preset", j.preset], ["Steps", j.steps], ["Guidance", j.cfg_scale], ["Sampler", j.sampler], ["Negative", j.negative_prompt || "–"], ["Threads", j.threads || "cores"], ["VAE tiling", j.vae_tiling ? "on" : "off"], ["Sampling", fmtDur(j.sampling_seconds)], ["Peak memory", j.peak_rss_gib ? `${j.peak_rss_gib} GiB` : "–"], ["Finished", (j.finished_at || "").replace("T", " ").slice(0, 16)]];
     $("lbKv").innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><span>${esc(v)}</span></div>`).join("");
     $("lbPrev").disabled = S.lbIdx <= 0; $("lbNext").disabled = S.lbIdx >= S.lbList.length - 1; updateExport(); fillTools(j);
+    $("lbStar").classList.toggle("on", !!j.favorite); $("lbStar").style.color = j.favorite ? "var(--honey)" : "";
+    api(`/api/jobs/${j.id}/lineage`).then(l => { const name = (id) => (S.jobs.find(x => x.id === id) || {}).title || id; const parts = []; if (l.parent) parts.push(`from <a data-go="${l.parent}">${esc(name(l.parent))}</a>`); if (l.children?.length) parts.push(`→ ${l.children.map(c => `<a data-go="${c}">${esc(name(c))}</a>`).join(", ")}`); $("lbLineage").innerHTML = parts.join(" · "); $("lbLineage").querySelectorAll("[data-go]").forEach(a => a.onclick = () => openLightbox(a.dataset.go)); });
     document.querySelector(".promptbox").style.display = j.reproducible_prompt ? "" : "none";
     painterOn(false); M.dirty = false; const mc = $("maskC"); mc.width = 1; $("edNote").textContent = ""; $("edMask").textContent = "Paint mask"; $("edPrompt").value = "";
     const vmOk = S.caps.vision_engine?.available && (S.caps.vision_models || []).some(v => v.installed);
@@ -624,6 +701,15 @@
     $("dlDialog").showModal();
   }
   $("lbPrev").onclick = () => lbStep(-1); $("lbNext").onclick = () => lbStep(1); $("lbClose").onclick = () => $("lb").close();
+  $("lbStar").onclick = async () => { const j = S.lbJob; const r = await post(`/api/jobs/${j.id}/favorite`, { favorite: !j.favorite }); j.favorite = r.favorite; $("lbStar").style.color = j.favorite ? "var(--honey)" : ""; renderGallery(true); };
+  $("lbDel").onclick = async () => { const j = S.lbJob; if (!confirm("Move this image to the trash? You can restore it from Gallery → Trash.")) return; await fetch(`/api/jobs/${j.id}`, { method: "DELETE" }); toast("Moved to trash."); $("lb").close(); await refreshJobs(); renderGallery(true); };
+  // import: button, file picker, drag and drop anywhere
+  async function importFiles(files) { let last = null; for (const f of files) { if (!f.type.startsWith("image/")) continue; const r = await (await fetch(`/api/import?name=${encodeURIComponent(f.name)}`, { method: "POST", body: f })).json(); if (r.error) toast(r.error, 6000); else last = r.id; } if (last) { toast("Imported. Open it to edit, upscale, cut out or describe."); await refreshJobs(); showTab("gallery"); renderGallery(true); } }
+  $("importBtn").onclick = () => $("importFile").click(); $("importFile").onchange = () => { importFiles([...$("importFile").files]); $("importFile").value = ""; };
+  let dragDepth = 0; document.addEventListener("dragenter", (e) => { if ([...e.dataTransfer.types].includes("Files")) { dragDepth++; $("drop").classList.add("on"); } }); document.addEventListener("dragleave", () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $("drop").classList.remove("on"); }); document.addEventListener("dragover", (e) => e.preventDefault()); document.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("drop").classList.remove("on"); if (e.dataTransfer.files.length) importFiles([...e.dataTransfer.files]); });
+  // trash
+  async function openTrash() { const t = await api("/api/trash"); $("trashBody").innerHTML = t.trash.length ? t.trash.map(r => `<div class="sw"><div>${esc(r.title)}<div class="d">${r.width}×${r.height} · deleted ${(r.deleted_at || "").replace("T", " ").slice(0, 16)}</div></div><button class="btn sm" data-restore="${r.id}">Restore</button></div>`).join("") : '<p class="muted">The trash is empty.</p>'; $("trashBody").querySelectorAll("[data-restore]").forEach(b => b.onclick = async () => { await post(`/api/jobs/${b.dataset.restore}/restore`); await refreshJobs(); renderGallery(true); openTrash(); }); $("trashDialog").showModal(); }
+  $("trashBtn").onclick = openTrash; $("trashX").onclick = () => $("trashDialog").close(); $("trashEmpty").onclick = async () => { if (!confirm("Delete everything in the trash permanently?")) return; await post("/api/trash/empty"); openTrash(); };
   $("lb").addEventListener("click", (e) => { if (e.target === $("lb")) $("lb").close(); });
   $("lbCopy").onclick = async () => { try { await navigator.clipboard.writeText(S.lbJob.reproducible_prompt); toast("Copied. Paste it into the prompt box to recreate this image exactly."); } catch (e) { toast("Copy failed; select the text instead."); } };
   $("lbReuse").onclick = () => { const j = S.lbJob; $("prompt").value = j.reproducible_prompt; $("style").value = ""; $("stytext").textContent = ""; $("lb").close(); showTab("create"); $("prompt").dispatchEvent(new Event("input")); $("prompt").focus(); };
@@ -636,18 +722,21 @@
     const c = S.caps; const hw = c.hardware; const clean = (s) => s.replace(/\(R\)|\(TM\)/g, "").replace("12th Gen ", "");
     const gpu = hw.gpus?.length ? hw.gpus.map(g => clean(g.name) + (g.vram_gib ? ` · ${g.vram_gib} GiB` : "")).join(", ") : "none";
     $("strip").innerHTML = [["CPU", clean(hw.cpu_name), `${hw.physical_cores} cores · ${hw.logical_cores} threads`], ["Memory", `${hw.ram_available_gib} / ${hw.ram_total_gib} GiB free`, `budget ${c.models[0].memory_budget_gib} GiB for weights`], ["GPU", gpu, hw.gpus?.some(g => g.kind === "cuda") ? "CUDA" : "CPU rendering"], ["Engine", c.engine.available ? "stable-diffusion.cpp" : "not installed", c.engine.version || c.engine.pinned_release], ["Worker", c.queue.worker_in_this_process ? "this process" : c.queue.worker_pid ? `pid ${c.queue.worker_pid}` : "none", `${c.queue.queued} queued`], ["Data", c.paths.data_dir.split(/[\\/]/).slice(-1)[0], c.paths.data_dir]].map(([k, v, s]) => `<div class="stat"><div class="k">${k}</div><div class="v" title="${esc(v)}">${esc(v)}</div><div class="s" title="${esc(s)}">${esc(s)}</div></div>`).join("");
-    const rows = []; for (const m of c.models) { rows.push(`<tr><td colspan="5" style="padding-top:12px"><b>${esc(m.display_name)}</b> <span class="pill">${esc(m.licence)}</span><div class="muted small">${esc(m.description)}</div></td></tr>`); for (const v of m.variants) rows.push(`<tr><td class="mono"><b>${v.name}</b></td><td class="r mono">${v.download_gib} GiB</td><td class="r mono">${v.needs_gib_at_1024} GiB</td><td><span class="pill ${v.fits_this_machine ? "ok" : ""}">${v.fits_this_machine ? "fits" : "does not fit"}</span></td><td class="r">${v.installed ? '<span class="pill ok">installed</span>' : `<button class="btn sm" data-dl="${m.name}|${v.name}">Download</button>`}</td></tr>`); }
-    const trows = (c.tools || []).map(t => `<tr><td><b>${esc(t.display_name)}</b> <span class="pill">${esc(t.licence)}</span><div class="muted small">${esc(t.note)}</div></td><td class="mono">${t.kind}</td><td class="r mono">${t.size_gib} GiB</td><td class="r">${t.installed ? '<span class="pill ok">installed</span>' : `<button class="btn sm" data-tdl="${t.name}">Download</button>`}</td></tr>`).join("");
-    $("modelsPanel").innerHTML = `<table class="t"><tr><th>Set</th><th class="r">Download</th><th class="r">Needs at 1024²</th><th>Memory</th><th></th></tr>${rows.join("")}</table>`
-      + `<h2 style="margin-top:16px">Tool models</h2><table class="t"><tr><th>Model</th><th>For</th><th class="r">Size</th><th></th></tr>${trows}</table>`
-      + `<h2 style="margin-top:16px">Vision models · describe</h2><table class="t"><tr><th>Model</th><th class="r">Size</th><th></th></tr>${(c.vision_models || []).map(v => `<tr><td><b>${esc(v.display_name)}</b> <span class="pill">${esc(v.licence)}</span><div class="muted small">${esc(v.note)}</div></td><td class="r mono">${v.size_gib} GiB</td><td class="r">${v.installed ? '<span class="pill ok">installed</span>' : `<button class="btn sm" data-vdl="${v.name}">Download</button>`}</td></tr>`).join("")}</table>`
-      + `<h2 style="margin-top:16px">Engines</h2><table class="t"><tr><td><b>stable-diffusion.cpp</b> <span class="pill">MIT</span><div class="muted small">image generation, image-to-image, upscaling · ${esc(c.engine.pinned_release)}</div></td><td class="r">${c.engine.available ? '<span class="pill ok">installed</span>' : `<button class="btn sm" data-edl="image">Install</button>`}</td></tr><tr><td><b>llama.cpp</b> <span class="pill">MIT</span><div class="muted small">vision language models for describe</div></td><td class="r">${c.vision_engine && c.vision_engine.available ? '<span class="pill ok">installed</span>' : `<button class="btn sm" data-edl="vision">Install</button>`}</td></tr><tr><td><b>ONNX Runtime</b> <span class="pill">MIT</span><div class="muted small">background removal (Python package)</div></td><td class="r">${c.background_engine && c.background_engine.available ? '<span class="pill ok">installed</span>' : '<span class="pill">pip install hivemind-imagestudio[bg]</span>'}</td></tr></table>`;
-    $("modelsPanel").querySelectorAll("[data-vdl]").forEach(b => b.onclick = () => openVisionDownload(b.dataset.vdl));
-    $("modelsPanel").querySelectorAll("[data-edl]").forEach(b => b.onclick = () => openEngineDownload(b.dataset.edl));
-    $("modelsPanel").querySelectorAll("[data-tdl]").forEach(b => b.onclick = () => openToolDownload(b.dataset.tdl));
-    $("modelsPanel").querySelectorAll("[data-dl]").forEach(b => b.onclick = () => { const [m, v] = b.dataset.dl.split("|"); openDownload(m, v); });
+    const comps = (await api("/api/components")).components; const gib = (b) => b >= 1073741824 ? (b / 1073741824).toFixed(2) + " GiB" : b >= 1048576 ? Math.round(b / 1048576) + " MB" : "–";
+    const KIND = { model: "generation", tool: "tool", vision: "vision", engine: "engine" };
+    const trs = comps.map(k => { const inst = k.installed; const act = inst
+      ? `<button class="btn sm ghost" data-show="${esc(k.files[0]?.path || k.folder)}">Show</button> <button class="btn sm ghost" data-rm="${k.kind}|${k.name}" style="color:var(--bad)">Remove</button>`
+      : `<button class="btn sm" data-inst="${k.kind}|${k.name}">Install</button>`;
+      const fit = k.kind === "model" ? (() => { const [mn, vn] = k.name.split(":"); const m = c.models.find(x => x.name === mn); const v = m?.variants.find(x => x.name === vn); return v ? `<span class="pill ${v.fits_this_machine ? "ok" : ""}">${v.fits_this_machine ? "fits" : "does not fit"}</span>` : ""; })() : "";
+      return `<tr><td><b>${esc(k.display_name)}</b> <span class="pill">${esc(k.licence)}</span> ${fit}<div class="muted small mono" title="${esc(k.folder)}">${esc(k.files.length ? k.files.map(f => f.filename).join(", ") : k.folder)}</div></td><td class="mono">${KIND[k.kind]}</td><td class="r mono">${inst ? gib(k.bytes) : "–"}</td><td class="r" style="white-space:nowrap">${act}</td></tr>`; }).join("");
+    const installedBytes = comps.filter(k => k.installed).reduce((a, k) => a + k.bytes, 0);
+    $("modelsPanel").innerHTML = `<div class="muted small" style="margin-bottom:8px">${gib(installedBytes)} on disk in ${esc(c.paths.data_dir)}</div><table class="t"><tr><th>Component</th><th>Type</th><th class="r">On disk</th><th></th></tr>${trs}</table>`;
+    $("modelsPanel").querySelectorAll("[data-inst]").forEach(b => b.onclick = () => { const [kind, name] = b.dataset.inst.split("|"); if (kind === "model") { const [m, v] = name.split(":"); openDownload(m, v); } else if (kind === "tool") openToolDownload(name); else if (kind === "vision") openVisionDownload(name); else openEngineDownload(name); });
+    $("modelsPanel").querySelectorAll("[data-show]").forEach(b => b.onclick = async () => { const r = await post("/api/reveal", { path: b.dataset.show }); if (r.error) toast(r.error); });
+    $("modelsPanel").querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { const [kind, name] = b.dataset.rm.split("|"); if (!confirm(`Remove ${name} from this machine? You can install it again later.`)) return; const r = await post("/api/components/remove", { kind, name }); if (r.error) { toast(r.error, 7000); return; } toast(`Removed · ${gib(r.freed_bytes)} freed`); await loadCaps(); renderMachine(); plan(); });
     const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
     if (c.profile) renderProfile(c.profile);
+    $("aboutPanel").innerHTML = `Hivemind Image Studio ${esc(c.studio_version)} · Apache-2.0<br>${esc(c.policy.quality)}<br><br>` + (c.licences || []).map(l => `${esc(l.component)}: ${esc(l.licence)}`).join("<br>") + `<br><br>Excluded by policy: ${(c.excluded_by_policy || []).map(e => esc(e.model)).join(", ")}.`;
     renderTasks(); loadMemory();
   }
   async function loadMemory() { const m = await api("/api/memory"); const max = m.top[0]?.gib || 1; $("memPanel").innerHTML = `<div class="muted small" style="margin-bottom:8px">${m.available_gib} of ${m.total_gib} GiB free. The studio cannot free other programs' memory; close the heavy ones before a long render.</div>` + m.top.map(p => `<div style="display:grid;grid-template-columns:120px 1fr 56px;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(p.name)}">${esc(p.name)}</span><span class="membar"><i style="width:${Math.round(p.gib / max * 100)}%"></i></span><span class="mono" style="text-align:right">${p.gib.toFixed(2)}</span></div>`).join(""); }
@@ -708,6 +797,8 @@
   $("maskC").addEventListener("pointermove", (e) => { if (M.drawing) maskStroke(e); });
   $("maskC").addEventListener("pointerup", () => { M.drawing = false; });
   $("mErase").onclick = () => { M.erase = !M.erase; $("mErase").textContent = M.erase ? "Paint" : "Erase"; };
+  M.undo = []; $("maskC").addEventListener("pointerdown", () => { const c = $("maskC"); M.undo.push(c.getContext("2d").getImageData(0, 0, c.width, c.height)); if (M.undo.length > 30) M.undo.shift(); }, true);
+  document.addEventListener("keydown", (e) => { if (M.on && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); const im = M.undo.pop(); if (im) $("maskC").getContext("2d").putImageData(im, 0, 0); } });
   $("mClear").onclick = () => { const c = $("maskC"); c.getContext("2d").clearRect(0, 0, c.width, c.height); M.dirty = false; };
   $("mDone").onclick = () => { painterOn(false); $("edNote").textContent = M.dirty ? "Mask painted: only the painted area will change." : ""; $("edMask").textContent = M.dirty ? "Edit mask" : "Paint mask"; };
   $("edMask").onclick = () => painterOn(!M.on);
@@ -721,21 +812,51 @@
   }
   $("edBtn").onclick = async () => { const prompt = $("edPrompt").value.trim(); if (!prompt) { toast("Describe the wanted result first."); return; } const mask = await maskUpload(); await runTool("edit", { image: S.lbJob.id, prompt, strength: +$("edStr").value, mask, preset: S.preset }); };
   // ---- sketch tool
-  const K = { drawing: false, erase: false };
-  const skc = $("skC"); const skx = skc.getContext("2d"); skx.fillStyle = "#fff"; skx.fillRect(0, 0, skc.width, skc.height);
+  const K = { tool: "brush", drawing: false, last: null, start: null, zoom: 1, undo: [], redo: [] };
+  const skc = $("skC"), skx = skc.getContext("2d"), sko = $("skO"), skox = sko.getContext("2d");
+  function skReset(w, h) { skc.width = sko.width = w; skc.height = sko.height = h; skx.fillStyle = "#fff"; skx.fillRect(0, 0, w, h); K.undo = []; K.redo = []; skFit(); }
+  function skSnapshot() { K.undo.push(skx.getImageData(0, 0, skc.width, skc.height)); if (K.undo.length > 40) K.undo.shift(); K.redo = []; }
+  function skUndo() { const im = K.undo.pop(); if (!im) return; K.redo.push(skx.getImageData(0, 0, skc.width, skc.height)); skx.putImageData(im, 0, 0); }
+  function skRedo() { const im = K.redo.pop(); if (!im) return; K.undo.push(skx.getImageData(0, 0, skc.width, skc.height)); skx.putImageData(im, 0, 0); }
+  function skFit() { const v = $("skview").getBoundingClientRect(); const z = Math.min((v.width - 80) / skc.width, (v.height - 170) / skc.height, 1.5); skZoom(Math.max(0.1, z)); }
+  function skZoom(z) { K.zoom = z; $("skwrapc").style.width = skc.width + "px"; $("skwrapc").style.height = skc.height + "px"; $("skwrapc").style.transform = `scale(${z})`; $("skZoomV").textContent = Math.round(z * 100) + "%"; }
+  $("skZoomIn").onclick = () => skZoom(Math.min(4, K.zoom * 1.25)); $("skZoomOut").onclick = () => skZoom(Math.max(0.1, K.zoom / 1.25)); $("skFit").onclick = skFit;
+  $("skview").addEventListener("wheel", (e) => { if (e.ctrlKey) { e.preventDefault(); skZoom(Math.min(4, Math.max(0.1, K.zoom * (e.deltaY < 0 ? 1.1 : 0.9)))); } }, { passive: false });
   function skPos(e) { const r = skc.getBoundingClientRect(); return [(e.clientX - r.left) * skc.width / r.width, (e.clientY - r.top) * skc.height / r.height]; }
-  let skLast = null;
-  function skStroke(e) { const [x, y] = skPos(e); skx.lineCap = "round"; skx.lineJoin = "round"; skx.lineWidth = +$("skSize").value * skc.width / skc.getBoundingClientRect().width; skx.strokeStyle = K.erase ? "#fff" : $("skColor").value; skx.beginPath(); skx.moveTo(...(skLast || [x, y])); skx.lineTo(x, y); skx.stroke(); skLast = [x, y]; }
-  skc.addEventListener("pointerdown", (e) => { K.drawing = true; skLast = null; skc.setPointerCapture(e.pointerId); skStroke(e); });
-  skc.addEventListener("pointermove", (e) => { if (K.drawing) skStroke(e); });
-  skc.addEventListener("pointerup", () => { K.drawing = false; skLast = null; });
-  $("skEraser").onclick = () => { K.erase = !K.erase; $("skEraser").textContent = K.erase ? "Brush" : "Eraser"; };
-  $("skClear").onclick = () => { skx.fillStyle = "#fff"; skx.fillRect(0, 0, skc.width, skc.height); };
+  function brushPx() { return +$("skSize").value; }
+  function stroke(ctx, a, b, erase) { ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = brushPx(); ctx.strokeStyle = erase ? "#fff" : $("skColor").value; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); }
+  function floodFill(x, y, hex) {
+    const w = skc.width, h = skc.height; const img = skx.getImageData(0, 0, w, h); const d = img.data; const i0 = (Math.floor(y) * w + Math.floor(x)) * 4; const tr = d[i0], tg = d[i0 + 1], tb = d[i0 + 2];
+    const fr = parseInt(hex.slice(1, 3), 16), fg = parseInt(hex.slice(3, 5), 16), fb = parseInt(hex.slice(5, 7), 16); if (tr === fr && tg === fg && tb === fb) return;
+    const stack = [[Math.floor(x), Math.floor(y)]]; const seen = new Uint8Array(w * h);
+    while (stack.length) { const [px, py] = stack.pop(); if (px < 0 || py < 0 || px >= w || py >= h) continue; const k = py * w + px; if (seen[k]) continue; const i = k * 4; if (Math.abs(d[i] - tr) + Math.abs(d[i + 1] - tg) + Math.abs(d[i + 2] - tb) > 60) continue; seen[k] = 1; d[i] = fr; d[i + 1] = fg; d[i + 2] = fb; d[i + 3] = 255; stack.push([px + 1, py], [px - 1, py], [px, py + 1], [px, py - 1]); }
+    skx.putImageData(img, 0, 0);
+  }
+  sko.addEventListener("pointerdown", (e) => { const pt = skPos(e); sko.setPointerCapture(e.pointerId); if (K.tool === "fill") { skSnapshot(); floodFill(pt[0], pt[1], $("skColor").value); return; } skSnapshot(); K.drawing = true; K.start = pt; K.last = pt; if (K.tool === "brush" || K.tool === "eraser") stroke(skx, pt, pt, K.tool === "eraser"); });
+  sko.addEventListener("pointermove", (e) => {
+    const c = $("skCursor"); const vr = $("skview").getBoundingClientRect(); c.style.display = (K.tool === "brush" || K.tool === "eraser") ? "" : "none"; c.style.left = (e.clientX - vr.left) + "px"; c.style.top = (e.clientY - vr.top) + "px"; const px = brushPx() * K.zoom; c.style.width = c.style.height = px + "px";
+    if (!K.drawing) return; const pt = skPos(e);
+    if (K.tool === "brush" || K.tool === "eraser") { stroke(skx, K.last, pt, K.tool === "eraser"); K.last = pt; }
+    else { skox.clearRect(0, 0, sko.width, sko.height); if (K.tool === "line") stroke(skox, K.start, pt, false); else { skox.lineWidth = brushPx(); skox.strokeStyle = $("skColor").value; skox.strokeRect(K.start[0], K.start[1], pt[0] - K.start[0], pt[1] - K.start[1]); } }
+  });
+  sko.addEventListener("pointerleave", () => { $("skCursor").style.display = "none"; });
+  sko.addEventListener("pointerup", (e) => { if (!K.drawing) return; K.drawing = false; const pt = skPos(e); if (K.tool === "line") stroke(skx, K.start, pt, false); if (K.tool === "rect") { skx.lineWidth = brushPx(); skx.strokeStyle = $("skColor").value; skx.strokeRect(K.start[0], K.start[1], pt[0] - K.start[0], pt[1] - K.start[1]); } skox.clearRect(0, 0, sko.width, sko.height); });
+  document.querySelectorAll("#palette [data-tool]").forEach(b => b.onclick = () => { K.tool = b.dataset.tool; document.querySelectorAll("#palette [data-tool]").forEach(x => x.classList.toggle("on", x === b)); });
+  $("skUndo").onclick = skUndo; $("skRedo").onclick = skRedo;
+  $("skClear").onclick = () => { skSnapshot(); skx.fillStyle = "#fff"; skx.fillRect(0, 0, skc.width, skc.height); };
+  $("skSize").addEventListener("input", () => { $("skSizeV").textContent = $("skSize").value; });
   $("skUpload").onclick = () => $("skFile").click();
-  $("skFile").onchange = () => { const f = $("skFile").files[0]; if (!f) return; const img = new Image(); img.onload = () => { skx.fillStyle = "#fff"; skx.fillRect(0, 0, skc.width, skc.height); const sc = Math.min(skc.width / img.width, skc.height / img.height); const w = img.width * sc, h = img.height * sc; skx.drawImage(img, (skc.width - w) / 2, (skc.height - h) / 2, w, h); URL.revokeObjectURL(img.src); }; img.src = URL.createObjectURL(f); };
+  $("skFile").onchange = () => { const f = $("skFile").files[0]; if (!f) return; const img = new Image(); img.onload = () => { skSnapshot(); skx.fillStyle = "#fff"; skx.fillRect(0, 0, skc.width, skc.height); const sc = Math.min(skc.width / img.width, skc.height / img.height); const w = img.width * sc, h = img.height * sc; skx.drawImage(img, (skc.width - w) / 2, (skc.height - h) / 2, w, h); URL.revokeObjectURL(img.src); }; img.src = URL.createObjectURL(f); $("skFile").value = ""; };
+  $("skSizeSel").onchange = () => { const [w, h] = $("skSizeSel").value.split("x").map(Number); if (K.undo.length && !confirm("Changing the canvas size clears the drawing. Continue?")) { return; } skReset(w, h); };
   $("skStr").addEventListener("input", () => { $("skStrV").textContent = $("skStr").value; });
   $("skPreset").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; document.querySelectorAll("#skPreset button").forEach(x => x.classList.toggle("active", x === b)); };
-  $("skGo").onclick = async () => { const prompt = $("skPrompt").value.trim(); if (!prompt) { toast("Describe the result first."); return; } const blob = await new Promise(r => skc.toBlob(r, "image/png")); const up = await (await fetch("/api/upload", { method: "POST", body: blob })).json(); if (up.error) { toast(up.error); return; } const preset = document.querySelector("#skPreset button.active").dataset.p; await runTool("edit", { image: up.path, prompt, strength: +$("skStr").value, preset }); };
+  $("skPrompt").addEventListener("input", () => { const t = $("skPrompt"); t.style.height = "auto"; t.style.height = Math.min(140, t.scrollHeight) + "px"; });
+  $("skGo").onclick = async () => { const prompt = $("skPrompt").value.trim(); if (!prompt) { toast("Describe the result first."); $("skPrompt").focus(); return; } const blob = await new Promise(r => skc.toBlob(r, "image/png")); const up = await (await fetch("/api/upload", { method: "POST", body: blob })).json(); if (up.error) { toast(up.error); return; } const preset = document.querySelector("#skPreset button.active").dataset.p; await runTool("edit", { image: up.path, prompt, strength: +$("skStr").value, preset }); };
+  // palette drag
+  (() => { const pal = $("palette"), grip = pal.querySelector(".grip"); let off = null; grip.addEventListener("pointerdown", (e) => { off = [e.clientX - pal.offsetLeft, e.clientY - pal.offsetTop]; grip.setPointerCapture(e.pointerId); }); grip.addEventListener("pointermove", (e) => { if (!off) return; pal.style.left = Math.max(0, e.clientX - off[0]) + "px"; pal.style.top = Math.max(0, e.clientY - off[1]) + "px"; }); grip.addEventListener("pointerup", () => { off = null; }); })();
+  document.addEventListener("keydown", (e) => { if (S.tab !== "sketch" || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) return; if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); skUndo(); } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { e.preventDefault(); skRedo(); } else { const map = { b: "brush", e: "eraser", l: "line", r: "rect", g: "fill" }; if (map[e.key]) document.querySelector(`#palette [data-tool="${map[e.key]}"]`).click(); } });
+  new ResizeObserver(() => { if (S.tab === "sketch") skFit(); }).observe($("skview"));
+  skReset(1024, 1024);
   loadCaps().then(plan).then(refreshJobs).then(pollTasks).then(() => { renderHome(); if (!S.jobs.length) showTab("home"); });
   setInterval(refreshJobs, 4000);
   setInterval(async () => { if (!S.caps) return; const c = await api("/api/capabilities"); S.caps = c; const hw = c.hardware; $("hwtext").textContent = `${hw.ram_available_gib} / ${hw.ram_total_gib} GiB free · ${c.queue.worker_in_this_process ? "worker here" : c.queue.worker_pid ? "worker " + c.queue.worker_pid : "no worker"}`; }, 30000);
