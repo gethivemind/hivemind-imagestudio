@@ -418,7 +418,7 @@ class Studio:
                 "variations",
                 p["init"],
                 prompt,
-                p.get("strength", 0.55),
+                p.get("strength", 0.4),
                 None,
                 preset=preset,
                 seed=seed,
@@ -560,12 +560,15 @@ class Studio:
         self.worker.submit(job)
         return job
 
-    def variations(self, image: str, strength: float = 0.55, prompt: str = "", **kw) -> Job:
-        """Same picture, re-imagined: image-to-image at a moderate strength."""
+    def variations(self, image: str, strength: float = 0.4, prompt: str = "", **kw) -> Job:
+        """Same picture, re-imagined: image-to-image at a moderate strength.
+
+        On 4-step models (FLUX schnell) strength is a cliff, not a slope: up to about 0.45 the
+        composition is kept, from about 0.5 it is re-invented from the prompt (measured)."""
         return self._img2img("variations", image, prompt, strength, None, **kw)
 
     def edit(
-        self, image: str, prompt: str, strength: float = 0.75, mask: str | None = None, **kw
+        self, image: str, prompt: str, strength: float = 0.45, mask: str | None = None, **kw
     ) -> Job:
         """Change a picture by instruction; with a mask only the white area is repainted."""
         return self._img2img("edit", image, prompt, strength, mask, **kw)

@@ -208,7 +208,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
     )
     def variations(
         image: str,
-        strength: float = 0.55,
+        strength: float = 0.4,
         prompt: str = "",
         preset: str = "best",
         seed: int | None = None,
@@ -235,7 +235,9 @@ def build_server(studio: Studio | None = None) -> FastMCP:
         description=(
             "Queue an edit of an existing image by instruction and return a job id. image is a job "
             "id or a local image path; prompt describes the wanted result ('the same scene at "
-            "night'); strength 0-1 is how much may change (0.75 default). mask: optional job id or "
+            "night'); strength 0-1 is how much may change (0.45 default; on 4-step models the "
+            "picture is kept up to about 0.45 and re-invented from about 0.5). mask: optional job "
+            "id or "
             "path to a black/white image of the same size; only the white area is repainted "
             "(inpainting). Same presets and settings as generate(). Poll job_status."
         ),
@@ -243,7 +245,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
     def edit(
         image: str,
         prompt: str,
-        strength: float = 0.75,
+        strength: float = 0.45,
         mask: str | None = None,
         preset: str = "best",
         seed: int | None = None,

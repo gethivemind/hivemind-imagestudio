@@ -193,30 +193,6 @@ def parse(text: str) -> Parsed:
                     errors.append(f"--{name} must be between 0 and 1, got {v}")
         elif key == "init":
             params["init"] = raw  # a job id or a path; resolved by the studio
-        elif key == "strength":
-            try:
-                v = float(raw)
-            except ValueError:
-                errors.append(f"--{name} needs a number between 0 and 1, got {raw!r}")
-            else:
-                if 0.0 <= v <= 1.0:
-                    params["strength"] = v
-                else:
-                    errors.append(f"--{name} must be between 0 and 1, got {v}")
-        elif key == "init":
-            params["init"] = raw  # a job id or a path; resolved by the studio
-        elif key == "strength":
-            try:
-                v = float(raw)
-            except ValueError:
-                errors.append(f"--{name} needs a number between 0 and 1, got {raw!r}")
-            else:
-                if 0.0 <= v <= 1.0:
-                    params["strength"] = v
-                else:
-                    errors.append(f"--{name} must be between 0 and 1, got {v}")
-        elif key == "init":
-            params["init"] = raw  # a job id or a path; resolved by the studio
         elif key == "preset":
             if raw.lower() in ("best", "balanced", "fast"):
                 params["preset"] = raw.lower()
@@ -272,7 +248,7 @@ def reproducible(job: Any) -> str:
         parts.append(f"--lora {n}:{float(w):g}")
     src = getattr(job, "source_job", None) or getattr(job, "input_path", None)
     if src and getattr(job, "tool", "generate") in ("generate", "variations", "edit"):
-        parts.append(f"--from {src} --strength {getattr(job, 'strength', 0.6):g}")
+        parts.append(f"--from {src} --strength {getattr(job, 'strength', 0.45):g}")
     if job.negative_prompt:
         parts.append(f"--no {job.negative_prompt}")
     return " ".join(parts)

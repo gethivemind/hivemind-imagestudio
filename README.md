@@ -208,8 +208,8 @@ pinned, hash-checked catalogue.
 | Tool | Purpose |
 | --- | --- |
 | `generate(prompt, preset="best", width?, height?, seed?, negative_prompt?, model?, steps?, cfg_scale?, sampler?, variant?, threads?, vae_tiling?)` | Queue a text-to-image job; returns job id, estimate and the plan. Inline `--parameters` in the prompt are honoured. |
-| `variations(image, strength=0.55, prompt?, preset?, seed?, model?)` | Image-to-image re-roll of a job id or local image. |
-| `edit(image, prompt, strength=0.75, mask?, preset?, seed?, model?)` | Change an image by instruction; with a black/white mask only the white area is repainted. |
+| `variations(image, strength=0.4, prompt?, preset?, seed?, model?)` | Image-to-image re-roll of a job id or local image. Strength is a cliff on 4-step models: up to about 0.45 keeps the composition, from about 0.5 it is re-invented (measured). |
+| `edit(image, prompt, strength=0.45, mask?, preset?, seed?, model?)` | Change an image by instruction; with a black/white mask only the white area is repainted. |
 | `upscale(image, model?, repeats=1)` | 4× (or 16×) with Real-ESRGAN. |
 | `remove_background(image, model?)` | Transparent PNG with IS-Net or U²-Net. |
 | `describe(image, task="describe", question?, model?)` | Image to text with llama.cpp and Qwen2.5-VL: description, prompt, alt text, tags, or your own question. Synchronous. |
