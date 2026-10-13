@@ -146,6 +146,15 @@ class DescribeEngine:
             raise EngineError(f"{a.exe} missing after unpacking {a.asset}")
         return exe
 
+    def uninstall(self) -> int:
+        freed = 0
+        if self.install_dir.exists():
+            for p in self.install_dir.rglob("*"):
+                if p.is_file():
+                    freed += p.stat().st_size
+            shutil.rmtree(self.install_dir, ignore_errors=True)
+        return freed
+
     def describe(self, spec: DescribeSpec) -> DescribeResult:
         b = self.binary()
         if b is None:

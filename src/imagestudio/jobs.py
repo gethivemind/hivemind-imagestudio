@@ -76,6 +76,8 @@ class Job:
     tool_model: str | None = None  # upscale / remove_background: which tool model
     mask_path: str | None = None  # edit: inpainting mask
     caption: str | None = None  # describe: last caption written for this image
+    favorite: bool = False
+    deleted_at: str | None = None  # soft delete; the file moves to trash/
     strength: float = 0.6  # variations / edit: distance from the source image
     mask_path: str | None = None  # edit: inpainting mask
     strength: float = 0.6  # variations / edit: distance from the source image
@@ -184,10 +186,11 @@ class JobStore:
             self.refresh()
             return self._jobs.get(job_id)
 
-    def all(self) -> list[Job]:
+    def all(self, include_deleted: bool = False) -> list[Job]:
         with self._lock:
             self.refresh()
-            return sorted(self._jobs.values(), key=lambda j: j.created_at)
+            jobs = [j for j in self._jobs.values() if include_deleted or not j.deleted_at]
+            return sorted(jobs, key=lambda j: j.created_at)
 
     def queued(self) -> list[Job]:
         return [j for j in self.all() if j.status == "queued"]

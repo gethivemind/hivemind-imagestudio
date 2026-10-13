@@ -187,6 +187,80 @@ def build_app(studio: Studio) -> Starlette:
         except StudioError as e:
             return JSONResponse({"error": str(e)}, status_code=400)
 
+    async def components(_: Request) -> JSONResponse:
+        return JSONResponse({"components": studio.components()})
+
+    async def remove_component(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(studio.remove_component(body.get("kind", ""), body.get("name", "")))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def reveal(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            studio.reveal(body.get("path", ""))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse({"ok": True})
+
+    async def delete_job(request: Request) -> JSONResponse:
+        try:
+            return JSONResponse(studio.delete_job(request.path_params["job_id"]))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=404)
+
+    async def restore_job(request: Request) -> JSONResponse:
+        try:
+            return JSONResponse(studio.restore_job(request.path_params["job_id"]))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=404)
+
+    async def trash(_: Request) -> JSONResponse:
+        rows = [
+            studio.job_status(j.id)
+            if False
+            else {
+                "id": j.id,
+                "title": j.prompt,
+                "deleted_at": j.deleted_at,
+                "width": j.width,
+                "height": j.height,
+            }
+            for j in studio.jobs.all(include_deleted=True)
+            if j.deleted_at
+        ]
+        return JSONResponse({"trash": rows})
+
+    async def empty_trash(_: Request) -> JSONResponse:
+        return JSONResponse({"removed": studio.empty_trash(0)})
+
+    async def favorite(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(
+                studio.set_favorite(request.path_params["job_id"], bool(body.get("favorite", True)))
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=404)
+
+    async def import_image(request: Request) -> JSONResponse:
+        data = await request.body()
+        if not data or len(data) > 64 * 1024 * 1024:
+            return JSONResponse({"error": "empty or too large (64 MB max)"}, status_code=400)
+        try:
+            job = studio.import_image(data, request.query_params.get("name", "imported image"))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse(studio.job_status(job.id))
+
+    async def lineage(request: Request) -> JSONResponse:
+        try:
+            return JSONResponse(studio.lineage(request.path_params["job_id"]))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=404)
+
     async def upload(request: Request) -> JSONResponse:
         data = await request.body()
         if not data or len(data) > 64 * 1024 * 1024:
@@ -310,6 +384,16 @@ def build_app(studio: Studio) -> Starlette:
             Route("/api/tools/{tool}", run_tool, methods=["POST"]),
             Route("/api/tools/download", tool_download, methods=["POST"]),
             Route("/api/upload", upload, methods=["POST"]),
+            Route("/api/components", components),
+            Route("/api/components/remove", remove_component, methods=["POST"]),
+            Route("/api/reveal", reveal, methods=["POST"]),
+            Route("/api/jobs/{job_id}", delete_job, methods=["DELETE"]),
+            Route("/api/jobs/{job_id}/restore", restore_job, methods=["POST"]),
+            Route("/api/jobs/{job_id}/favorite", favorite, methods=["POST"]),
+            Route("/api/jobs/{job_id}/lineage", lineage),
+            Route("/api/trash", trash),
+            Route("/api/trash/empty", empty_trash, methods=["POST"]),
+            Route("/api/import", import_image, methods=["POST"]),
             Route("/api/describe", describe, methods=["POST"]),
             Route("/api/vision/download", vision_download, methods=["POST"]),
             Route("/api/engines/download", engine_download, methods=["POST"]),

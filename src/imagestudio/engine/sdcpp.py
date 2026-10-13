@@ -140,6 +140,16 @@ class SdCppEngine:
             raise EngineError(f"{a.exe} missing after unpacking {a.asset}")
         return exe
 
+    def uninstall(self) -> int:
+        """Remove the studio's own copy of the engine (never a PATH or env binary)."""
+        freed = 0
+        if self.install_dir.exists():
+            for p in self.install_dir.rglob("*"):
+                if p.is_file():
+                    freed += p.stat().st_size
+            shutil.rmtree(self.install_dir, ignore_errors=True)
+        return freed
+
     # -- running --------------------------------------------------------------------------
 
     def build_args(self, spec: GenerateSpec) -> list[str]:

@@ -178,6 +178,33 @@ class ModelStore:
             self._save()
         return True
 
+    def remove_files(self, files) -> int:
+        """Delete the given files and forget their hashes. Returns bytes freed."""
+        freed = 0
+        for f in files:
+            p = self.path_for(f)
+            if p.exists():
+                freed += p.stat().st_size
+                p.unlink()
+            part = p.with_suffix(p.suffix + ".part")
+            if part.exists():
+                part.unlink()
+            self._manifest.pop(f.filename, None)
+        self._save()
+        return freed
+
+    def file_info(self, spec: FileSpec) -> dict:
+        p = self.path_for(spec)
+        return {
+            "filename": spec.filename,
+            "path": str(p),
+            "installed": self.file_installed(spec),
+            "bytes": p.stat().st_size if p.exists() else 0,
+            "size": spec.size,
+            "licence": spec.licence,
+            "source": spec.source,
+        }
+
     def verify_file(self, spec: FileSpec) -> bool:
         """Re-hash a file on disk and update the manifest. Slow; used by ``doctor --verify``."""
         p = self.path_for(spec)

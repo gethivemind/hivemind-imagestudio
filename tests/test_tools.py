@@ -239,3 +239,48 @@ def test_llama_assets_are_pinned():
         "https://github.com/ggml-org/llama.cpp/"
     )
     assert all(len(a.sha256) == 64 for a in LLAMA_ASSETS)
+
+
+def test_components_remove_and_in_use_guard(tools_studio: Studio):
+    comps = {c["name"]: c for c in tools_studio.components()}
+    assert comps["flux-schnell:q5"]["installed"] and comps["realesrgan-x4plus"]["installed"]
+    assert comps["flux-schnell:q5"]["files"][0]["path"].endswith(".gguf")
+    r = tools_studio.remove_component("tool", "realesrgan-x4plus")
+    assert r["removed"] == "realesrgan-x4plus"
+    assert not {c["name"]: c for c in tools_studio.components()}["realesrgan-x4plus"]["installed"]
+    # a model behind a queued job cannot be removed
+    tools_studio.engine.step_delay = 0.3
+    job = tools_studio.generate("busy", preset="fast")
+    with pytest.raises(StudioError, match="used by a queued or running job"):
+        tools_studio.remove_component("model", "flux-schnell:q5")
+    wait(tools_studio, job.id)
+    r = tools_studio.remove_component("model", "flux-schnell:q5")
+    assert r["removed"] == "flux-schnell:q5"
+    assert not tools_studio.models.installed_variants(FLUX_SCHNELL)
+
+
+def test_delete_restore_favorite_import_lineage(tools_studio: Studio):
+    from imagestudio.engine.fake import tiny_png
+
+    src = tools_studio.generate("a teapot", preset="fast")
+    wait(tools_studio, src.id)
+    var = tools_studio.variations(src.id, 0.5)
+    wait(tools_studio, var.id)
+    lin = tools_studio.lineage(src.id)
+    assert lin["children"] == [var.id] and tools_studio.lineage(var.id)["parent"] == src.id
+    assert tools_studio.set_favorite(src.id, True)["favorite"] is True
+    assert tools_studio.job_status(src.id)["favorite"] is True
+    d = tools_studio.delete_job(var.id)
+    assert d["deleted"] == var.id
+    assert var.id not in [j["id"] for j in tools_studio.list_jobs()]
+    assert (tools_studio.settings.data_dir / "trash" / f"{var.id}.png").exists()
+    tools_studio.restore_job(var.id)
+    assert var.id in [j["id"] for j in tools_studio.list_jobs()]
+    tools_studio.delete_job(var.id)
+    assert tools_studio.empty_trash(0) == 1
+    assert not (tools_studio.settings.data_dir / "trash" / f"{var.id}.png").exists()
+    imp = tools_studio.import_image(tiny_png(12, 10), "photo.png")
+    assert imp.tool == "import" and (imp.width, imp.height) == (12, 10) and imp.status == "done"
+    assert tools_studio.job_status(imp.id)["title"].endswith("imported · 12×10")
+    up = tools_studio.remove_background(imp.id)
+    wait(tools_studio, up.id)

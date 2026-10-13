@@ -66,6 +66,8 @@ def job_title(job: Job) -> str:
     kind = job.preset if job.tool == "generate" else job.tool.replace("_", " ")
     if job.tool in ("variations", "edit"):
         kind = f"{job.tool} · {job.preset}"
+    if job.tool == "import":
+        kind = "imported"
     return f"{stamp} · {kind} · {size}"
 
 
@@ -402,6 +404,263 @@ class Studio:
         p.write_bytes(data)
         return p
 
+    # -- components: paths, remove, reveal --------------------------------------------------
+
+    def components(self) -> list[dict[str, Any]]:
+        """Every installable thing with where it lives and how big it is, for Settings."""
+        out: list[dict[str, Any]] = []
+        for m in MODELS.values():
+            for v in m.variants:
+                files = [self.models.file_info(f) for f in v.files]
+                out.append(
+                    {
+                        "kind": "model",
+                        "name": f"{m.name}:{v.name}",
+                        "display_name": f"{m.display_name} [{v.name}]",
+                        "licence": m.licence,
+                        "installed": all(f["installed"] for f in files),
+                        "bytes": sum(f["bytes"] for f in files),
+                        "files": files,
+                        "folder": str(self.settings.models_dir),
+                    }
+                )
+        for t in TOOL_MODELS.values():
+            fi = self.models.file_info(t.file)
+            out.append(
+                {
+                    "kind": "tool",
+                    "name": t.name,
+                    "display_name": t.display_name,
+                    "licence": t.licence,
+                    "installed": fi["installed"],
+                    "bytes": fi["bytes"],
+                    "files": [fi],
+                    "folder": str(self.settings.models_dir),
+                }
+            )
+        for vm in VISION_MODELS.values():
+            files = [self.models.file_info(f) for f in vm.files]
+            out.append(
+                {
+                    "kind": "vision",
+                    "name": vm.name,
+                    "display_name": vm.display_name,
+                    "licence": vm.licence,
+                    "installed": all(f["installed"] for f in files),
+                    "bytes": sum(f["bytes"] for f in files),
+                    "files": files,
+                    "folder": str(self.settings.models_dir),
+                }
+            )
+        for which, eng, label in (
+            ("image", self.engine, "stable-diffusion.cpp"),
+            ("vision", self.describe_engine, "llama.cpp"),
+        ):
+            d = getattr(eng, "install_dir", None)
+            size = (
+                sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
+                if d and d.exists()
+                else 0
+            )
+            out.append(
+                {
+                    "kind": "engine",
+                    "name": which,
+                    "display_name": label,
+                    "licence": "MIT",
+                    "installed": eng.available(),
+                    "bytes": size,
+                    "files": [],
+                    "folder": str(d) if d else "",
+                }
+            )
+        return out
+
+    def _component_in_use(self, kind: str, name: str) -> bool:
+        active = [j for j in self.jobs.all() if j.status in ("queued", "running")]
+        if kind == "model":
+            model, _, variant = name.partition(":")
+            return any(j.model == model and j.variant == variant for j in active)
+        if kind in ("tool", "vision"):
+            return any(j.tool_model == name for j in active)
+        if kind == "engine":
+            return bool(active) if name == "image" else False
+        return False
+
+    def remove_component(self, kind: str, name: str) -> dict[str, Any]:
+        """Delete a model, tool model, vision model or the studio's engine copy."""
+        if self._component_in_use(kind, name):
+            raise StudioError(f"{name} is used by a queued or running job; wait for it to finish")
+        if kind == "model":
+            model, _, variant = name.partition(":")
+            m = MODELS.get(model)
+            if m is None:
+                raise StudioError(f"unknown model {model!r}")
+            v = m.variant(variant)
+            shared = {
+                f.filename
+                for other in m.variants
+                if other is not v
+                for f in other.files
+                if self.models.variant_installed(other)
+            }
+            files = [
+                f for f in v.files if f.filename not in shared
+            ]  # keep files other sets still use
+            freed = self.models.remove_files(files)
+        elif kind == "tool":
+            t = TOOL_MODELS.get(name)
+            if t is None:
+                raise StudioError(f"unknown tool model {name!r}")
+            freed = self.models.remove_files([t.file])
+        elif kind == "vision":
+            vm = VISION_MODELS.get(name)
+            if vm is None:
+                raise StudioError(f"unknown vision model {name!r}")
+            freed = self.models.remove_files(vm.files)
+        elif kind == "engine":
+            eng = self.engine if name == "image" else self.describe_engine
+            un = getattr(eng, "uninstall", None)
+            if un is None:
+                raise StudioError("this engine cannot be removed from here")
+            freed = un()
+        else:
+            raise StudioError(f"unknown component kind {kind!r}")
+        return {"removed": name, "freed_bytes": freed}
+
+    def reveal(self, path: str) -> None:
+        """Open the folder of ``path`` in the OS file manager (only inside the data dir)."""
+        import subprocess
+        import sys
+
+        p = Path(path).resolve()
+        root = self.settings.data_dir.resolve()
+        if root not in p.parents and p != root:
+            raise StudioError("only paths inside the studio data folder can be opened")
+        target = p if p.is_dir() else p.parent
+        if sys.platform == "win32":
+            if p.is_file():
+                subprocess.Popen(["explorer", "/select,", str(p)])
+            else:
+                os.startfile(str(target))  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.Popen(
+                ["open", "-R" if p.is_file() else "", str(p)]
+                if p.is_file()
+                else ["open", str(target)]
+            )
+        else:
+            subprocess.Popen(["xdg-open", str(target)])
+
+    # -- images: delete, favourite, import, lineage -----------------------------------------
+
+    def delete_job(self, job_id: str) -> dict[str, Any]:
+        """Soft delete: the image moves to trash/ and the job is hidden. Running jobs are
+        cancelled first."""
+        job = self.jobs.get(job_id)
+        if job is None:
+            raise StudioError(f"no such job {job_id!r}")
+        if job.status in ("queued", "running"):
+            self.cancel(job_id)
+        trash = self.settings.data_dir / "trash"
+        trash.mkdir(parents=True, exist_ok=True)
+        if job.output_path and Path(job.output_path).exists():
+            dest = trash / Path(job.output_path).name
+            Path(job.output_path).replace(dest)
+            job.output_path = str(dest)
+        from datetime import UTC, datetime
+
+        job.deleted_at = datetime.now(UTC).isoformat(timespec="seconds")
+        self.jobs.put(job)
+        return {"deleted": job_id, "trash": str(trash)}
+
+    def restore_job(self, job_id: str) -> dict[str, Any]:
+        job = next((j for j in self.jobs.all(include_deleted=True) if j.id == job_id), None)
+        if job is None or not job.deleted_at:
+            raise StudioError(f"{job_id!r} is not in the trash")
+        if job.output_path and Path(job.output_path).exists():
+            dest = self.settings.out_dir / Path(job.output_path).name
+            Path(job.output_path).replace(dest)
+            job.output_path = str(dest)
+        job.deleted_at = None
+        self.jobs.put(job)
+        return {"restored": job_id}
+
+    def empty_trash(self, older_than_days: int = 0) -> int:
+        from datetime import UTC, datetime, timedelta
+
+        cutoff = datetime.now(UTC) - timedelta(days=older_than_days)
+        n = 0
+        for j in self.jobs.all(include_deleted=True):
+            if j.deleted_at and datetime.fromisoformat(j.deleted_at) <= cutoff:
+                if j.output_path and Path(j.output_path).exists():
+                    Path(j.output_path).unlink()
+                (self.settings.jobs_dir / f"{j.id}.json").unlink(missing_ok=True)
+                with self.jobs._lock:
+                    self.jobs._jobs.pop(j.id, None)
+                n += 1
+        return n
+
+    def set_favorite(self, job_id: str, value: bool) -> dict[str, Any]:
+        job = self.jobs.get(job_id)
+        if job is None:
+            raise StudioError(f"no such job {job_id!r}")
+        job.favorite = bool(value)
+        self.jobs.put(job)
+        return {"id": job_id, "favorite": job.favorite}
+
+    def import_image(self, data: bytes, name: str = "import") -> Job:
+        """Bring an outside image into the gallery as a finished job, so every tool can use it."""
+        src = self.save_upload(data)
+        from PIL import Image
+
+        with Image.open(src) as im:
+            w, h = im.size
+        job = Job(
+            id=self.jobs.new_id(),
+            tool="import",
+            prompt=name,
+            negative_prompt="",
+            model="-",
+            variant="-",
+            preset="import",
+            width=w,
+            height=h,
+            steps=0,
+            cfg_scale=0.0,
+            seed=0,
+            sampler="-",
+            component_paths={},
+            extra_args=[],
+            estimate_seconds=0,
+            estimate_basis="",
+            fit_note=None,
+            warnings=[],
+            status="done",
+            phase="done",
+            input_path=str(src),
+            live_preview=False,
+        )
+        dest = self.settings.out_dir / f"{job.id}.png"
+        with Image.open(src) as im:
+            im.save(dest, "PNG")
+        from datetime import UTC, datetime
+
+        job.output_path = str(dest)
+        job.finished_at = job.started_at = datetime.now(UTC).isoformat(timespec="seconds")
+        job.total_seconds = 0.0
+        self.jobs.put(job)
+        return job
+
+    def lineage(self, job_id: str) -> dict[str, Any]:
+        jobs = self.jobs.all()
+        job = next((j for j in jobs if j.id == job_id), None)
+        if job is None:
+            raise StudioError(f"no such job {job_id!r}")
+        parent = job.source_job
+        children = [j.id for j in jobs if j.source_job == job_id]
+        return {"id": job_id, "parent": parent, "children": children}
+
     # -- describe: image to text ----------------------------------------------------------
 
     def describe(
@@ -695,6 +954,8 @@ class Studio:
             "strength": job.strength,
             "mask_path": job.mask_path,
             "caption": job.caption,
+            "favorite": job.favorite,
+            "deleted_at": job.deleted_at,
             "prompt": job.prompt,
             "reproducible_prompt": reproducible(job)
             if job.tool in ("generate", "variations", "edit")
