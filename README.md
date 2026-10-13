@@ -83,8 +83,10 @@ real runs on your machine, kept per model variant in `calibration.json`.
 Requires Python 3.11+.
 
 ```bash
-pip install hivemind-imagestudio
+pip install "hivemind-imagestudio[bg]"
 ```
+
+The `bg` extra adds ONNX Runtime for background removal; without it everything else works.
 
 or from a checkout:
 
@@ -159,13 +161,17 @@ stable-diffusion.cpp release; its SHA-256 is in `registry.py`. Allow it, or add 
 
 | Tool | Purpose |
 | --- | --- |
-| `generate(prompt, preset="best", width?, height?, seed?, negative_prompt?, model?)` | Queue a job; returns job id, estimate and the plan. |
+| `generate(prompt, preset="best", width?, height?, seed?, negative_prompt?, model?, steps?, cfg_scale?, sampler?, variant?, threads?, vae_tiling?)` | Queue a text-to-image job; returns job id, estimate and the plan. Inline `--parameters` in the prompt are honoured. |
+| `variations(image, strength=0.55, prompt?, preset?, seed?, model?)` | Image-to-image re-roll of a job id or local image. |
+| `edit(image, prompt, strength=0.75, mask?, preset?, seed?, model?)` | Change an image by instruction; with a black/white mask only the white area is repainted. |
+| `upscale(image, model?, repeats=1)` | 4× (or 16×) with Real-ESRGAN. |
+| `remove_background(image, model?)` | Transparent PNG with IS-Net or U²-Net. |
+| `plan(...)` | Dry run of generate(): expected time and the load meter. |
 | `job_status(job_id)` | Status, phase, progress, step, ETA, queue position. |
 | `job_result(job_id, as_base64=false)` | Path to the PNG, plus base64 on request. |
-| `jobs()` | All jobs, newest first. |
-| `cancel_job(job_id)` | Cancel a queued or running job. |
-| `capabilities()` | Hardware, engine, models and their fit, presets with expected times, licences, policy. |
-| `download_model(name, consent=false, variant?)` | Report size and licence; download after consent. |
+| `jobs()` / `cancel_job(job_id)` | List, cancel. |
+| `capabilities()` | Hardware, engine, models and their fit, tool models, presets with expected times, licences, policy. |
+| `download_model(name, consent=false, variant?)` | Report size and licence; download after consent. Accepts generation and tool models. |
 
 Tool descriptions are written for an AI caller: what the tool does, when to use it, what
 comes back, and how often to poll.
@@ -255,8 +261,11 @@ Ubuntu and Windows.
 
 Increment 1 (this release): `generate` with the queue, hardware detection, hash-verified
 model and engine downloads, calibration, CLI, MCP server.
-Increment 2: `remove_background` (BiRefNet / rembg, MIT), `upscale` (Real-ESRGAN, BSD),
-`edit` (inpaint), `variations`.
+Increment 2 (shipped): `upscale` (Real-ESRGAN, BSD-3-Clause), `remove_background` (IS-Net /
+U²-Net, Apache-2.0, via ONNX Runtime), `variations` and `edit` with inpainting masks, a sketch
+canvas in the UI, prompt parameters and reproducible prompts, the local web UI.
+Next: `describe` (image to text with llama.cpp and Qwen2.5-VL), Qwen-Image-Edit as an
+instruction-edit model, LoRA, GPU builds.
 Later: optional ComfyUI engine, GPU builds (CUDA, ROCm), the Hivemind catalogue entry,
 and a three-tier model list (Hivemind-verified, compatible-but-unverified, bring your own
 model with a declared licence).

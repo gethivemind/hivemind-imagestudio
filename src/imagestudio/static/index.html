@@ -131,6 +131,35 @@
   .qcard .bar { height: 4px; border-radius: 2px; background: var(--track); margin: 6px 0; overflow: hidden; } .qcard .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s; }
   .qempty { color: var(--muted); font-size: 12.5px; padding: 12px 4px; }
 
+  /* HOME */
+  #home { flex-direction: column; overflow: auto; }
+  .hero { padding: 34px 24px 10px; max-width: 1100px; margin: 0 auto; width: 100%; }
+  .hero h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -.2px; }
+  .hero p { margin: 0; color: var(--muted); max-width: 720px; font-size: 14px; }
+  .cards { padding: 14px 24px 40px; max-width: 1100px; margin: 0 auto; width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .tcard { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; cursor: pointer; transition: transform .15s, box-shadow .15s; display: flex; flex-direction: column; gap: 8px; min-height: 150px; }
+  .tcard:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .tcard.off { cursor: default; opacity: .7; }
+  .tcard .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--honey) 22%, transparent); font-size: 18px; }
+  .tcard h3 { margin: 4px 0 0; font-size: 15px; }
+  .tcard p { margin: 0; color: var(--muted); font-size: 12.5px; flex: 1; }
+  .tcard .st { font-size: 11.5px; display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  /* SKETCH */
+  #sketch { flex-direction: column; }
+  .skbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+  .skbar input[type=color] { width: 34px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: transparent; }
+  .skbar input[type=range] { width: 120px; accent-color: var(--accent); }
+  .skwrap { flex: 1; display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
+  .skcanvas { display: grid; place-items: center; background: var(--bg); overflow: auto; padding: 16px; }
+  .skcanvas canvas { background: #fff; border-radius: 12px; box-shadow: var(--shadow); touch-action: none; cursor: crosshair; max-width: 100%; height: auto; }
+  .skside { border-left: 1px solid var(--line); background: var(--surface); padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+  .skside textarea { height: auto; min-height: 80px; padding: 8px 10px; resize: vertical; }
+  /* mask painter in the lightbox */
+  .painter { position: absolute; inset: 0; display: none; }
+  .painter.on { display: block; }
+  .painter canvas { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); cursor: crosshair; touch-action: none; }
+  .paintbar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; background: rgba(20,20,22,.8); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 6px 10px; color: #fff; font-size: 12px; }
+  .paintbar input[type=range] { width: 100px; accent-color: var(--honey); }
   /* GALLERY */
   #gallery { flex-direction: column; }
   .gbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
@@ -211,7 +240,7 @@
 <body>
 <header class="top">
   <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="var(--honey)"/><circle cx="32" cy="32" r="13" fill="var(--ink)"/><circle cx="32" cy="32" r="6" fill="var(--bg)"/></svg><span>Image Studio <small>by Hivemind</small></span></div>
-  <nav class="tabs" id="tabs"><button data-tab="create" class="active">Create</button><button data-tab="gallery">Gallery</button><button data-tab="machine">Machine</button></nav>
+  <nav class="tabs" id="tabs"><button data-tab="home">Home</button><button data-tab="create" class="active">Create</button><button data-tab="gallery">Gallery</button><button data-tab="machine">Machine</button></nav>
   <div class="grow"></div>
   <span class="chip" id="hwchip"><span class="dot" id="hwdot"></span><span id="hwtext">…</span></span>
   <span class="chip btn" id="actchip" title="downloads and benchmark"><span class="dot off" id="actdot"></span><span id="acttext">idle</span></span>
@@ -221,6 +250,19 @@
 </header>
 <div class="pop" id="actpop"></div>
 
+<section class="view" id="home">
+  <div class="hero"><h1>What do you want to make?</h1><p>Everything runs on this machine with permissively licensed models. Quality is a setting, never a consequence: the default is the best this machine can do, and the studio tells you how long it will take before you commit.</p></div>
+  <div class="cards" id="cards"></div>
+</section>
+<section class="view" id="sketch">
+  <div class="skbar"><b>Sketch to image</b><span class="muted small">Draw a rough layout, describe the result, and the studio paints it.</span><span class="grow"></span><label class="small muted">Brush</label><input type="range" id="skSize" min="2" max="60" value="14"><input type="color" id="skColor" value="#1b1b19"><button class="btn sm" id="skEraser">Eraser</button><button class="btn sm" id="skClear">Clear</button><button class="btn sm" id="skUpload">Import image…</button><input type="file" id="skFile" accept="image/*" hidden></div>
+  <div class="skwrap"><div class="skcanvas"><canvas id="skC" width="1024" height="1024"></canvas></div>
+    <aside class="skside"><div class="f"><label>Describe the result</label><textarea id="skPrompt" placeholder="e.g. a cosy cabin by a lake at dusk, warm window light, painterly"></textarea></div>
+      <div class="f"><label>How closely to follow the sketch <i class="help" title="Low strength keeps your lines; high strength treats the sketch as a loose hint.">?</i> <span class="muted" id="skStrV">0.65</span></label><input type="range" id="skStr" min="0.2" max="0.95" step="0.05" value="0.65" style="width:100%;accent-color:var(--accent)"></div>
+      <div class="f"><label>Preset</label><div class="seg" id="skPreset"><button data-p="best" class="active">best</button><button data-p="balanced">balanced</button><button data-p="fast">fast</button></div></div>
+      <div class="muted small">Canvas 1024×1024. Use the aspect buttons in Create for other shapes, or import a photo to paint over it.</div>
+      <button class="btn primary" id="skGo">Paint it</button></aside></div>
+</section>
 <section class="view active" id="create">
   <div class="ws" id="ws">
     <div class="handle left" id="hL"></div><div class="handle right" id="hR"></div>
@@ -291,11 +333,16 @@
   <div class="grid" id="grid"></div>
 </section>
 <dialog class="lb" id="lb"><div class="lbwrap">
-  <div class="lbimg"><img id="lbImg" alt=""><button class="nav prev" id="lbPrev">‹</button><button class="nav next" id="lbNext">›</button></div>
+  <div class="lbimg"><img id="lbImg" alt=""><button class="nav prev" id="lbPrev">‹</button><button class="nav next" id="lbNext">›</button>
+    <div class="painter" id="painter"><canvas id="maskC"></canvas><div class="paintbar"><span>Paint what to change</span><input type="range" id="mSize" min="6" max="120" value="40"><button class="btn sm" id="mErase">Erase</button><button class="btn sm" id="mClear">Clear</button><button class="btn sm" id="mDone">Done</button></div></div></div>
   <div class="lbside">
     <div class="head"><div><h3 id="lbTitle"></h3><div class="sub" id="lbSub"></div></div><button class="ib" id="lbClose" title="close (Esc)">✕</button></div>
     <div class="promptbox"><div class="lab"><span>Prompt · reproducible</span><button class="btn sm" id="lbCopy">Copy</button></div><pre id="lbPrompt"></pre></div>
     <div class="acts"><button class="btn sm" id="lbReuse">Edit in Create</button><a class="btn sm" id="lbOpen" target="_blank">Open full size</a></div>
+    <div class="export" id="imgBox"><div class="lab">Reimagine</div>
+      <div class="f"><label>Variations <i class="help" title="Same picture, re-rolled. Strength is how far it may drift: 0.3 subtle, 0.55 default, 0.8 loose.">?</i> <span class="muted" id="varV">0.55</span></label><div class="row" style="margin-top:0"><input type="range" id="varStr" min="0.1" max="0.95" step="0.05" value="0.55"><button class="btn sm primary" id="varBtn">Make variations</button></div></div>
+      <div class="f" style="margin-top:10px"><label>Edit by instruction <i class="help" title="Describe the wanted result. Paint a mask to change only part of the image; without a mask the whole picture is reinterpreted at the chosen strength.">?</i> <span class="muted" id="edV">0.75</span></label><input type="text" id="edPrompt" placeholder="e.g. the same scene at night, lit windows"><div class="row"><input type="range" id="edStr" min="0.2" max="0.95" step="0.05" value="0.75"><button class="btn sm" id="edMask">Paint mask</button><button class="btn sm primary" id="edBtn">Edit</button></div><div class="muted small" id="edNote"></div></div>
+    </div>
     <div class="export" id="toolsBox"><div class="lab">Tools</div>
       <div class="row" style="margin-top:0"><label>Upscale</label><select id="upModel" style="flex:1;height:30px"></select><select id="upRepeats" style="width:92px;height:30px"><option value="1">4×</option><option value="2">16×</option></select><button class="btn sm primary" id="upBtn">Run</button></div>
       <div class="row"><label>Background</label><select id="bgModel" style="flex:1;height:30px"></select><button class="btn sm primary" id="bgBtn">Remove</button></div>
@@ -368,7 +415,22 @@
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   const schedulePlan = debounce((...a) => plan(...a), 220);
 
-  function showTab(n) { S.tab = n; document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === n)); document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === n)); if (n === "gallery") renderGallery(true); if (n === "machine") renderMachine(); }
+  const TASKS = [
+    { id: "create", icon: "✦", title: "Create", text: "Text to image with FLUX.1 schnell or Qwen-Image. Presets, sizes, seeds, inline --parameters.", ready: (c) => c.models.some(m => m.installed_variants.length) && c.engine.available, need: "needs the engine and a downloaded model", go: () => showTab("create") },
+    { id: "edit", icon: "✎", title: "Edit", text: "Change a finished image by instruction, optionally only inside a painted mask.", ready: (c) => c.models.some(m => m.installed_variants.length) && c.engine.available, need: "needs the engine and a downloaded model", go: () => { showTab("gallery"); toast("Open an image, then use Reimagine → Edit."); } },
+    { id: "variations", icon: "⟳", title: "Variations", text: "Re-roll a picture you like at a chosen distance from the original.", ready: (c) => c.models.some(m => m.installed_variants.length) && c.engine.available, need: "needs the engine and a downloaded model", go: () => { showTab("gallery"); toast("Open an image, then use Reimagine → Variations."); } },
+    { id: "sketch", icon: "✐", title: "Sketch to image", text: "Draw a rough layout, describe it, and let the model paint it.", ready: (c) => c.models.some(m => m.installed_variants.length) && c.engine.available, need: "needs the engine and a downloaded model", go: () => showTab("sketch") },
+    { id: "upscale", icon: "⤢", title: "Upscale", text: "4× or 16× with Real-ESRGAN (BSD). Seconds per megapixel.", ready: (c) => c.engine.available && (c.tools || []).some(t => t.kind === "upscaler" && t.installed), need: "download an upscaler on the Machine tab", go: () => { showTab("gallery"); toast("Open an image, then use Tools → Upscale."); } },
+    { id: "bg", icon: "◩", title: "Remove background", text: "Transparent PNG with IS-Net or U²-Net (Apache-2.0). A few seconds.", ready: (c) => c.background_engine && c.background_engine.available && (c.tools || []).some(t => t.kind === "background" && t.installed), need: "download a background model on the Machine tab", go: () => { showTab("gallery"); toast("Open an image, then use Tools → Remove background."); } },
+    { id: "describe", icon: "❝", title: "Describe", text: "Image to text: captions and prompts from a picture, with a local vision model.", ready: () => false, need: "coming next: llama.cpp + Qwen2.5-VL", go: null },
+  ];
+  function renderHome() {
+    const c = S.caps; const box = $("cards"); box.innerHTML = "";
+    for (const t of TASKS) { const ok = !!(c && t.ready(c)); const el = document.createElement("div"); el.className = "tcard" + (t.go && ok ? "" : " off");
+      el.innerHTML = `<div class="ic">${t.icon}</div><h3>${t.title}</h3><p>${t.text}</p><div class="st"><span class="dot ${ok ? "" : t.go ? "warn" : "off"}"></span>${ok ? "ready on this machine" : t.need}</div>`;
+      if (t.go) el.onclick = () => { if (ok) t.go(); else showTab("machine"); }; box.appendChild(el); }
+  }
+  function showTab(n) { S.tab = n; if (n === "home") renderHome(); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === n)); document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === n)); if (n === "gallery") renderGallery(true); if (n === "machine") renderMachine(); }
   $("tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) showTab(b.dataset.tab); };
   $("themeBtn").onclick = () => { const r = document.documentElement; const cur = r.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); r.dataset.theme = cur === "dark" ? "light" : "dark"; try { localStorage.setItem("theme", r.dataset.theme); } catch (e) {} };
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -524,8 +586,9 @@
     const rows = [["Preset", j.preset], ["Steps", j.steps], ["Guidance", j.cfg_scale], ["Sampler", j.sampler], ["Negative", j.negative_prompt || "–"], ["Threads", j.threads || "cores"], ["VAE tiling", j.vae_tiling ? "on" : "off"], ["Sampling", fmtDur(j.sampling_seconds)], ["Peak memory", j.peak_rss_gib ? `${j.peak_rss_gib} GiB` : "–"], ["Finished", (j.finished_at || "").replace("T", " ").slice(0, 16)]];
     $("lbKv").innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><span>${esc(v)}</span></div>`).join("");
     $("lbPrev").disabled = S.lbIdx <= 0; $("lbNext").disabled = S.lbIdx >= S.lbList.length - 1; updateExport(); fillTools(j);
-    document.querySelector(".promptbox").style.display = j.tool === "generate" ? "" : "none";
-    $("lbReuse").style.display = j.tool === "generate" ? "" : "none";
+    document.querySelector(".promptbox").style.display = j.reproducible_prompt ? "" : "none";
+    painterOn(false); M.dirty = false; const mc = $("maskC"); mc.width = 1; $("edNote").textContent = ""; $("edMask").textContent = "Paint mask"; $("edPrompt").value = "";
+    $("lbReuse").style.display = j.reproducible_prompt ? "" : "none";
     if (j.tool !== "generate") $("lbSub").textContent = `${j.tool.replace("_", " ")} · ${j.tool_model} · ${j.width}×${j.height} · ${fmtDur(j.total_seconds)}${j.source_job ? " · from " + (S.jobs.find(x => x.id === j.source_job)?.title || j.source_job) : ""}`;
   }
   function fillTools(j) {
@@ -539,7 +602,7 @@
   async function runTool(tool, body) {
     const r = await post(`/api/tools/${tool}`, body);
     if (r.error) { if (/not downloaded/.test(r.error)) { const name = body.model || (S.caps.tools.find(t => t.kind === (tool === "upscale" ? "upscaler" : "background") && t.default) || {}).name; openToolDownload(name); } else toast(r.error, 7000); return; }
-    toast(`Queued ${tool.replace("_", " ")} · ≈ ${fmtEta(r.eta_seconds)}`); S.sel = r.id; $("lb").close(); showTab("create"); refreshJobs();
+    toast(`Queued ${tool.replace("_", " ")} · ≈ ${fmtEta(r.eta_seconds)}`); S.sel = r.id; if ($("lb").open) $("lb").close(); painterOn(false); showTab("create"); refreshJobs();
   }
   $("upBtn").onclick = () => runTool("upscale", { image: S.lbJob.id, model: $("upModel").value, repeats: +$("upRepeats").value });
   $("bgBtn").onclick = () => runTool("remove_background", { image: S.lbJob.id, model: $("bgModel").value });
@@ -599,7 +662,48 @@
     $("actpop").innerHTML = html; $("tasksPanel").innerHTML = html;
   }
 
-  loadCaps().then(plan).then(refreshJobs).then(pollTasks);
+  // ---- lightbox: variations / edit / mask painter
+  $("varStr").addEventListener("input", () => { $("varV").textContent = $("varStr").value; });
+  $("edStr").addEventListener("input", () => { $("edV").textContent = $("edStr").value; });
+  $("varBtn").onclick = () => runTool("variations", { image: S.lbJob.id, strength: +$("varStr").value, preset: S.preset });
+  const M = { on: false, erase: false, drawing: false, dirty: false };
+  function painterOn(on) { M.on = on; $("painter").classList.toggle("on", on); if (on) sizeMask(); }
+  function sizeMask() { const img = $("lbImg"); const c = $("maskC"); const r = img.getBoundingClientRect(), box = img.parentElement.getBoundingClientRect(); c.style.width = r.width + "px"; c.style.height = r.height + "px"; c.style.left = (r.left - box.left + r.width / 2) + "px"; c.style.top = (r.top - box.top + r.height / 2) + "px"; if (c.width !== S.lbJob.width || c.height !== S.lbJob.height) { c.width = S.lbJob.width; c.height = S.lbJob.height; const x = c.getContext("2d"); x.fillStyle = "rgba(0,0,0,0)"; x.clearRect(0, 0, c.width, c.height); M.dirty = false; } }
+  function maskPos(e) { const c = $("maskC"); const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; }
+  function maskStroke(e) { const c = $("maskC"); const x = c.getContext("2d"); const [px, py] = maskPos(e); const size = +$("mSize").value * c.width / c.getBoundingClientRect().width; x.globalCompositeOperation = M.erase ? "destination-out" : "source-over"; x.fillStyle = "rgba(240,180,41,.75)"; x.beginPath(); x.arc(px, py, size / 2, 0, Math.PI * 2); x.fill(); M.dirty = true; }
+  $("maskC").addEventListener("pointerdown", (e) => { M.drawing = true; $("maskC").setPointerCapture(e.pointerId); maskStroke(e); });
+  $("maskC").addEventListener("pointermove", (e) => { if (M.drawing) maskStroke(e); });
+  $("maskC").addEventListener("pointerup", () => { M.drawing = false; });
+  $("mErase").onclick = () => { M.erase = !M.erase; $("mErase").textContent = M.erase ? "Paint" : "Erase"; };
+  $("mClear").onclick = () => { const c = $("maskC"); c.getContext("2d").clearRect(0, 0, c.width, c.height); M.dirty = false; };
+  $("mDone").onclick = () => { painterOn(false); $("edNote").textContent = M.dirty ? "Mask painted: only the painted area will change." : ""; $("edMask").textContent = M.dirty ? "Edit mask" : "Paint mask"; };
+  $("edMask").onclick = () => painterOn(!M.on);
+  async function maskUpload() {
+    if (!M.dirty) return null;
+    const c = $("maskC"); const out = document.createElement("canvas"); out.width = c.width; out.height = c.height; const x = out.getContext("2d");
+    x.fillStyle = "#000"; x.fillRect(0, 0, out.width, out.height); const src = c.getContext("2d").getImageData(0, 0, c.width, c.height); const dst = x.getImageData(0, 0, out.width, out.height);
+    for (let i = 0; i < src.data.length; i += 4) { const a = src.data[i + 3] > 40 ? 255 : 0; dst.data[i] = dst.data[i + 1] = dst.data[i + 2] = a; dst.data[i + 3] = 255; }
+    x.putImageData(dst, 0, 0);
+    const blob = await new Promise(r => out.toBlob(r, "image/png")); const res = await fetch("/api/upload", { method: "POST", body: blob }); const d = await res.json(); return d.path || null;
+  }
+  $("edBtn").onclick = async () => { const prompt = $("edPrompt").value.trim(); if (!prompt) { toast("Describe the wanted result first."); return; } const mask = await maskUpload(); await runTool("edit", { image: S.lbJob.id, prompt, strength: +$("edStr").value, mask, preset: S.preset }); };
+  // ---- sketch tool
+  const K = { drawing: false, erase: false };
+  const skc = $("skC"); const skx = skc.getContext("2d"); skx.fillStyle = "#fff"; skx.fillRect(0, 0, skc.width, skc.height);
+  function skPos(e) { const r = skc.getBoundingClientRect(); return [(e.clientX - r.left) * skc.width / r.width, (e.clientY - r.top) * skc.height / r.height]; }
+  let skLast = null;
+  function skStroke(e) { const [x, y] = skPos(e); skx.lineCap = "round"; skx.lineJoin = "round"; skx.lineWidth = +$("skSize").value * skc.width / skc.getBoundingClientRect().width; skx.strokeStyle = K.erase ? "#fff" : $("skColor").value; skx.beginPath(); skx.moveTo(...(skLast || [x, y])); skx.lineTo(x, y); skx.stroke(); skLast = [x, y]; }
+  skc.addEventListener("pointerdown", (e) => { K.drawing = true; skLast = null; skc.setPointerCapture(e.pointerId); skStroke(e); });
+  skc.addEventListener("pointermove", (e) => { if (K.drawing) skStroke(e); });
+  skc.addEventListener("pointerup", () => { K.drawing = false; skLast = null; });
+  $("skEraser").onclick = () => { K.erase = !K.erase; $("skEraser").textContent = K.erase ? "Brush" : "Eraser"; };
+  $("skClear").onclick = () => { skx.fillStyle = "#fff"; skx.fillRect(0, 0, skc.width, skc.height); };
+  $("skUpload").onclick = () => $("skFile").click();
+  $("skFile").onchange = () => { const f = $("skFile").files[0]; if (!f) return; const img = new Image(); img.onload = () => { skx.fillStyle = "#fff"; skx.fillRect(0, 0, skc.width, skc.height); const sc = Math.min(skc.width / img.width, skc.height / img.height); const w = img.width * sc, h = img.height * sc; skx.drawImage(img, (skc.width - w) / 2, (skc.height - h) / 2, w, h); URL.revokeObjectURL(img.src); }; img.src = URL.createObjectURL(f); };
+  $("skStr").addEventListener("input", () => { $("skStrV").textContent = $("skStr").value; });
+  $("skPreset").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; document.querySelectorAll("#skPreset button").forEach(x => x.classList.toggle("active", x === b)); };
+  $("skGo").onclick = async () => { const prompt = $("skPrompt").value.trim(); if (!prompt) { toast("Describe the result first."); return; } const blob = await new Promise(r => skc.toBlob(r, "image/png")); const up = await (await fetch("/api/upload", { method: "POST", body: blob })).json(); if (up.error) { toast(up.error); return; } const preset = document.querySelector("#skPreset button.active").dataset.p; await runTool("edit", { image: up.path, prompt, strength: +$("skStr").value, preset }); };
+  loadCaps().then(plan).then(refreshJobs).then(pollTasks).then(() => { renderHome(); if (!S.jobs.length) showTab("home"); });
   setInterval(refreshJobs, 4000);
   setInterval(async () => { if (!S.caps) return; const c = await api("/api/capabilities"); S.caps = c; const hw = c.hardware; $("hwtext").textContent = `${hw.ram_available_gib} / ${hw.ram_total_gib} GiB free · ${c.queue.worker_in_this_process ? "worker here" : c.queue.worker_pid ? "worker " + c.queue.worker_pid : "no worker"}`; }, 30000);
 })();
