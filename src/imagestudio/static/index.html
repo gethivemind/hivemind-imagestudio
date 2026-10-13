@@ -148,13 +148,15 @@
   /* SKETCH */
   #sketch { flex-direction: column; }
   .skstage { flex: 1; position: relative; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
-  .skview { flex: 1; position: relative; overflow: hidden; display: grid; place-items: center; cursor: none; }
+  .skview { flex: 1; position: relative; overflow: hidden; display: grid; place-items: center; cursor: default; } .skview.brushin { cursor: none; }
   .skwrapc { position: relative; transform-origin: center center; box-shadow: var(--shadow); border-radius: 6px; background: #fff; }
   .skwrapc canvas { display: block; position: absolute; left: 0; top: 0; }
   .skwrapc canvas#skC { position: relative; }
-  .cursor { position: absolute; pointer-events: none; z-index: 4; border: 1.5px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); display: none; mix-blend-mode: difference; }
-  .cursor.eraser { border-style: dashed; } .cursor .in { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,.75); border-radius: 50%; display: none; } .cursor.soft .in { display: block; }
-  .cursor .dot { position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px; border-radius: 50%; background: #fff; }
+  .cursor { position: absolute; pointer-events: none; z-index: 4; box-sizing: border-box; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.65), inset 0 0 0 1px rgba(0,0,0,.65); border-radius: 50%; transform: translate(-50%, -50%); display: none; }
+  .cursor.eraser { border-style: dashed; background: transparent !important; } .cursor.soft { border-style: dashed; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+  .cursor .in { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); box-sizing: border-box; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.65), inset 0 0 0 1px rgba(0,0,0,.65); border-radius: 50%; display: none; } .cursor.soft .in { display: block; }
+  .cursor .cx, .cursor .cy { position: absolute; left: 50%; top: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.65); } .cursor .cx { width: 9px; height: 1px; margin: -.5px 0 0 -4.5px; } .cursor .cy { width: 1px; height: 9px; margin: -4.5px 0 0 -.5px; }
+  .cursor.small .cx { width: 13px; margin-left: -6.5px; } .cursor.small .cy { height: 13px; margin-top: -6.5px; }
   .palette { position: absolute; left: 16px; top: 16px; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); user-select: none; }
   .palette .grip { cursor: grab; color: var(--muted); font-size: 11px; letter-spacing: -2px; padding: 2px 0 4px; }
   .palette .tb { width: 34px; height: 34px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--ink2); cursor: pointer; font-size: 15px; display: grid; place-items: center; }
@@ -328,7 +330,7 @@
       <span class="sep" id="skRefSep" style="display:none"></span>
       <label id="skRefL" style="display:none" title="How visible the imported reference is, in the editor and in the exported sketch">reference <input type="range" id="skRef" min="0" max="100" value="45"><span class="v" id="skRefV">45</span><button class="tb" id="skRefX" title="Remove the reference" style="width:22px;height:22px;font-size:11px">✕</button></label>
     </div>
-    <div class="skview" id="skview"><div class="skwrapc" id="skwrapc"><canvas id="skR" width="1024" height="1024"></canvas><canvas id="skC" width="1024" height="1024"></canvas><canvas id="skO" width="1024" height="1024"></canvas></div><div class="cursor" id="skCursor"><span class="in"></span><span class="dot"></span></div></div>
+    <div class="skview" id="skview"><div class="skwrapc" id="skwrapc"><canvas id="skR" width="1024" height="1024"></canvas><canvas id="skC" width="1024" height="1024"></canvas><canvas id="skO" width="1024" height="1024"></canvas></div><div class="cursor" id="skCursor"><span class="in"></span><span class="cx"></span><span class="cy"></span></div></div>
     <div class="skbottom">
       <div class="box skbox">
         <textarea id="skPrompt" rows="1" placeholder="describe what the sketch should become, e.g. a cosy cabin by a lake at dusk, warm window light, painterly"></textarea>
@@ -984,12 +986,26 @@
   });
   skv.addEventListener("pointermove", (e) => {
     if (K.panning) { K.pan = [e.clientX - K.panning[0], e.clientY - K.panning[1]]; skApply(); return; }
-    const c = $("skCursor"); const vr = skv.getBoundingClientRect(); const showCur = (K.tool === "brush" || K.tool === "eraser") && !K.space; c.style.display = showCur ? "block" : "none"; if (showCur) { c.style.left = (e.clientX - vr.left) + "px"; c.style.top = (e.clientY - vr.top) + "px"; const px = Math.max(4, brushPx(e) * K.zoom); c.style.width = c.style.height = px + "px"; c.classList.toggle("eraser", K.tool === "eraser"); const soft = softness(); c.classList.toggle("soft", soft > 0.01); if (soft > 0.01) { const inner = Math.max(2, px * (1 - soft * 0.7)); c.querySelector(".in").style.width = c.querySelector(".in").style.height = inner + "px"; } }
+    skCursorAt(e);
     if (!K.drawing) return; const pt = skPos(e);
     if (K.tool === "brush" || K.erasing) { seg(skox, K.last, pt, brushPx(e), K.erasing ? "#ffffff" : $("skColor").value); K.last = pt; }
     else { skox.clearRect(0, 0, sko.width, sko.height); shape(skox, K.start, constrain(K.start, pt, K.tool, e.shiftKey), K.tool, brushPx()); }
   });
-  skv.addEventListener("pointerleave", () => { $("skCursor").style.display = "none"; });
+  // brush cursor: only over the canvas, two-tone ring at the exact stroke diameter (pressure included),
+  // dashed outer ring for the soft extent with a solid ring for the hard core, crosshair for small tips,
+  // faint fill in the current colour
+  function skCursorAt(e) {
+    const c = $("skCursor"); const r = skc.getBoundingClientRect(); const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    const show = inside && (K.tool === "brush" || K.tool === "eraser") && !K.space && !K.panning;
+    skv.classList.toggle("brushin", show); c.style.display = show ? "block" : "none"; if (!show) return;
+    const vr = skv.getBoundingClientRect(); c.style.left = (e.clientX - vr.left) + "px"; c.style.top = (e.clientY - vr.top) + "px";
+    const size = brushPx(e), soft = softness(), blur = size * soft * 0.35; const outer = (size + (soft > 0.01 ? 2 * blur : 0)) * K.zoom, core = Math.max(0, size - 2 * blur) * K.zoom;
+    const px = Math.max(8, outer); c.style.width = c.style.height = px + "px";
+    c.classList.toggle("small", outer < 8); c.classList.toggle("eraser", K.tool === "eraser"); c.classList.toggle("soft", soft > 0.01 && core < outer - 2);
+    const inn = c.querySelector(".in"); inn.style.width = inn.style.height = Math.max(2, core) + "px";
+    c.style.background = K.tool === "eraser" ? "transparent" : $("skColor").value + "40";
+  }
+  skv.addEventListener("pointerleave", () => { $("skCursor").style.display = "none"; skv.classList.remove("brushin"); });
   skv.addEventListener("pointerup", (e) => {
     if (K.panning) { K.panning = null; skv.classList.remove("panning"); return; }
     if (!K.drawing) return; K.drawing = false; const pt = skPos(e);
