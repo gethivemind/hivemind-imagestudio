@@ -350,6 +350,18 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_describe(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    try:
+        r = studio.describe(args.image, args.task, args.question, args.model)
+    except StudioError as e:
+        print(f"error: {e}")
+        return 1
+    print(r["text"])
+    print(f"-- {r['model']} · {r['seconds']} s", file=sys.stderr)
+    return 0
+
+
 def cmd_jobs(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
     rows = studio.list_jobs()
@@ -437,6 +449,15 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--target-minutes", type=float, default=15.0)
     b.add_argument("--json", action="store_true")
     b.set_defaults(fn=cmd_benchmark)
+
+    de = sub.add_parser("describe", help="image to text with the local vision model")
+    de.add_argument("image", help="a job id or an image path")
+    de.add_argument(
+        "--task", choices=["describe", "prompt", "alt", "tags", "custom"], default="describe"
+    )
+    de.add_argument("--question", help="for --task custom: what to ask about the image")
+    de.add_argument("--model", choices=["qwen2.5-vl-3b", "qwen2.5-vl-7b"])
+    de.set_defaults(fn=cmd_describe)
 
     j = sub.add_parser("jobs", help="list jobs")
     j.add_argument("--json", action="store_true")
