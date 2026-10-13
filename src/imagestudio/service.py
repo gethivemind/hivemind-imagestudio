@@ -61,7 +61,8 @@ def job_title(job: Job) -> str:
     except (TypeError, ValueError):
         stamp = job.id
     size = f"{job.width}²" if job.width == job.height else f"{job.width}×{job.height}"
-    return f"{stamp} · {job.preset} · {size}"
+    kind = job.preset if job.tool == "generate" else job.tool.replace("_", " ")
+    return f"{stamp} · {kind} · {size}"
 
 
 class BackgroundTask:

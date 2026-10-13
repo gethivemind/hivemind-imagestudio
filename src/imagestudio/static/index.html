@@ -167,6 +167,8 @@
   .export .row { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--ink2); }
   .export .row label { width: 110px; color: var(--muted); } .export .row input[type=range] { flex: 1; accent-color: var(--accent); height: 24px; border: 0; background: transparent; padding: 0; } .export .row b { width: 110px; text-align: right; font-weight: 500; font-family: var(--mono); font-size: 11.5px; }
   .export .size { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .export .row select { width: auto; background: var(--surface); }
+  .card .tool, .qcard .tool { display: inline-block; font-size: 10px; letter-spacing: .5px; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--honey) 25%, transparent); color: var(--ink2); margin-right: 6px; vertical-align: middle; }
   .acts { display: flex; flex-wrap: wrap; gap: 8px; }
 
   /* MACHINE */
@@ -294,6 +296,11 @@
     <div class="head"><div><h3 id="lbTitle"></h3><div class="sub" id="lbSub"></div></div><button class="ib" id="lbClose" title="close (Esc)">✕</button></div>
     <div class="promptbox"><div class="lab"><span>Prompt · reproducible</span><button class="btn sm" id="lbCopy">Copy</button></div><pre id="lbPrompt"></pre></div>
     <div class="acts"><button class="btn sm" id="lbReuse">Edit in Create</button><a class="btn sm" id="lbOpen" target="_blank">Open full size</a></div>
+    <div class="export" id="toolsBox"><div class="lab">Tools</div>
+      <div class="row" style="margin-top:0"><label>Upscale</label><select id="upModel" style="flex:1;height:30px"></select><select id="upRepeats" style="width:92px;height:30px"><option value="1">4×</option><option value="2">16×</option></select><button class="btn sm primary" id="upBtn">Run</button></div>
+      <div class="row"><label>Background</label><select id="bgModel" style="flex:1;height:30px"></select><button class="btn sm primary" id="bgBtn">Remove</button></div>
+      <div class="muted small" id="toolsNote" style="margin-top:8px"></div>
+    </div>
     <div class="kv" id="lbKv"></div>
     <div class="export">
       <div class="lab">Download</div>
@@ -500,12 +507,12 @@
 
   $("gmode").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.gmode = b.dataset.m; document.querySelectorAll("#gmode button").forEach(x => x.classList.toggle("active", x === b)); renderGallery(true); };
   $("search").addEventListener("input", () => renderGallery(true));
-  function galleryItems() { const done = S.jobs.filter(j => j.status === "done"); let items = done; if (S.gmode === "compare") { const by = {}; for (const j of done) if (!by[j.preset]) by[j.preset] = j; items = ["best", "balanced", "fast"].map(p => by[p]).filter(Boolean); } const q = $("search").value.trim().toLowerCase(); if (q) items = items.filter(j => (j.prompt || "").toLowerCase().includes(q)); return items; }
+  function galleryItems() { const done = S.jobs.filter(j => j.status === "done"); let items = done; if (S.gmode === "compare") { const by = {}; for (const j of done.filter(x => x.tool === "generate")) if (!by[j.preset]) by[j.preset] = j; items = ["best", "balanced", "fast"].map(p => by[p]).filter(Boolean); } const q = $("search").value.trim().toLowerCase(); if (q) items = items.filter(j => (j.prompt || "").toLowerCase().includes(q)); return items; }
   function renderGallery(force) {
     const items = galleryItems(); const key = S.gmode + "|" + $("search").value + "|" + items.map(j => j.id).join(",");
     if (!force && key === S.gkey) return; S.gkey = key;
     const g = $("grid"); g.className = "grid" + (S.gmode === "compare" ? " compare" : ""); g.innerHTML = ""; $("gcount").textContent = `${items.length} image${items.length === 1 ? "" : "s"}`;
-    for (const j of items) { const c = document.createElement("div"); c.className = "card"; c.innerHTML = `<img loading="lazy" src="/api/image/${j.id}" alt=""><div class="cap">${S.gmode === "compare" ? `<span class="tag">${j.preset}</span>` : ""}<div class="t">${esc(j.title)}</div><div class="m" title="${esc(j.prompt)}">${esc(j.prompt)}</div></div>`; c.onclick = () => openLightbox(j.id); c.oncontextmenu = (e) => { e.preventDefault(); window.open(`/api/image/${j.id}`, "_blank"); }; g.appendChild(c); }
+    for (const j of items) { const c = document.createElement("div"); c.className = "card"; c.innerHTML = `<img loading="lazy" src="/api/image/${j.id}" alt=""><div class="cap">${S.gmode === "compare" ? `<span class="tag">${j.preset}</span>` : ""}<div class="t">${j.tool !== "generate" ? `<span class="tool">${j.tool.replace("_", " ")}</span>` : ""}${esc(j.title)}</div><div class="m" title="${esc(j.prompt)}">${esc(j.prompt)}</div></div>`; c.onclick = () => openLightbox(j.id); c.oncontextmenu = (e) => { e.preventDefault(); window.open(`/api/image/${j.id}`, "_blank"); }; g.appendChild(c); }
     if (!items.length) g.innerHTML = '<div class="muted">No images yet.</div>';
   }
   function openLightbox(id) { S.lbList = galleryItems().map(j => j.id); if (!S.lbList.includes(id)) S.lbList = [id, ...S.lbList]; S.lbIdx = S.lbList.indexOf(id); showLb(); if (!$("lb").open) $("lb").showModal(); }
@@ -516,7 +523,33 @@
     $("lbPrompt").innerHTML = esc(j.reproducible_prompt).replace(/(--\S+ \S+)/g, '<span class="p">$1</span>'); $("lbOpen").href = `/api/image/${j.id}`;
     const rows = [["Preset", j.preset], ["Steps", j.steps], ["Guidance", j.cfg_scale], ["Sampler", j.sampler], ["Negative", j.negative_prompt || "–"], ["Threads", j.threads || "cores"], ["VAE tiling", j.vae_tiling ? "on" : "off"], ["Sampling", fmtDur(j.sampling_seconds)], ["Peak memory", j.peak_rss_gib ? `${j.peak_rss_gib} GiB` : "–"], ["Finished", (j.finished_at || "").replace("T", " ").slice(0, 16)]];
     $("lbKv").innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><span>${esc(v)}</span></div>`).join("");
-    $("lbPrev").disabled = S.lbIdx <= 0; $("lbNext").disabled = S.lbIdx >= S.lbList.length - 1; updateExport();
+    $("lbPrev").disabled = S.lbIdx <= 0; $("lbNext").disabled = S.lbIdx >= S.lbList.length - 1; updateExport(); fillTools(j);
+    document.querySelector(".promptbox").style.display = j.tool === "generate" ? "" : "none";
+    $("lbReuse").style.display = j.tool === "generate" ? "" : "none";
+    if (j.tool !== "generate") $("lbSub").textContent = `${j.tool.replace("_", " ")} · ${j.tool_model} · ${j.width}×${j.height} · ${fmtDur(j.total_seconds)}${j.source_job ? " · from " + (S.jobs.find(x => x.id === j.source_job)?.title || j.source_job) : ""}`;
+  }
+  function fillTools(j) {
+    const tools = (S.caps && S.caps.tools) || []; const up = tools.filter(t => t.kind === "upscaler"), bg = tools.filter(t => t.kind === "background");
+    const fill = (sel, list) => { sel.innerHTML = ""; for (const t of list) { const o = document.createElement("option"); o.value = t.name; o.textContent = `${t.display_name}${t.installed ? "" : " · " + t.size_gib + " GiB download"}`; if (t.default) o.selected = true; sel.appendChild(o); } };
+    fill($("upModel"), up); fill($("bgModel"), bg);
+    const bgOk = S.caps.background_engine && S.caps.background_engine.available;
+    $("toolsNote").textContent = bgOk ? "Results appear as new items in the gallery and the queue." : "Background removal needs onnxruntime (pip install 'hivemind-imagestudio[bg]').";
+    $("bgBtn").disabled = !bgOk;
+  }
+  async function runTool(tool, body) {
+    const r = await post(`/api/tools/${tool}`, body);
+    if (r.error) { if (/not downloaded/.test(r.error)) { const name = body.model || (S.caps.tools.find(t => t.kind === (tool === "upscale" ? "upscaler" : "background") && t.default) || {}).name; openToolDownload(name); } else toast(r.error, 7000); return; }
+    toast(`Queued ${tool.replace("_", " ")} · ≈ ${fmtEta(r.eta_seconds)}`); S.sel = r.id; $("lb").close(); showTab("create"); refreshJobs();
+  }
+  $("upBtn").onclick = () => runTool("upscale", { image: S.lbJob.id, model: $("upModel").value, repeats: +$("upRepeats").value });
+  $("bgBtn").onclick = () => runTool("remove_background", { image: S.lbJob.id, model: $("bgModel").value });
+  async function openToolDownload(name) {
+    const t = (S.caps.tools || []).find(x => x.name === name); if (!t) return;
+    $("dlTitle").textContent = `${t.display_name} · ${t.size_gib} GiB · ${t.licence}`;
+    $("dlBody").innerHTML = `<p class="muted small" style="margin:4px 0 8px">${esc(t.note)}</p><p class="muted small">One file, resumable and SHA-256 verified. Runs in the background; progress shows in the activity chip.</p>`;
+    $("dlConsent").checked = false; $("dlStart").disabled = true; $("dlConsent").onchange = () => { $("dlStart").disabled = !$("dlConsent").checked; };
+    $("dlStart").onclick = async () => { await post("/api/tools/download", { name, consent: true }); $("dlDialog").close(); toast(`Download started · ${t.size_gib} GiB`); $("actpop").classList.add("open"); pollTasks(); };
+    $("dlDialog").showModal();
   }
   $("lbPrev").onclick = () => lbStep(-1); $("lbNext").onclick = () => lbStep(1); $("lbClose").onclick = () => $("lb").close();
   $("lb").addEventListener("click", (e) => { if (e.target === $("lb")) $("lb").close(); });
@@ -532,7 +565,10 @@
     const gpu = hw.gpus?.length ? hw.gpus.map(g => clean(g.name) + (g.vram_gib ? ` · ${g.vram_gib} GiB` : "")).join(", ") : "none";
     $("strip").innerHTML = [["CPU", clean(hw.cpu_name), `${hw.physical_cores} cores · ${hw.logical_cores} threads`], ["Memory", `${hw.ram_available_gib} / ${hw.ram_total_gib} GiB free`, `budget ${c.models[0].memory_budget_gib} GiB for weights`], ["GPU", gpu, hw.gpus?.some(g => g.kind === "cuda") ? "CUDA" : "CPU rendering"], ["Engine", c.engine.available ? "stable-diffusion.cpp" : "not installed", c.engine.version || c.engine.pinned_release], ["Worker", c.queue.worker_in_this_process ? "this process" : c.queue.worker_pid ? `pid ${c.queue.worker_pid}` : "none", `${c.queue.queued} queued`], ["Data", c.paths.data_dir.split(/[\\/]/).slice(-1)[0], c.paths.data_dir]].map(([k, v, s]) => `<div class="stat"><div class="k">${k}</div><div class="v" title="${esc(v)}">${esc(v)}</div><div class="s" title="${esc(s)}">${esc(s)}</div></div>`).join("");
     const rows = []; for (const m of c.models) { rows.push(`<tr><td colspan="5" style="padding-top:12px"><b>${esc(m.display_name)}</b> <span class="pill">${esc(m.licence)}</span><div class="muted small">${esc(m.description)}</div></td></tr>`); for (const v of m.variants) rows.push(`<tr><td class="mono"><b>${v.name}</b></td><td class="r mono">${v.download_gib} GiB</td><td class="r mono">${v.needs_gib_at_1024} GiB</td><td><span class="pill ${v.fits_this_machine ? "ok" : ""}">${v.fits_this_machine ? "fits" : "does not fit"}</span></td><td class="r">${v.installed ? '<span class="pill ok">installed</span>' : `<button class="btn sm" data-dl="${m.name}|${v.name}">Download</button>`}</td></tr>`); }
-    $("modelsPanel").innerHTML = `<table class="t"><tr><th>Set</th><th class="r">Download</th><th class="r">Needs at 1024²</th><th>Memory</th><th></th></tr>${rows.join("")}</table>`;
+    const trows = (c.tools || []).map(t => `<tr><td><b>${esc(t.display_name)}</b> <span class="pill">${esc(t.licence)}</span><div class="muted small">${esc(t.note)}</div></td><td class="mono">${t.kind}</td><td class="r mono">${t.size_gib} GiB</td><td class="r">${t.installed ? '<span class="pill ok">installed</span>' : `<button class="btn sm" data-tdl="${t.name}">Download</button>`}</td></tr>`).join("");
+    $("modelsPanel").innerHTML = `<table class="t"><tr><th>Set</th><th class="r">Download</th><th class="r">Needs at 1024²</th><th>Memory</th><th></th></tr>${rows.join("")}</table>`
+      + `<h2 style="margin-top:16px">Tool models</h2><table class="t"><tr><th>Model</th><th>For</th><th class="r">Size</th><th></th></tr>${trows}</table>`;
+    $("modelsPanel").querySelectorAll("[data-tdl]").forEach(b => b.onclick = () => openToolDownload(b.dataset.tdl));
     $("modelsPanel").querySelectorAll("[data-dl]").forEach(b => b.onclick = () => { const [m, v] = b.dataset.dl.split("|"); openDownload(m, v); });
     const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
     if (c.profile) renderProfile(c.profile);
