@@ -40,6 +40,11 @@ class Settings:
         return self.data_dir / "models"
 
     @property
+    def loras_dir(self) -> Path:
+        """LoRA weight files (.safetensors / .gguf) the user adds; referenced by file name."""
+        return self.models_dir / "loras"
+
+    @property
     def tools_dir(self) -> Path:
         return self.data_dir / "tools"
 
@@ -67,6 +72,16 @@ class Settings:
             return {}
 
     @property
+    def engine_flavor(self) -> str:
+        """Which stable-diffusion.cpp build runs: ``cpu`` (default) or ``vulkan`` (GPU through
+        the Vulkan API). Environment variable first, then ``engine_backend`` in config.json."""
+        env = os.environ.get(ENV_SD_FLAVOR, "").lower().strip()
+        if env:
+            return env
+        v = str(self.config().get("engine_backend") or "").lower().strip()
+        return v or "cpu"
+
+    @property
     def allow_over_budget(self) -> bool:
         """The unlock: run settings the memory budget says will not fit. Off by default;
         enabled only by the environment variable or an explicit config.json entry."""
@@ -92,7 +107,13 @@ class Settings:
         return self.models_dir / "manifest.json"
 
     def ensure_dirs(self) -> None:
-        for d in (self.models_dir, self.tools_dir, self.out_dir, self.jobs_dir):
+        for d in (
+            self.models_dir,
+            self.loras_dir,
+            self.tools_dir,
+            self.out_dir,
+            self.jobs_dir,
+        ):
             d.mkdir(parents=True, exist_ok=True)
 
     @classmethod

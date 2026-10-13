@@ -85,3 +85,16 @@ def test_batch_count_and_stripping():
     assert parse("x --n 0").errors and parse("x --batch 17").errors
     assert without_batch_and_seed("a fox --n 4 --seed 9 --preset fast") == "a fox --preset fast"
     assert without_batch_and_seed("--count 2 a fox --s 3") == "a fox"
+
+
+def test_lora_params_parse_and_write_back():
+    p = parse("a fox --lora inkstyle:0.8 --lora faces --preset fast")
+    assert p.params["loras"] == [["inkstyle", 0.8], ["faces", 1.0]] and p.prompt == "a fox"
+    assert parse("x --lora a:9").errors and parse("x --lora a:b").errors
+
+    class J:
+        prompt, preset, width, height, seed = "a fox", "fast", 512, 512, 1
+        model, variant, steps, cfg_scale, sampler = "flux-schnell", "q5", 4, 1.0, "euler"
+        negative_prompt, loras = "", [["inkstyle", 0.8]]
+
+    assert "--lora inkstyle:0.8" in reproducible(J())

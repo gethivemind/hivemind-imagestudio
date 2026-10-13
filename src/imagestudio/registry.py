@@ -16,7 +16,7 @@ HF = "https://huggingface.co/{repo}/resolve/main/{path}"
 
 @dataclass(frozen=True)
 class FileSpec:
-    """One downloadable file."""
+    """One downloadable file, or (``local_path`` set) a file the user already has."""
 
     filename: str
     url: str
@@ -24,6 +24,7 @@ class FileSpec:
     size: int
     licence: str
     source: str  # human-readable origin
+    local_path: str | None = None  # custom models: absolute path, no download, no hash check
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,8 @@ class ModelSpec:
     description: str
     homepage: str
     components: dict[str, str] = field(default_factory=dict)  # sd.cpp flag -> filename prefix
+    tier: str = "verified"  # verified (Hivemind catalogue, pinned hashes) | custom (your own)
+    note: str = ""
 
     def variant(self, name: str) -> Variant:
         for v in self.variants:
@@ -397,6 +400,147 @@ QWEN_IMAGE = ModelSpec(
 )
 
 MODELS: dict[str, ModelSpec] = {m.name: m for m in (QWEN_IMAGE, FLUX_SCHNELL)}
+
+# --- your own models -----------------------------------------------------------------------
+# A custom model is a family template (presets, sampler, cost factor, which sd.cpp flags it
+# needs) plus the user's own weight files. Nothing is downloaded or hash-checked; the licence
+# is whatever the user declares, and the studio shows it as "your own", never "verified".
+
+CUSTOM_FAMILIES: dict[str, dict] = {
+    "flux": {
+        "label": "FLUX.1 (schnell / dev-style finetunes, GGUF or safetensors)",
+        "components": {
+            "--diffusion-model": "diffusion model (flux1-*.gguf / .safetensors)",
+            "--vae": "VAE (ae.safetensors)",
+            "--clip_l": "CLIP-L text encoder",
+            "--t5xxl": "T5-XXL text encoder (GGUF)",
+        },
+        "defaults": {"--vae": "flux-ae", "--clip_l": "clip_l", "--t5xxl": "t5-v1_1-xxl"},
+        "sampler": "euler",
+        "compute_factor": 1.0,
+        "presets": "flux-schnell",
+    },
+    "qwen-image": {
+        "label": "Qwen-Image (GGUF)",
+        "components": {
+            "--diffusion-model": "diffusion model (qwen-image-*.gguf)",
+            "--vae": "VAE (qwen_image_vae.safetensors)",
+            "--llm": "Qwen2.5-VL text encoder (GGUF)",
+        },
+        "defaults": {"--vae": "qwen_image_vae", "--llm": "Qwen2.5-VL"},
+        "sampler": "euler",
+        "compute_factor": 3.4,
+        "presets": "qwen-image",
+    },
+    "sd15": {
+        "label": "Stable Diffusion 1.5 checkpoint (single file)",
+        "components": {"-m": "checkpoint (.safetensors / .ckpt / .gguf)"},
+        "defaults": {},
+        "sampler": "euler_a",
+        "compute_factor": 0.08,
+        "presets": {
+            "best": (512, 512, 30, 7.0, "512 px, 30 steps, guidance 7: the model's native best."),
+            "balanced": (
+                512,
+                512,
+                20,
+                7.0,
+                "20 steps: about a third faster, slightly less detail.",
+            ),
+            "fast": (384, 384, 12, 7.0, "384 px and 12 steps: a quick preview."),
+        },
+    },
+    "sdxl": {
+        "label": "Stable Diffusion XL checkpoint (single file)",
+        "components": {"-m": "checkpoint (.safetensors / .gguf)"},
+        "defaults": {},
+        "sampler": "euler_a",
+        "compute_factor": 0.3,
+        "presets": {
+            "best": (1024, 1024, 30, 5.0, "1024 px, 30 steps: the model's native best."),
+            "balanced": (768, 768, 25, 5.0, "768 px: roughly half the time."),
+            "fast": (512, 512, 15, 5.0, "512 px and 15 steps: a quick preview."),
+        },
+    },
+}
+
+
+def build_custom_model(entry: dict) -> ModelSpec:
+    """A ModelSpec from a config.json ``custom_models`` entry:
+    {name, display_name, family, licence, files: {flag: path}, note}. Raises ValueError."""
+    import os as _os
+    import re as _re
+
+    name = str(entry.get("name") or "").strip().lower()
+    if not _re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,63}", name):
+        raise ValueError("name: letters, digits, dot, dash or underscore, 2 to 64 characters")
+    if name in ("auto",) or (name in MODELS and MODELS[name].tier == "verified"):
+        raise ValueError(f"{name!r} is taken by a verified model")
+    fam = CUSTOM_FAMILIES.get(str(entry.get("family") or ""))
+    if fam is None:
+        raise ValueError(f"family must be one of {', '.join(CUSTOM_FAMILIES)}")
+    files_in = dict(entry.get("files") or {})
+    specs: list[FileSpec] = []
+    components: dict[str, str] = {}
+    for flag in fam["components"]:
+        p = str(files_in.get(flag) or "").strip()
+        if not p:
+            raise ValueError(f"{flag} is required for family {entry.get('family')}")
+        if not _os.path.isfile(p):
+            raise ValueError(f"{flag}: file not found: {p}")
+        fn = _os.path.basename(p)
+        specs.append(
+            FileSpec(
+                filename=fn,
+                url="",
+                sha256="",
+                size=_os.path.getsize(p),
+                licence=str(entry.get("licence") or "as declared by you"),
+                source="your own file",
+                local_path=_os.path.abspath(p),
+            )
+        )
+        components[flag] = fn
+    presets_src = fam["presets"]
+    if isinstance(presets_src, str):
+        presets = dict(MODELS[presets_src].presets)
+    else:
+        presets = {
+            k: Preset(k, w, h, st, cfg, trade) for k, (w, h, st, cfg, trade) in presets_src.items()
+        }
+    return ModelSpec(
+        name=name,
+        display_name=str(entry.get("display_name") or name),
+        licence=str(entry.get("licence") or "as declared by you"),
+        family=str(entry["family"]),
+        quality_rank=50,  # never chosen by "auto"; pick it by name
+        variants=(Variant("own", 0, tuple(specs), "your own weights, as supplied"),),
+        presets=presets,
+        sampler=fam["sampler"],
+        compute_factor=float(fam["compute_factor"]),
+        description=str(entry.get("note") or "")
+        or f"Your own {fam['label']}. Time estimates are rough until the benchmark has run.",
+        homepage="",
+        components=components,
+        tier="custom",
+        note=str(entry.get("note") or ""),
+    )
+
+
+def register_custom_models(entries: list[dict]) -> list[str]:
+    """Replace the custom tier of MODELS with ``entries`` (invalid ones are skipped and
+    returned as messages)."""
+    for n in [n for n, m in MODELS.items() if m.tier == "custom"]:
+        del MODELS[n]
+    problems: list[str] = []
+    for e in entries or []:
+        try:
+            m = build_custom_model(e)
+        except (ValueError, TypeError) as ex:
+            problems.append(f"{e.get('name', '?')}: {ex}")
+            continue
+        MODELS[m.name] = m
+    return problems
 
 
 # --- tool models: upscalers and background removal --------------------------------------

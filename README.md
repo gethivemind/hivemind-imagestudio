@@ -160,6 +160,49 @@ Endpoint protection (Trend Micro Apex One and similar) may flag the freshly down
 stable-diffusion.cpp release; its SHA-256 is in `registry.py`. Allow it, or add the
 `tools/` folder under the data directory as a trusted path.
 
+### Engine backends: CPU or Vulkan
+
+The pinned stable-diffusion.cpp release ships two builds the studio knows how to install:
+`cpu` (the default) and `vulkan`, which runs the model on the GPU through the Vulkan API,
+including integrated graphics. Install the second build with `imagestudio install-engine
+--flavor vulkan` (add `--use` to switch to it), or from Settings → Models and engines, where
+each build has Install, Use and Remove. The active build is stored as `engine_backend` in
+`config.json`; the environment variable `IMAGESTUDIO_SDCPP_FLAVOR` overrides it. Switching
+is refused while jobs are queued or running, and the benchmark should be run again
+afterwards because the time estimates are calibrated per backend. Whether Vulkan is faster
+depends entirely on the GPU and its memory. Measured on the 16 GB laptop (12th-gen Core
+i5-1235U, Intel UHD integrated graphics, no discrete GPU), FLUX.1-schnell q5, 512², 4 steps,
+seed 7, identical output:
+
+| Backend | Wall time | To first step | Peak RSS |
+| --- | --- | --- | --- |
+| CPU | 30 min 5 s | 27 min 57 s | 6.99 GiB |
+| Vulkan (integrated GPU) | 12 min 43 s | 7 min 57 s | 5.25 GiB |
+
+Same image, 2.4× faster, less resident memory: the Vulkan build is worth installing even on
+an integrated GPU. Both runs were on a loaded machine (browser, IDE), so absolute numbers vary;
+the ratio is the point.
+
+### LoRA
+
+Drop adapter files (`.safetensors`, `.gguf`) into `<models>/loras`, or import them on
+Settings → LoRA. Use them with `--lora name:0.8` in the prompt (repeatable; the LoRA picker
+on Create writes the same text), with `loras=["name:0.8"]` on the MCP tool, or `--lora` on
+the CLI. The weight is written into the reproducible prompt and the PNG metadata. The studio
+cannot check that a LoRA was trained for the base model you generate with; a mismatch shows
+as an engine error on the first job.
+
+### Your own models
+
+Settings → Your own models registers weights you already have: a FLUX or Qwen-Image finetune
+(GGUF or safetensors, reusing the studio's CLIP-L, T5 and VAE downloads), or a Stable
+Diffusion 1.5 / XL checkpoint. Entries live in `config.json` under `custom_models` and point
+at your files; nothing is downloaded or hash-checked, the licence is what you declare, and
+the model is labelled **your own**, never **verified**. `auto` never picks a custom model;
+choose it by name (`--model my-flux`). Time estimates are rough until the benchmark has run
+with it. This is the "bring your own model" tier from the roadmap; verified models stay the
+pinned, hash-checked catalogue.
+
 ## MCP tools
 
 | Tool | Purpose |
@@ -199,6 +242,7 @@ CLI (`imagestudio generate --help`) and will be mirrored in Hivemind's duty form
 | `variant` | by memory fit | Weight quantisation `q8`, `q6`, `q5`, `q4`. Default: the highest fidelity that fits this machine's memory budget (reported in `fit_note`). Forcing one that does not fit is refused unless over-budget runs are unlocked. |
 | `threads` | physical cores | CPU threads for the engine. Fewer threads leave the machine more responsive; more than the physical core count rarely helps. |
 | `vae_tiling` | false | Decode the final image in tiles. Saves memory on large images at a small time cost; no quality change. |
+| `loras` | none | Adapters from the loras folder as `name` or `name:weight` (weight -4 to 4, 1.0 default). In the prompt: `--lora name:0.8`, repeatable. |
 | `count` | 1 | Queue this many images of the prompt with consecutive seeds (1 to 16). In the prompt: `--n 4`. Each is a normal job; the response lists all their ids. |
 
 ### The load meter: `plan`

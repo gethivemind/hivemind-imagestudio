@@ -146,3 +146,43 @@ def test_preview_flags_are_passed_when_requested(tmp_path, fake_sd):
     assert args[args.index("--preview") + 1] == "proj"
     assert args[args.index("--preview-path") + 1] == str(tmp_path / "p.png")
     assert "--preview" not in engine.build_args(spec(tmp_path))
+
+
+def test_engine_backend_setting_and_switching(settings, monkeypatch):
+    import json
+
+    from imagestudio.config import ENV_SD_FLAVOR
+    from imagestudio.engine.sdcpp import SdCppEngine
+    from imagestudio.service import Studio, StudioError
+
+    monkeypatch.delenv(ENV_SD_FLAVOR, raising=False)
+    assert settings.engine_flavor == "cpu"
+    settings.config_file.parent.mkdir(parents=True, exist_ok=True)
+    settings.config_file.write_text(json.dumps({"engine_backend": "vulkan"}), encoding="utf-8")
+    assert settings.engine_flavor == "vulkan"
+    assert SdCppEngine(settings).flavor == "vulkan"
+    assert SdCppEngine(settings).install_dir.name.endswith("-vulkan")
+    monkeypatch.setenv(ENV_SD_FLAVOR, "cpu")
+    assert settings.engine_flavor == "cpu"  # the environment wins
+    monkeypatch.delenv(ENV_SD_FLAVOR, raising=False)
+    settings.config_file.write_text("{}", encoding="utf-8")
+
+    monkeypatch.setenv("IMAGESTUDIO_SD_BIN", "")
+    studio = Studio(settings=settings, engine=SdCppEngine(settings), start_worker=False)
+    try:
+        cfg = studio.get_config()
+        assert cfg["engine_backend"] == "cpu"
+        flavors = {b["flavor"]: b for b in cfg["engine_backends"]}
+        assert set(flavors) == {"cpu", "vulkan"} and flavors["cpu"]["active"]
+        rows = [c for c in studio.components() if c["kind"] == "engine"]
+        names = {r["name"] for r in rows}
+        assert "vision" in names and any(n.startswith("image:") for n in names)
+        # switching to a build that is not installed is refused with a clear message
+        with pytest.raises(StudioError, match="not installed"):
+            studio.set_engine_backend("vulkan")
+        with pytest.raises(StudioError, match="unknown engine backend"):
+            studio.set_engine_backend("cuda")
+        assert studio._engine_for("image") is studio.engine
+        assert studio._engine_for("image:vulkan").flavor == "vulkan"
+    finally:
+        studio.close()

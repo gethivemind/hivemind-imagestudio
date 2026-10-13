@@ -84,7 +84,10 @@ def build_server(studio: Studio | None = None) -> FastMCP:
         threads: int | None = None,
         vae_tiling: bool = False,
         count: int = 1,
+        loras: list[str] | None = None,
     ) -> dict[str, Any]:
+        """``loras``: adapters from the studio's loras folder as "name" or "name:weight"
+        (capabilities lists them); the same as ``--lora name:0.8`` in the prompt."""
         try:
             jobs = studio.generate_many(
                 prompt,
@@ -101,6 +104,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
                 sampler=sampler,
                 threads=threads,
                 vae_tiling=vae_tiling,
+                loras=loras,
             )
         except StudioError as e:
             return _err(e)

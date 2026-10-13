@@ -73,6 +73,7 @@ def build_app(studio: Studio) -> Starlette:
                 sampler=_str(body.get("sampler")),
                 threads=body.get("threads") or None,
                 vae_tiling=bool(body.get("vae_tiling", False)),
+                loras=body.get("loras") or None,
             )
         except (StudioError, ValueError, TypeError) as e:
             return JSONResponse({"error": str(e)}, status_code=400)
@@ -274,6 +275,51 @@ def build_app(studio: Studio) -> Starlette:
             return JSONResponse({"error": str(e)}, status_code=400)
         return JSONResponse({"path": str(p)})
 
+    async def custom_models(_: Request) -> JSONResponse:
+        return JSONResponse(
+            {
+                "models": studio.custom_models(),
+                "families": studio.custom_families(),
+                "problems": studio.custom_model_problems,
+            }
+        )
+
+    async def custom_model_add(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(studio.add_custom_model(body))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def custom_model_remove(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            studio.remove_custom_model(str(body.get("name", "")))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse({"ok": True})
+
+    async def loras(_: Request) -> JSONResponse:
+        return JSONResponse({"loras": studio.loras(), "folder": str(studio.settings.loras_dir)})
+
+    async def lora_upload(request: Request) -> JSONResponse:
+        data = await request.body()
+        if len(data) > 2 * 1024 * 1024 * 1024:
+            return JSONResponse({"error": "too large (2 GB max)"}, status_code=400)
+        try:
+            return JSONResponse(
+                studio.import_lora(data, request.query_params.get("name", "lora.safetensors"))
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def lora_remove(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse({"freed_bytes": studio.remove_lora(str(body.get("name", "")))})
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     async def upload_view(request: Request):
         p = (studio.settings.data_dir / "uploads" / request.path_params["name"]).resolve()
         if (
@@ -387,6 +433,12 @@ def build_app(studio: Studio) -> Starlette:
             Route("/api/tools/{tool}", run_tool, methods=["POST"]),
             Route("/api/tools/download", tool_download, methods=["POST"]),
             Route("/api/upload", upload, methods=["POST"]),
+            Route("/api/custom-models", custom_models),
+            Route("/api/custom-models", custom_model_add, methods=["POST"]),
+            Route("/api/custom-models/remove", custom_model_remove, methods=["POST"]),
+            Route("/api/loras", loras),
+            Route("/api/loras/upload", lora_upload, methods=["POST"]),
+            Route("/api/loras/remove", lora_remove, methods=["POST"]),
             Route("/api/components", components),
             Route("/api/components/remove", remove_component, methods=["POST"]),
             Route("/api/reveal", reveal, methods=["POST"]),

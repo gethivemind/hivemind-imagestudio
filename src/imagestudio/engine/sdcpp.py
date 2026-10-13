@@ -48,7 +48,7 @@ class SdCppEngine:
 
     def __init__(self, settings: Settings, flavor: str | None = None) -> None:
         self.settings = settings
-        self.flavor = flavor or default_flavor()
+        self.flavor = flavor or settings.engine_flavor
         self._proc: subprocess.Popen[bytes] | None = None
         self._lock = threading.Lock()
         self._cancelled = False
@@ -184,14 +184,6 @@ class SdCppEngine:
         ]
         if spec.negative_prompt:
             args += ["-n", spec.negative_prompt]
-        if spec.init_image is not None:
-            args += ["-i", str(spec.init_image), "--strength", f"{spec.strength:.2f}"]
-            if spec.mask_image is not None:
-                args += ["--mask", str(spec.mask_image)]
-        if spec.init_image is not None:
-            args += ["-i", str(spec.init_image), "--strength", f"{spec.strength:.2f}"]
-            if spec.mask_image is not None:
-                args += ["--mask", str(spec.mask_image)]
         if spec.init_image is not None:
             args += ["-i", str(spec.init_image), "--strength", f"{spec.strength:.2f}"]
             if spec.mask_image is not None:

@@ -79,10 +79,7 @@ class Job:
     favorite: bool = False
     deleted_at: str | None = None  # soft delete; the file moves to trash/
     strength: float = 0.6  # variations / edit: distance from the source image
-    mask_path: str | None = None  # edit: inpainting mask
-    strength: float = 0.6  # variations / edit: distance from the source image
-    mask_path: str | None = None  # edit: inpainting mask
-    strength: float = 0.6  # variations / edit: distance from the source image
+    loras: list[list] = field(default_factory=list)  # [[name, weight], ...] from the loras folder
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -446,8 +443,13 @@ class Worker:
 
         threading.Thread(target=watch_cancel, name=f"cancel-watch-{job.id}", daemon=True).start()
 
+        prompt = job.prompt
+        if job.loras:
+            # stable-diffusion.cpp reads <lora:name:weight> from the prompt and loads the
+            # file from --lora-model-dir (set in extra_args by the studio)
+            prompt += " " + " ".join(f"<lora:{n}:{float(w):g}>" for n, w in job.loras)
         spec = GenerateSpec(
-            prompt=job.prompt,
+            prompt=prompt,
             negative_prompt=job.negative_prompt,
             width=job.width,
             height=job.height,

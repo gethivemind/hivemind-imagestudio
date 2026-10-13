@@ -29,12 +29,6 @@ class GenerateSpec:
     init_image: Path | None = None  # image-to-image: start from this picture
     mask_image: Path | None = None  # inpainting: white = repaint, black = keep
     strength: float = 0.6  # image-to-image: how far from the source (0 = same, 1 = ignore it)
-    init_image: Path | None = None  # image-to-image: start from this picture
-    mask_image: Path | None = None  # inpainting: white = repaint, black = keep
-    strength: float = 0.6  # image-to-image: how far from the source (0 = same, 1 = ignore it)
-    init_image: Path | None = None  # image-to-image: start from this picture
-    mask_image: Path | None = None  # inpainting: white = repaint, black = keep
-    strength: float = 0.6  # image-to-image: how far from the source (0 = same, 1 = ignore it)
 
 
 @dataclass

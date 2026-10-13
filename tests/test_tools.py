@@ -319,3 +319,102 @@ def test_auto_caption_runs_in_the_background_when_enabled(settings: Settings):
         assert studio.get_config()["auto_caption"] is False
     finally:
         studio.close()
+
+
+def test_loras_are_listed_validated_and_passed_to_the_engine(settings: Settings, tmp_path):
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        assert studio.loras() == []
+        with pytest.raises(StudioError, match="no LoRA named"):
+            studio.generate("a fox --lora inkstyle:0.8", preset="fast")
+        info = studio.import_lora(b"\x00" * 64, "inkstyle.safetensors")
+        assert (
+            info["name"] == "inkstyle" and studio.loras()[0]["filename"] == "inkstyle.safetensors"
+        )
+        with pytest.raises(StudioError, match="ends with"):
+            studio.import_lora(b"x", "notes.txt")
+        job = studio.generate(
+            "a fox --lora inkstyle:0.8 --lora inkstyle.safetensors", preset="fast"
+        )
+        assert job.loras == [["inkstyle", 0.8], ["inkstyle", 1.0]]
+        assert "--lora-model-dir" in job.extra_args and job.prompt == "a fox"
+        wait(studio, job.id)
+        spec = studio.engine.calls[-1]
+        assert "<lora:inkstyle:0.8>" in spec.prompt and "--lora-model-dir" in spec.extra_args
+        assert "--lora inkstyle:0.8" in studio.job_status(job.id)["reproducible_prompt"]
+        # kwarg form, as the MCP tool and the UI send it
+        job2 = studio.generate("a fox", preset="fast", loras=["inkstyle:0.5"])
+        assert job2.loras == [["inkstyle", 0.5]]
+        assert studio.capabilities()["loras"][0]["name"] == "inkstyle"
+        wait(studio, job2.id)
+        assert studio.remove_lora("inkstyle") == 64 and studio.loras() == []
+    finally:
+        studio.close()
+
+
+def test_custom_models_register_plan_and_generate(settings: Settings, tmp_path):
+    from imagestudio.registry import MODELS, build_custom_model
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    ck = tmp_path / "my-sd15.safetensors"
+    ck.write_bytes(b"\x00" * 4096)
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        fams = studio.custom_families()
+        assert set(fams) >= {"flux", "qwen-image", "sd15", "sdxl"}
+        # the studio's own encoders are offered for reuse by a FLUX finetune
+        assert fams["flux"]["shared"].get("--clip_l")
+        with pytest.raises(StudioError, match="file not found"):
+            studio.add_custom_model(
+                {"name": "ghost", "family": "sd15", "files": {"-m": str(tmp_path / "nope")}}
+            )
+        with pytest.raises(StudioError, match="taken by a verified model"):
+            studio.add_custom_model(
+                {"name": "flux-schnell", "family": "sd15", "files": {"-m": str(ck)}}
+            )
+        rep = studio.add_custom_model(
+            {
+                "name": "My-SD15",
+                "display_name": "My SD 1.5",
+                "family": "sd15",
+                "licence": "CreativeML Open RAIL-M",
+                "files": {"-m": str(ck)},
+            }
+        )
+        assert rep["tier"] == "custom" and rep["name"] == "my-sd15"
+        assert MODELS["my-sd15"].presets["best"].steps == 30
+        assert studio.settings.config()["custom_models"][0]["name"] == "my-sd15"
+        # auto never picks it; by name it plans and runs with the user's file
+        assert studio.plan(None, "fast", None, None).model.name == "flux-schnell"
+        plan = studio.plan("my-sd15", "fast", None, None)
+        assert plan.installed and plan.variant.name == "own"
+        job = studio.generate("a cat --model my-sd15", preset="fast")
+        assert job.model == "my-sd15" and job.component_paths["-m"] == str(ck)
+        wait(studio, job.id)
+        assert studio.engine.calls[-1].component_paths["-m"] == ck
+        caps = studio.capabilities()
+        assert any(m["name"] == "my-sd15" and m["tier"] == "custom" for m in caps["models"])
+        # a second Studio on the same settings sees it again (persisted)
+        studio2 = Studio(
+            settings=settings, engine=FakeEngine(), hardware=laptop(), start_worker=False
+        )
+        assert "my-sd15" in MODELS and studio2.custom_models()[0]["name"] == "my-sd15"
+        studio2.close()
+        studio.remove_custom_model("my-sd15")
+        assert "my-sd15" not in MODELS and ck.exists()
+        with pytest.raises(StudioError, match="no custom model"):
+            studio.remove_custom_model("my-sd15")
+        # a broken entry in config.json is reported, not fatal
+        settings.config_file.write_text(
+            json.dumps({"custom_models": [{"name": "bad", "family": "sd15", "files": {}}]}),
+            encoding="utf-8",
+        )
+        studio3 = Studio(
+            settings=settings, engine=FakeEngine(), hardware=laptop(), start_worker=False
+        )
+        assert studio3.custom_model_problems and "bad" not in MODELS
+        studio3.close()
+        _ = build_custom_model
+    finally:
+        studio.close()

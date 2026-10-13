@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from imagestudio import download as dl
 from imagestudio.config import Settings
@@ -62,6 +63,8 @@ class ModelStore:
     # -- queries -------------------------------------------------------------------------
 
     def file_installed(self, spec: FileSpec) -> bool:
+        if spec.local_path:
+            return Path(spec.local_path).is_file()
         p = self.settings.models_dir / spec.filename
         return (
             p.exists()
@@ -88,6 +91,8 @@ class ModelStore:
         return sum(f.size for f in variant.files if not self.file_installed(f))
 
     def path_for(self, spec: FileSpec):
+        if spec.local_path:
+            return Path(spec.local_path)
         return self.settings.models_dir / spec.filename
 
     # -- install -------------------------------------------------------------------------

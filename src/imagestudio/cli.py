@@ -79,7 +79,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     state = (
         f"installed: {eng['version']} at {eng['binary']}" if eng["available"] else "NOT installed"
     )
-    print(f"Engine: {eng['name']} ({state}); pinned release {eng['pinned_release']}")
+    print(
+        f"Engine: {eng['name']} ({state}); pinned release {eng['pinned_release']}; "
+        f"backend {eng.get('backend', 'cpu')}"
+    )
     print()
     print("Models")
     for m in caps["models"]:
@@ -126,7 +129,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 def cmd_install_engine(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
-    engine = studio.describe_engine if args.vision else studio.engine
+    if args.vision:
+        engine = studio.describe_engine
+    elif args.flavor:
+        from imagestudio.engine.sdcpp import SdCppEngine
+
+        engine = SdCppEngine(studio.settings, flavor=args.flavor)
+    else:
+        engine = studio.engine
     install = getattr(engine, "install", None)
     if install is None:
         print("This engine has no installer.")
@@ -139,6 +149,13 @@ def cmd_install_engine(args: argparse.Namespace) -> int:
         return 1
     print(f"Engine ready: {path}")
     print(f"Version: {engine.version()}")
+    if getattr(args, "use", False) and not args.vision:
+        try:
+            studio.set_engine_backend(engine.flavor)
+        except StudioError as e:
+            print(f"not switched: {e}")
+            return 1
+        print(f"Active engine backend: {engine.flavor} (config.json)")
     return 0
 
 
@@ -407,6 +424,14 @@ def build_parser() -> argparse.ArgumentParser:
     ie = sub.add_parser("install-engine", help="download the pinned stable-diffusion.cpp build")
     ie.add_argument("--yes", "-y", action="store_true", help="approve the download")
     ie.add_argument("--vision", action="store_true", help="install llama.cpp for describe instead")
+    ie.add_argument(
+        "--flavor",
+        choices=["cpu", "vulkan"],
+        help="which stable-diffusion.cpp build: cpu (default) or vulkan (GPU through Vulkan)",
+    )
+    ie.add_argument(
+        "--use", action="store_true", help="after installing, make this build the active backend"
+    )
     ie.set_defaults(fn=cmd_install_engine)
 
     dm = sub.add_parser("download-model", help="download a model's weights (asks for consent)")

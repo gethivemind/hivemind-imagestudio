@@ -15,7 +15,7 @@ from typing import Any
 
 from imagestudio import __version__
 from imagestudio.calibration import Calibration, human_duration
-from imagestudio.config import ENV_ALLOW_OVER_BUDGET, Settings
+from imagestudio.config import ENV_ALLOW_OVER_BUDGET, ENV_SD_FLAVOR, Settings
 from imagestudio.engine.base import Engine
 from imagestudio.engine.sdcpp import SdCppEngine
 from imagestudio.hardware import Hardware, detect
@@ -40,6 +40,7 @@ from imagestudio.promptparams import (
     without_batch_and_seed,
 )
 from imagestudio.registry import (
+    CUSTOM_FAMILIES,
     EXCLUDED_BY_POLICY,
     LICENCES,
     MODELS,
@@ -47,8 +48,10 @@ from imagestudio.registry import (
     TOOL_MODELS,
     VISION_MODELS,
     ModelSpec,
+    build_custom_model,
     default_tool_model,
     default_vision_model,
+    register_custom_models,
 )
 
 MAX_SEED = 2**31 - 1
@@ -128,6 +131,9 @@ class Studio:
             self.models,
             self.calibration,
             allow_over_budget=self.settings.allow_over_budget,
+        )
+        self.custom_model_problems = register_custom_models(
+            list(self.settings.config().get("custom_models") or [])
         )
         self.engine: Engine = engine or SdCppEngine(self.settings)
         if background_engine is None:
@@ -357,6 +363,7 @@ class Studio:
         sampler: str | None = None,
         threads: int | None = None,
         vae_tiling: bool = False,
+        loras: list | None = None,
         _defer: bool = False,
     ) -> Job:
         if not prompt or not prompt.strip():
@@ -384,6 +391,7 @@ class Studio:
         sampler = p.get("sampler", sampler)
         threads = p.get("threads", threads)
         vae_tiling = p.get("vae_tiling", vae_tiling)
+        loras = self._resolve_loras(p.get("loras", loras))
         if p.get("count", 1) > 1 and not _defer:
             # --n: a batch of seeds for one prompt. The first job is returned; the others follow
             # it in the queue and all are listed by generate_many.
@@ -402,6 +410,7 @@ class Studio:
                 sampler=sampler,
                 threads=threads,
                 vae_tiling=vae_tiling,
+                loras=loras,
             )[0]
         if "init" in p and not _defer:
             # --from in the prompt: hand over to image-to-image with the remaining settings
@@ -418,6 +427,7 @@ class Studio:
                 steps=steps,
                 cfg_scale=cfg_scale,
                 sampler=sampler,
+                loras=loras,
             )
         if not self.engine.available():
             raise StudioError(
@@ -461,7 +471,9 @@ class Studio:
             component_paths=paths,
             extra_args=list(plan.preset.extra_args)
             + (["--mmap"] if plan.low_memory else [])
-            + (["--vae-tiling"] if vae_tiling else []),
+            + (["--vae-tiling"] if vae_tiling else [])
+            + (["--lora-model-dir", str(self.settings.loras_dir)] if loras else []),
+            loras=loras,
             threads=threads,
             over_budget=plan.over_budget,
             live_preview=bool(self.settings.config().get("live_preview", True)),
@@ -507,6 +519,7 @@ class Studio:
         steps: int | None = None,
         cfg_scale: float | None = None,
         sampler: str | None = None,
+        loras: list | None = None,
     ) -> Job:
         if not 0.0 <= strength <= 1.0:
             raise StudioError("strength must be between 0 and 1")
@@ -535,6 +548,7 @@ class Studio:
             steps=steps,
             cfg_scale=cfg_scale,
             sampler=sampler,
+            loras=loras,
             _defer=True,
         )
         job.tool = tool
@@ -555,6 +569,141 @@ class Studio:
     ) -> Job:
         """Change a picture by instruction; with a mask only the white area is repainted."""
         return self._img2img("edit", image, prompt, strength, mask, **kw)
+
+    # -- your own models ----------------------------------------------------------------------
+
+    def custom_models(self) -> list[dict[str, Any]]:
+        return [dict(e) for e in self.settings.config().get("custom_models") or []]
+
+    def custom_families(self) -> dict[str, Any]:
+        """The families a custom model can declare, with the files each needs and the
+        studio's own copies of shared encoders (so a FLUX finetune can reuse them)."""
+        out = {}
+        for key, fam in CUSTOM_FAMILIES.items():
+            shared: dict[str, str] = {}
+            for flag, prefix in fam["defaults"].items():
+                for m in MODELS.values():
+                    if m.tier != "verified":
+                        continue
+                    for v in m.ranked_variants:
+                        for f in v.files:
+                            if f.filename.startswith(prefix) and self.models.file_installed(f):
+                                shared.setdefault(flag, str(self.models.path_for(f)))
+            out[key] = {"label": fam["label"], "components": fam["components"], "shared": shared}
+        return out
+
+    def add_custom_model(self, entry: dict[str, Any]) -> dict[str, Any]:
+        """Validate, store in config.json and register. Replaces an entry with the same name."""
+        try:
+            spec = build_custom_model(entry)
+        except (ValueError, TypeError) as e:
+            raise StudioError(str(e)) from e
+        cfg = self.settings.config()
+        entries = [e for e in cfg.get("custom_models") or [] if e.get("name") != spec.name]
+        clean = {
+            "name": spec.name,
+            "display_name": spec.display_name,
+            "family": spec.family,
+            "licence": spec.licence,
+            "files": {k: str(v) for k, v in dict(entry.get("files") or {}).items() if v},
+            "note": spec.note,
+        }
+        entries.append(clean)
+        cfg["custom_models"] = entries
+        self.settings.config_file.parent.mkdir(parents=True, exist_ok=True)
+        self.settings.config_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        self.custom_model_problems = register_custom_models(entries)
+        return self.model_report(MODELS[spec.name])
+
+    def remove_custom_model(self, name: str) -> None:
+        """Forget the entry; the user's files are never deleted."""
+        if any(j.model == name and j.status in ("queued", "running") for j in self.jobs.all()):
+            raise StudioError(f"{name} is used by a queued or running job")
+        cfg = self.settings.config()
+        entries = cfg.get("custom_models") or []
+        if not any(e.get("name") == name for e in entries):
+            raise StudioError(f"no custom model named {name!r}")
+        cfg["custom_models"] = [e for e in entries if e.get("name") != name]
+        self.settings.config_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        self.custom_model_problems = register_custom_models(cfg["custom_models"])
+
+    # -- LoRA: user-supplied adapters in <models>/loras ---------------------------------------
+
+    LORA_EXTS = (".safetensors", ".gguf", ".ckpt", ".pt")
+
+    def loras(self) -> list[dict[str, Any]]:
+        """The LoRA files available by name (file name without extension)."""
+        d = self.settings.loras_dir
+        out = []
+        if d.exists():
+            for p in sorted(d.iterdir()):
+                if p.is_file() and p.suffix.lower() in self.LORA_EXTS:
+                    out.append(
+                        {
+                            "name": p.stem,
+                            "filename": p.name,
+                            "bytes": p.stat().st_size,
+                            "path": str(p),
+                        }
+                    )
+        return out
+
+    def _resolve_loras(self, loras: list | None) -> list[list]:
+        if not loras:
+            return []
+        have = {x["name"]: x for x in self.loras()}
+        out: list[list] = []
+        for item in loras:
+            if isinstance(item, str):
+                name, _, w = item.rpartition(":") if ":" in item else (item, "", "")
+                weight = float(w) if w else 1.0
+            else:
+                name, weight = item[0], float(item[1]) if len(item) > 1 else 1.0
+            name = str(name).strip()
+            for ext in self.LORA_EXTS:
+                if name.lower().endswith(ext):
+                    name = name[: -len(ext)]
+            if name not in have:
+                raise StudioError(
+                    f"no LoRA named {name!r} in {self.settings.loras_dir}"
+                    + (
+                        f"; available: {', '.join(sorted(have))}"
+                        if have
+                        else "; add one on Settings"
+                    )
+                )
+            if not -4.0 <= weight <= 4.0:
+                raise StudioError(f"LoRA weight must be between -4 and 4, got {weight:g}")
+            out.append([name, weight])
+        return out
+
+    def import_lora(self, data: bytes, filename: str) -> dict[str, Any]:
+        """Copy an adapter file into the loras folder. Any LoRA trained for the active base
+        model (FLUX.1 or Qwen-Image) works; the studio cannot check compatibility up front,
+        a mismatch shows as an engine error on the first job."""
+        name = Path(filename).name
+        if Path(name).suffix.lower() not in self.LORA_EXTS:
+            raise StudioError(f"a LoRA file ends with one of {', '.join(self.LORA_EXTS)}")
+        if not data:
+            raise StudioError("empty file")
+        self.settings.loras_dir.mkdir(parents=True, exist_ok=True)
+        dest = self.settings.loras_dir / name
+        dest.write_bytes(data)
+        return {"name": dest.stem, "filename": name, "bytes": len(data), "path": str(dest)}
+
+    def remove_lora(self, name: str) -> int:
+        active = [j for j in self.jobs.all() if j.status in ("queued", "running")]
+        if any(any(n == name for n, _ in j.loras) for j in active):
+            raise StudioError(f"LoRA {name!r} is used by a queued or running job")
+        freed = 0
+        for x in self.loras():
+            if x["name"] == name:
+                p = Path(x["path"])
+                freed += p.stat().st_size
+                p.unlink()
+        if not freed:
+            raise StudioError(f"no LoRA named {name!r}")
+        return freed
 
     def save_upload(self, data: bytes, name: str = "upload.png") -> Path:
         """Store an uploaded image (sketch, photo) under the data dir and return its path."""
@@ -623,15 +772,33 @@ class Studio:
                     "folder": str(self.settings.models_dir),
                 }
             )
-        for which, eng, label in (
-            ("image", self.engine, "stable-diffusion.cpp"),
-            ("vision", self.describe_engine, "llama.cpp"),
-        ):
+        engines: list[tuple[str, Any, str, bool]] = []
+        if isinstance(self.engine, SdCppEngine):
+            for b in self.engine_backends():
+                if not b["supported"]:
+                    continue
+                eng = SdCppEngine(self.settings, flavor=b["flavor"])
+                engines.append(
+                    (
+                        f"image:{b['flavor']}",
+                        eng,
+                        f"stable-diffusion.cpp · {b['label']}",
+                        b["active"],
+                    )
+                )
+        else:
+            engines.append(("image", self.engine, "stable-diffusion.cpp", True))
+        engines.append(("vision", self.describe_engine, "llama.cpp", False))
+        for which, eng, label, active in engines:
             d = getattr(eng, "install_dir", None)
             size = (
                 sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
                 if d and d.exists()
                 else 0
+            )
+            asset = getattr(eng, "asset", lambda: None)()
+            installed = (
+                (d / asset.exe).exists() if d and asset and which != "vision" else eng.available()
             )
             out.append(
                 {
@@ -639,7 +806,8 @@ class Studio:
                     "name": which,
                     "display_name": label,
                     "licence": "MIT",
-                    "installed": eng.available(),
+                    "installed": installed,
+                    "active": active,
                     "bytes": size,
                     "files": [],
                     "folder": str(d) if d else "",
@@ -655,7 +823,11 @@ class Studio:
         if kind in ("tool", "vision"):
             return any(j.tool_model == name for j in active)
         if kind == "engine":
-            return bool(active) if name == "image" else False
+            if name == "vision":
+                return False
+            _, _, flavor = name.partition(":")
+            is_active = not flavor or flavor == getattr(self.engine, "flavor", "cpu")
+            return bool(active) and is_active
         return False
 
     def remove_component(self, kind: str, name: str) -> dict[str, Any]:
@@ -690,7 +862,13 @@ class Studio:
                 raise StudioError(f"unknown vision model {name!r}")
             freed = self.models.remove_files(vm.files)
         elif kind == "engine":
-            eng = self.engine if name == "image" else self.describe_engine
+            eng = self._engine_for(name)
+            if (
+                eng is self.engine
+                and isinstance(self.engine, SdCppEngine)
+                and os.environ.get(ENV_SD_FLAVOR)
+            ):
+                raise StudioError(f"this build is pinned by {ENV_SD_FLAVOR}; cannot remove it")
             un = getattr(eng, "uninstall", None)
             if un is None:
                 raise StudioError("this engine cannot be removed from here")
@@ -957,9 +1135,70 @@ class Studio:
         threading.Thread(target=run, name=key, daemon=True).start()
         return task
 
+    ENGINE_FLAVORS = ("cpu", "vulkan")
+
+    def _engine_for(self, which: str):
+        """``image`` (the active sd.cpp build), ``image:<flavor>`` (a specific build) or
+        ``vision`` (llama.cpp)."""
+        if which == "vision":
+            return self.describe_engine
+        name, _, flavor = which.partition(":")
+        if name != "image":
+            raise StudioError(f"unknown engine {which!r}")
+        if not flavor or flavor == getattr(self.engine, "flavor", None):
+            return self.engine
+        if flavor not in self.ENGINE_FLAVORS:
+            raise StudioError(
+                f"unknown engine backend {flavor!r}; one of {', '.join(self.ENGINE_FLAVORS)}"
+            )
+        return SdCppEngine(self.settings, flavor=flavor)
+
+    def engine_backends(self) -> list[dict[str, Any]]:
+        """The sd.cpp builds this platform can run, which are installed, and which is active."""
+        out = []
+        for fl in self.ENGINE_FLAVORS:
+            eng = SdCppEngine(self.settings, flavor=fl)
+            asset = eng.asset()
+            out.append(
+                {
+                    "flavor": fl,
+                    "label": "CPU" if fl == "cpu" else "Vulkan (GPU)",
+                    "supported": asset is not None,
+                    "installed": asset is not None and (eng.install_dir / asset.exe).exists(),
+                    "active": fl == getattr(self.engine, "flavor", "cpu"),
+                    "bytes": asset.size if asset else 0,
+                }
+            )
+        return out
+
+    def set_engine_backend(self, flavor: str) -> None:
+        """Switch the image engine build. Refused while jobs are queued or running."""
+        flavor = (flavor or "cpu").lower()
+        if flavor not in self.ENGINE_FLAVORS:
+            raise StudioError(
+                f"unknown engine backend {flavor!r}; one of {', '.join(self.ENGINE_FLAVORS)}"
+            )
+        if os.environ.get(ENV_SD_FLAVOR):
+            raise StudioError(f"the engine backend is fixed by {ENV_SD_FLAVOR} in the environment")
+        if not isinstance(self.engine, SdCppEngine):
+            raise StudioError("the engine backend cannot be switched in this process")
+        if any(j.status in ("queued", "running") for j in self.jobs.all()):
+            raise StudioError("wait for the queue to finish before switching the engine backend")
+        eng = SdCppEngine(self.settings, flavor=flavor)
+        if eng.asset() is None:
+            raise StudioError(f"no pinned {flavor} build of stable-diffusion.cpp for this platform")
+        if not eng.available():
+            raise StudioError(f"the {flavor} build is not installed yet; install it first")
+        cfg = self.settings.config()
+        cfg["engine_backend"] = flavor
+        self.settings.config_file.parent.mkdir(parents=True, exist_ok=True)
+        self.settings.config_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        self.engine = eng
+        self.worker.engine = eng
+
     def start_engine_download(self, which: str) -> BackgroundTask:
         """Download the pinned sd.cpp or llama.cpp build in the background (UI consent given)."""
-        engine = self.engine if which == "image" else self.describe_engine
+        engine = self._engine_for(which)
         install = getattr(engine, "install", None)
         if install is None:
             raise StudioError(f"engine {which!r} has no installer")
@@ -967,9 +1206,12 @@ class Studio:
         existing = self.tasks.get(key)
         if existing and existing.status == "running":
             return existing
-        task = BackgroundTask(
-            "download", "stable-diffusion.cpp" if which == "image" else "llama.cpp"
+        label = (
+            "llama.cpp"
+            if which == "vision"
+            else f"stable-diffusion.cpp ({getattr(engine, 'flavor', 'cpu')})"
         )
+        task = BackgroundTask("download", label)
         asset = engine.asset()
         task.total_bytes = asset.size if asset else 0
         self.tasks[key] = task
@@ -1343,6 +1585,11 @@ class Studio:
             "auto_caption": bool(cfg.get("auto_caption", False)),
             "auto_caption_ready": self.auto_caption_ready(),
             "pinned_prompts": list(cfg.get("pinned_prompts") or []),
+            "engine_backend": getattr(self.engine, "flavor", "cpu"),
+            "engine_backend_from_env": bool(os.environ.get(ENV_SD_FLAVOR)),
+            "engine_backends": self.engine_backends()
+            if isinstance(self.engine, SdCppEngine)
+            else [],
             "data_dir": str(self.settings.data_dir),
             "config_file": str(self.settings.config_file),
         }
@@ -1356,6 +1603,9 @@ class Studio:
             cfg["live_preview"] = bool(changes["live_preview"])
         if "auto_caption" in changes:
             cfg["auto_caption"] = bool(changes["auto_caption"])
+        if "engine_backend" in changes:
+            self.set_engine_backend(str(changes["engine_backend"]))
+            cfg = self.settings.config()
         if "pinned_prompts" in changes:
             seen: list[str] = []
             for t in changes["pinned_prompts"] or []:
@@ -1538,6 +1788,8 @@ class Studio:
             "name": model.name,
             "display_name": model.display_name,
             "licence": model.licence,
+            "tier": model.tier,
+            "family": model.family,
             "quality_rank": model.quality_rank,
             "description": model.description,
             "homepage": model.homepage,
@@ -1581,10 +1833,15 @@ class Studio:
                 "version": self.engine.version(),
                 "pinned_release": SDCPP_TAG,
                 "binary": str(getattr(self.engine, "binary", lambda: None)() or ""),
+                "backend": getattr(self.engine, "flavor", "cpu"),
             },
             "models": [self.model_report(m) for m in MODELS.values()],
             "tools": self.tools_report(),
             "vision_models": self.vision_report(),
+            "loras": self.loras(),
+            "loras_dir": str(self.settings.loras_dir),
+            "custom_families": self.custom_families(),
+            "custom_model_problems": self.custom_model_problems,
             "vision_engine": {
                 "name": self.describe_engine.name,
                 "available": self.describe_engine.available(),

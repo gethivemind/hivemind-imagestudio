@@ -44,6 +44,7 @@ ALIASES = {
     "vae-tiling": "vae_tiling",
     "from": "init",
     "n": "count",
+    "lora": "lora",
     "count": "count",
     "batch": "count",
     "init": "init",
@@ -159,6 +160,17 @@ def parse(text: str) -> Parsed:
             v = _int(name, raw, 1, 16, errors)
             if v is not None:
                 params["count"] = v
+        elif key == "lora":
+            lname, _, lw = raw.rpartition(":") if ":" in raw else (raw, "", "")
+            try:
+                weight = float(lw) if lw else 1.0
+            except ValueError:
+                errors.append(f"--lora wants NAME or NAME:WEIGHT, got {raw!r}")
+                continue
+            if not -4.0 <= weight <= 4.0:
+                errors.append(f"--lora weight must be between -4 and 4, got {weight:g}")
+                continue
+            params.setdefault("loras", []).append([lname, weight])
         elif key == "cfg_scale":
             try:
                 v = float(raw)
@@ -256,6 +268,8 @@ def reproducible(job: Any) -> str:
     parts.append(f"--cfg {job.cfg_scale:g}")
     if job.sampler != "euler":
         parts.append(f"--sampler {job.sampler}")
+    for n, w in getattr(job, "loras", None) or []:
+        parts.append(f"--lora {n}:{float(w):g}")
     src = getattr(job, "source_job", None) or getattr(job, "input_path", None)
     if src and getattr(job, "tool", "generate") in ("generate", "variations", "edit"):
         parts.append(f"--from {src} --strength {getattr(job, 'strength', 0.6):g}")
