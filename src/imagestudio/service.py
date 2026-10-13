@@ -433,15 +433,26 @@ class Studio:
                 f"`imagestudio download-model {vm.name}`."
             )
         src, source_job = self._resolve_input(image)
-        res = self.describe_engine.describe(
-            DescribeSpec(
-                image=src,
-                model_path=self.models.path_for(vm.model),
-                mmproj_path=self.models.path_for(vm.mmproj),
-                task=task,
-                question=question,
+        from imagestudio.engine.base import EngineError
+
+        try:
+            res = self.describe_engine.describe(
+                DescribeSpec(
+                    image=src,
+                    model_path=self.models.path_for(vm.model),
+                    mmproj_path=self.models.path_for(vm.mmproj),
+                    task=task,
+                    question=question,
+                )
             )
-        )
+        except EngineError as e:
+            msg = str(e)
+            if "Access is denied" in msg or "Permission denied" in msg:
+                msg += (
+                    ". On Windows this is usually endpoint protection (Trend Micro, Defender) "
+                    "blocking a newly downloaded program: allow it or trust the studio's tools folder."
+                )
+            raise StudioError(msg) from e
         if source_job and task in ("describe", "alt"):
             job = self.jobs.get(source_job)
             if (job is not None and job.id in self.jobs.owned) or (
