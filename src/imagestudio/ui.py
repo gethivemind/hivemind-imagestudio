@@ -155,6 +155,38 @@ def build_app(studio: Studio) -> Starlette:
             return JSONResponse({"error": str(e)}, status_code=400)
         return JSONResponse(studio.job_status(job.id))
 
+    async def describe(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(
+                studio.describe(
+                    body.get("image", ""),
+                    body.get("task", "describe"),
+                    _str(body.get("question")),
+                    _str(body.get("model")),
+                )
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def vision_download(request: Request) -> JSONResponse:
+        body = await request.json()
+        if not body.get("consent"):
+            return JSONResponse({"error": "consent required"}, status_code=400)
+        try:
+            return JSONResponse(studio.start_vision_download(body.get("name", "")).to_dict())
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def engine_download(request: Request) -> JSONResponse:
+        body = await request.json()
+        if not body.get("consent"):
+            return JSONResponse({"error": "consent required"}, status_code=400)
+        try:
+            return JSONResponse(studio.start_engine_download(body.get("which", "image")).to_dict())
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     async def upload(request: Request) -> JSONResponse:
         data = await request.body()
         if not data or len(data) > 64 * 1024 * 1024:
@@ -278,6 +310,9 @@ def build_app(studio: Studio) -> Starlette:
             Route("/api/tools/{tool}", run_tool, methods=["POST"]),
             Route("/api/tools/download", tool_download, methods=["POST"]),
             Route("/api/upload", upload, methods=["POST"]),
+            Route("/api/describe", describe, methods=["POST"]),
+            Route("/api/vision/download", vision_download, methods=["POST"]),
+            Route("/api/engines/download", engine_download, methods=["POST"]),
             Route("/api/uploads/{name}", upload_view),
             Route("/api/memory", memory),
             Route("/api/config", set_config, methods=["POST"]),

@@ -40,8 +40,10 @@ from imagestudio.registry import (
     MODELS,
     SDCPP_TAG,
     TOOL_MODELS,
+    VISION_MODELS,
     ModelSpec,
     default_tool_model,
+    default_vision_model,
 )
 
 MAX_SEED = 2**31 - 1
@@ -107,6 +109,7 @@ class Studio:
         hardware: Hardware | None = None,
         start_worker: bool = True,
         background_engine=None,
+        describe_engine=None,
     ) -> None:
         self.settings = settings or Settings.load()
         self.settings.ensure_dirs()
@@ -125,6 +128,11 @@ class Studio:
 
             background_engine = BackgroundEngine()
         self.background_engine = background_engine
+        if describe_engine is None:
+            from imagestudio.engine.describe import DescribeEngine
+
+            describe_engine = DescribeEngine(self.settings)
+        self.describe_engine = describe_engine
         self.jobs = JobStore(self.settings)
         self.worker = Worker(
             self.jobs,
@@ -394,6 +402,135 @@ class Studio:
         p.write_bytes(data)
         return p
 
+    # -- describe: image to text ----------------------------------------------------------
+
+    def describe(
+        self,
+        image: str,
+        task: str = "describe",
+        question: str | None = None,
+        model: str | None = None,
+    ) -> dict[str, Any]:
+        """Synchronous: a few seconds on a CPU with the 3B model. Returns {text, seconds, model}."""
+        from imagestudio.engine.describe import PROMPTS, DescribeSpec
+
+        if task not in PROMPTS and task != "custom":
+            raise StudioError(f"unknown task {task!r}; one of {', '.join(PROMPTS)}, custom")
+        if task == "custom" and not (question or "").strip():
+            raise StudioError("a custom task needs a question")
+        vm = VISION_MODELS.get(model) if model else default_vision_model()
+        if vm is None:
+            raise StudioError(f"unknown vision model {model!r}; one of {', '.join(VISION_MODELS)}")
+        if not self.describe_engine.available():
+            raise StudioError(
+                "the vision engine (llama.cpp) is not installed. Run `imagestudio install-engine "
+                "--vision` (about 20 MB after confirmation)."
+            )
+        if not self.models.vision_installed(vm):
+            raise StudioError(
+                f"{vm.display_name} is not downloaded ({vm.download_bytes / GIB:.1f} GiB). Call "
+                f"download_model(name={vm.name!r}, consent=true) or "
+                f"`imagestudio download-model {vm.name}`."
+            )
+        src, source_job = self._resolve_input(image)
+        res = self.describe_engine.describe(
+            DescribeSpec(
+                image=src,
+                model_path=self.models.path_for(vm.model),
+                mmproj_path=self.models.path_for(vm.mmproj),
+                task=task,
+                question=question,
+            )
+        )
+        if source_job and task in ("describe", "alt"):
+            job = self.jobs.get(source_job)
+            if (job is not None and job.id in self.jobs.owned) or (
+                job is not None and self.worker.active
+            ):
+                job.caption = res.text
+                self.jobs.put(job)
+        return {
+            "text": res.text,
+            "seconds": round(res.seconds, 1),
+            "model": vm.name,
+            "task": task,
+            "source_job": source_job,
+        }
+
+    def vision_report(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": v.name,
+                "display_name": v.display_name,
+                "licence": v.licence,
+                "size_gib": round(v.download_bytes / GIB, 2),
+                "installed": self.models.vision_installed(v),
+                "default": v.default,
+                "note": v.note,
+            }
+            for v in VISION_MODELS.values()
+        ]
+
+    def start_vision_download(self, name: str) -> BackgroundTask:
+        vm = VISION_MODELS.get(name)
+        if vm is None:
+            raise StudioError(f"unknown vision model {name!r}")
+        key = f"download:{name}"
+        existing = self.tasks.get(key)
+        if existing and existing.status == "running":
+            return existing
+        task = BackgroundTask("download", vm.display_name)
+        task.total_bytes = sum(f.size for f in vm.files if not self.models.file_installed(f))
+        self.tasks[key] = task
+
+        def progress(name_: str, done: int, total: int) -> None:
+            task.current_file = name_
+            finished = sum(f.size for f in vm.files if self.models.file_installed(f))
+            task.done_bytes = min(task.total_bytes, finished + done) if task.total_bytes else done
+
+        def run() -> None:
+            try:
+                self.models.install_vision(vm, lambda _d, _b: True, progress)
+                task.done_bytes = task.total_bytes
+                task.status, task.message = "done", "installed"
+            except Exception as e:  # shown to the user
+                task.status, task.error = "failed", str(e)
+            task.finished_at = time.time()
+
+        threading.Thread(target=run, name=key, daemon=True).start()
+        return task
+
+    def start_engine_download(self, which: str) -> BackgroundTask:
+        """Download the pinned sd.cpp or llama.cpp build in the background (UI consent given)."""
+        engine = self.engine if which == "image" else self.describe_engine
+        install = getattr(engine, "install", None)
+        if install is None:
+            raise StudioError(f"engine {which!r} has no installer")
+        key = f"engine:{which}"
+        existing = self.tasks.get(key)
+        if existing and existing.status == "running":
+            return existing
+        task = BackgroundTask(
+            "download", "stable-diffusion.cpp" if which == "image" else "llama.cpp"
+        )
+        asset = engine.asset()
+        task.total_bytes = asset.size if asset else 0
+        self.tasks[key] = task
+
+        def progress(done: int, total: int) -> None:
+            task.done_bytes, task.total_bytes = done, total or task.total_bytes
+
+        def run() -> None:
+            try:
+                install(lambda _d, _b: True, progress=progress)
+                task.status, task.message = "done", "installed"
+            except Exception as e:  # shown to the user
+                task.status, task.error = "failed", str(e)
+            task.finished_at = time.time()
+
+        threading.Thread(target=run, name=key, daemon=True).start()
+        return task
+
     # -- task tools: upscale, remove_background -------------------------------------------
 
     def _tool_model_path(self, name: str | None) -> Path | None:
@@ -545,6 +682,7 @@ class Studio:
             "tool_model": job.tool_model,
             "strength": job.strength,
             "mask_path": job.mask_path,
+            "caption": job.caption,
             "prompt": job.prompt,
             "reproducible_prompt": reproducible(job)
             if job.tool in ("generate", "variations", "edit")
@@ -970,6 +1108,12 @@ class Studio:
             },
             "models": [self.model_report(m) for m in MODELS.values()],
             "tools": self.tools_report(),
+            "vision_models": self.vision_report(),
+            "vision_engine": {
+                "name": self.describe_engine.name,
+                "available": self.describe_engine.available(),
+                "version": self.describe_engine.version(),
+            },
             "background_engine": {
                 "name": self.background_engine.name,
                 "available": self.background_engine.available(),

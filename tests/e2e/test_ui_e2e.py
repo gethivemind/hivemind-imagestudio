@@ -59,12 +59,16 @@ def page(site):
             errors: list[str] = []
             pg.on("pageerror", lambda err: errors.append(str(err)))
             pg.goto(url)
-            pg.wait_for_selector("#presetSeg button")
+            pg.wait_for_selector("#presetSeg button", state="attached")
+            pg.click('#tabs button[data-tab="create"]')
+            pg.wait_for_selector("#prompt", state="visible")
             pg.errors = errors  # type: ignore[attr-defined]
             yield pg
             browser.close()
     except pw.Error as e:  # pragma: no cover
-        pytest.skip(str(e))
+        if "Executable doesn't exist" in str(e) or "browserType.launch" in str(e):
+            pytest.skip(str(e))
+        raise
 
 
 def test_create_flow_renders_queues_and_shows_result(page):
@@ -131,4 +135,19 @@ def test_machine_tab_and_settings(page):
     page.select_option("#variant", "q8")
     time.sleep(0.5)
     assert "refused" not in page.inner_text("#etaText")  # unlocked
+    assert page.errors == []
+
+
+def test_home_cards_reflect_readiness(page):
+    page.click("#tabs button[data-tab='home']")
+    page.wait_for_selector("#cards .tcard")
+    cards = page.locator("#cards .tcard")
+    assert cards.count() >= 6
+    texts = page.inner_text("#cards")
+    assert "Create" in texts and "Upscale" in texts and "Describe" in texts
+    assert "ready on this machine" in texts  # Create: model + fake engine present
+    page.click("#cards .tcard >> nth=0")  # Create card opens the Create tab
+    page.wait_for_selector("#prompt", state="visible")
+    page.click("#tabs button[data-tab='sketch']")
+    page.wait_for_selector("#skC")
     assert page.errors == []

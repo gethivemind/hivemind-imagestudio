@@ -126,7 +126,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 def cmd_install_engine(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
-    engine = studio.engine
+    engine = studio.describe_engine if args.vision else studio.engine
     install = getattr(engine, "install", None)
     if install is None:
         print("This engine has no installer.")
@@ -144,6 +144,19 @@ def cmd_install_engine(args: argparse.Namespace) -> int:
 
 def cmd_download_model(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
+    from imagestudio.registry import TOOL_MODELS, VISION_MODELS
+
+    bar = _Bar()
+    if args.name in TOOL_MODELS:
+        t = TOOL_MODELS[args.name]
+        ok = studio.models.install_tool(t, _consent_prompt(args.yes), progress=bar)
+        print(f"{t.display_name} {'installed.' if ok else 'not downloaded.'}")
+        return 0 if ok else 1
+    if args.name in VISION_MODELS:
+        v = VISION_MODELS[args.name]
+        ok = studio.models.install_vision(v, _consent_prompt(args.yes), progress=bar)
+        print(f"{v.display_name} {'installed.' if ok else 'not downloaded.'}")
+        return 0 if ok else 1
     if args.name not in MODELS:
         print(f"unknown model {args.name!r}; known: {', '.join(MODELS)}")
         return 2
@@ -381,10 +394,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     ie = sub.add_parser("install-engine", help="download the pinned stable-diffusion.cpp build")
     ie.add_argument("--yes", "-y", action="store_true", help="approve the download")
+    ie.add_argument("--vision", action="store_true", help="install llama.cpp for describe instead")
     ie.set_defaults(fn=cmd_install_engine)
 
     dm = sub.add_parser("download-model", help="download a model's weights (asks for consent)")
-    dm.add_argument("name", choices=list(MODELS))
+    dm.add_argument("name", help="a generation model, tool model or vision model name")
     dm.add_argument("--variant", choices=["q8", "q6", "q5", "q4"])
     dm.add_argument("--yes", "-y", action="store_true", help="approve the download")
     dm.set_defaults(fn=cmd_download_model)

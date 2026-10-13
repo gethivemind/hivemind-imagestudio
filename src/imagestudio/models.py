@@ -10,7 +10,16 @@ from dataclasses import dataclass
 
 from imagestudio import download as dl
 from imagestudio.config import Settings
-from imagestudio.registry import MODELS, TOOL_MODELS, FileSpec, ModelSpec, ToolModel, Variant
+from imagestudio.registry import (
+    MODELS,
+    TOOL_MODELS,
+    VISION_MODELS,
+    FileSpec,
+    ModelSpec,
+    ToolModel,
+    Variant,
+    VisionModel,
+)
 
 ConsentFn = Callable[[str, int], bool]  # (description, bytes) -> allowed?
 ProgressFn = Callable[[str, int, int], None]  # (filename, done, total)
@@ -139,6 +148,34 @@ class ModelStore:
         dl.download(tool.file.url, target, tool.file.sha256, tool.file.size, progress=_p)
         self._manifest[tool.file.filename] = tool.file.sha256
         self._save()
+        return True
+
+    def vision_installed(self, vm: VisionModel) -> bool:
+        return all(self.file_installed(f) for f in vm.files)
+
+    def installed_vision(self) -> list[str]:
+        return [v.name for v in VISION_MODELS.values() if self.vision_installed(v)]
+
+    def install_vision(
+        self, vm: VisionModel, consent: ConsentFn, progress: ProgressFn | None = None
+    ) -> bool:
+        missing = [f for f in vm.files if not self.file_installed(f)]
+        if not missing:
+            return True
+        total = sum(f.size for f in missing)
+        if not consent(
+            f"{vm.display_name} ({vm.licence}): " + ", ".join(f.filename for f in missing), total
+        ):
+            return False
+        for f in missing:
+
+            def _p(done: int, tot: int, name: str = f.filename) -> None:
+                if progress:
+                    progress(name, done, tot)
+
+            dl.download(f.url, self.path_for(f), f.sha256, f.size, progress=_p)
+            self._manifest[f.filename] = f.sha256
+            self._save()
         return True
 
     def verify_file(self, spec: FileSpec) -> bool:

@@ -493,6 +493,98 @@ TOOL_MODELS: dict[str, ToolModel] = {
 }
 
 
+# --- vision models for describe (image to text) ----------------------------------------
+
+
+@dataclass(frozen=True)
+class VisionModel:
+    """A llama.cpp vision-language model: text weights plus multimodal projector."""
+
+    name: str
+    display_name: str
+    licence: str
+    model: FileSpec
+    mmproj: FileSpec
+    note: str
+    default: bool = False
+
+    @property
+    def files(self) -> tuple[FileSpec, ...]:
+        return (self.model, self.mmproj)
+
+    @property
+    def download_bytes(self) -> int:
+        return self.model.size + self.mmproj.size
+
+
+VISION_MODELS: dict[str, VisionModel] = {
+    v.name: v
+    for v in (
+        VisionModel(
+            "qwen2.5-vl-3b",
+            "Qwen2.5-VL 3B Instruct",
+            "Apache-2.0",
+            FileSpec(
+                "Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf",
+                HF.format(
+                    repo="ggml-org/Qwen2.5-VL-3B-Instruct-GGUF",
+                    path="Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf",
+                ),
+                "d02fe9b69ad8cadbbd228e387667af66612c44bed29ffc8eb1e7caf9ac486c12",
+                1929901056,
+                "Apache-2.0",
+                "ggml-org/Qwen2.5-VL-3B-Instruct-GGUF",
+            ),
+            FileSpec(
+                "mmproj-Qwen2.5-VL-3B-Instruct-Q8_0.gguf",
+                HF.format(
+                    repo="ggml-org/Qwen2.5-VL-3B-Instruct-GGUF",
+                    path="mmproj-Qwen2.5-VL-3B-Instruct-Q8_0.gguf",
+                ),
+                "980c9b2f78c04e6cff93d277ada09e768394f112d75db3b4e9dea8a69f9fb904",
+                844757728,
+                "Apache-2.0",
+                "ggml-org/Qwen2.5-VL-3B-Instruct-GGUF",
+            ),
+            "Small vision-language model (2.8 GB): good captions and prompts, seconds on a CPU.",
+            default=True,
+        ),
+        VisionModel(
+            "qwen2.5-vl-7b",
+            "Qwen2.5-VL 7B Instruct",
+            "Apache-2.0",
+            FileSpec(
+                "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf",
+                HF.format(
+                    repo="mradermacher/Qwen2.5-VL-7B-Instruct-GGUF",
+                    path="Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf",
+                ),
+                "0f00a930ba3108b6861ddadf74d8ebbd82e257c63eba728e62c3e8970f5eed94",
+                4683072512,
+                "Apache-2.0",
+                "mradermacher/Qwen2.5-VL-7B-Instruct-GGUF",
+            ),
+            FileSpec(
+                "Qwen2.5-VL-7B-Instruct.mmproj-Q8_0.gguf",
+                HF.format(
+                    repo="mradermacher/Qwen2.5-VL-7B-Instruct-GGUF",
+                    path="Qwen2.5-VL-7B-Instruct.mmproj-Q8_0.gguf",
+                ),
+                "2185ca0adf339f96845318c7b666f5d242f86bbace5657a89cb834785d0cea57",
+                853119712,
+                "Apache-2.0",
+                "mradermacher/Qwen2.5-VL-7B-Instruct-GGUF",
+            ),
+            "Larger vision-language model (5.5 GB): richer descriptions, slower, more memory.",
+        ),
+    )
+}
+
+
+def default_vision_model() -> VisionModel:
+    return next(v for v in VISION_MODELS.values() if v.default)
+
+
 def default_tool_model(kind: str) -> ToolModel:
     return next(t for t in TOOL_MODELS.values() if t.kind == kind and t.default)
 
@@ -525,6 +617,8 @@ class EngineAsset:
 
     @property
     def url(self) -> str:
+        if self.asset.startswith("llama-"):
+            return _LLAMA_URL.format(tag=LLAMA_TAG, asset=self.asset)
         return _SDCPP_URL.format(tag=SDCPP_TAG, asset=self.asset)
 
 
@@ -594,6 +688,48 @@ def find_engine_asset(platform: str, machine: str, flavor: str) -> EngineAsset |
     return None
 
 
+LLAMA_TAG = "b11577"
+_LLAMA_URL = "https://github.com/ggml-org/llama.cpp/releases/download/{tag}/{asset}"
+
+LLAMA_ASSETS: tuple[EngineAsset, ...] = (
+    EngineAsset(
+        "win32",
+        "x86_64",
+        "cpu",
+        "llama-b11577-bin-win-cpu-x64.zip",
+        "c48e5762bb466a2faba1b880ca8b328a152e7f48e738431eb918ac9078f82ef1",
+        19509426,
+        "llama-mtmd-cli.exe",
+    ),
+    EngineAsset(
+        "linux",
+        "x86_64",
+        "cpu",
+        "llama-b11577-bin-ubuntu-x64.tar.gz",
+        "619d152d8b7cb9ec5b738cec34b2620404c421c16f1ea51fc7a6d8a2b30771b6",
+        17723303,
+        "llama-mtmd-cli",
+    ),
+    EngineAsset(
+        "darwin",
+        "arm64",
+        "cpu",
+        "llama-b11577-bin-macos-arm64.tar.gz",
+        "fa6526afe087293ac83709fe6529fa087e7070f606e30dd452173c16ccebed8c",
+        12112274,
+        "llama-mtmd-cli",
+    ),
+)
+
+
+def find_llama_asset(platform: str, machine: str) -> EngineAsset | None:
+    arch = normalise_arch(machine)
+    for a in LLAMA_ASSETS:
+        if a.platform == platform and a.arch == arch:
+            return a
+    return None
+
+
 LICENCES: tuple[dict[str, str], ...] = (
     {"component": "Hivemind Image Studio", "licence": "Apache-2.0"},
     {"component": "stable-diffusion.cpp (engine)", "licence": "MIT"},
@@ -608,4 +744,6 @@ LICENCES: tuple[dict[str, str], ...] = (
     {"component": "Real-ESRGAN upscalers (xinntao)", "licence": "BSD-3-Clause"},
     {"component": "IS-Net and U²-Net background models", "licence": "Apache-2.0"},
     {"component": "ONNX Runtime", "licence": "MIT"},
+    {"component": "llama.cpp (vision engine)", "licence": "MIT"},
+    {"component": "Qwen2.5-VL Instruct (GGUF)", "licence": "Apache-2.0"},
 )

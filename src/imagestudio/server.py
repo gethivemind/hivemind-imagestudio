@@ -258,6 +258,27 @@ def build_server(studio: Studio | None = None) -> FastMCP:
         }
 
     @mcp.tool(
+        name="describe",
+        description=(
+            "Image to text, locally, with llama.cpp and Qwen2.5-VL (Apache-2.0). Returns {text, "
+            "seconds, model} synchronously (a few seconds on a CPU with the 3B model). image is a "
+            "job id "
+            "or a local image path. task: 'describe' (2-3 neutral sentences), 'prompt' (a text-to-"
+            "image prompt that would recreate the picture), 'alt' (one sentence of alt text), "
+            "'tags' (comma-separated), or 'custom' with your own question. Needs the vision engine "
+            "and "
+            "a vision model (download_model name='qwen2.5-vl-3b')."
+        ),
+    )
+    def describe(
+        image: str, task: str = "describe", question: str | None = None, model: str | None = None
+    ) -> dict[str, Any]:
+        try:
+            return studio.describe(image, task, question, model)
+        except StudioError as e:
+            return _err(e)
+
+    @mcp.tool(
         name="upscale",
         description=(
             "Queue a 4x upscale of a finished image with Real-ESRGAN (BSD licence) and return a "
@@ -346,8 +367,34 @@ def build_server(studio: Studio | None = None) -> FastMCP:
         return studio.capabilities()
 
     def download_model_impl(name: str, consent: bool, variant: str | None) -> dict[str, Any]:
-        from imagestudio.registry import TOOL_MODELS
+        from imagestudio.registry import TOOL_MODELS, VISION_MODELS
 
+        vm = VISION_MODELS.get(name)
+        if vm is not None:
+            missing = [f for f in vm.files if not studio.models.file_installed(f)]
+            info = {
+                "model": vm.name,
+                "kind": "vision",
+                "licence": vm.licence,
+                "files": [
+                    {"filename": f.filename, "size_gib": round(f.size / GIB, 2), "source": f.source}
+                    for f in missing
+                ],
+                "total_gib": round(sum(f.size for f in missing) / GIB, 2),
+                "already_installed": not missing,
+            }
+            if not missing:
+                return info | {"downloaded": False, "message": "already installed"}
+            if not consent:
+                return info | {
+                    "downloaded": False,
+                    "message": "Call again with consent=true after the human approves.",
+                }
+            try:
+                ok = studio.models.install_vision(vm, lambda _d, _b: True)
+            except Exception as e:  # surfaced to the caller
+                return info | {"downloaded": False, "error": str(e)}
+            return info | {"downloaded": ok}
         tm = TOOL_MODELS.get(name)
         if tm is None:
             return _err(StudioError(f"unknown model {name!r}"))

@@ -75,6 +75,7 @@ class Job:
     source_job: str | None = None  # the job the source image came from, if any
     tool_model: str | None = None  # upscale / remove_background: which tool model
     mask_path: str | None = None  # edit: inpainting mask
+    caption: str | None = None  # describe: last caption written for this image
     strength: float = 0.6  # variations / edit: distance from the source image
     mask_path: str | None = None  # edit: inpainting mask
     strength: float = 0.6  # variations / edit: distance from the source image

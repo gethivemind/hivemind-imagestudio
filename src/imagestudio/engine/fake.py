@@ -88,6 +88,29 @@ class FakeEngine:
         )
 
 
+class FakeDescribeEngine:
+    name = "fake-vision"
+
+    def __init__(self) -> None:
+        self.calls: list = []
+
+    def available(self) -> bool:
+        return True
+
+    def version(self) -> str | None:
+        return "fake-vision-0"
+
+    def describe(self, spec):
+        from imagestudio.engine.describe import DescribeResult
+
+        self.calls.append(spec)
+        return DescribeResult(
+            text=f"[{spec.task}] a fake description of {spec.image.name}",
+            seconds=0.01,
+            model="fake",
+        )
+
+
 class FakeBackgroundEngine:
     name = "fake-bg"
 

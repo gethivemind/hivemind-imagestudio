@@ -24,6 +24,7 @@ EXPECTED_TOOLS = {
     "remove_background",
     "variations",
     "edit",
+    "describe",
 }
 
 

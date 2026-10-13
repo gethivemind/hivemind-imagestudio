@@ -160,3 +160,82 @@ def test_upload_roundtrip(tools_studio: Studio):
     assert p.exists() and p.suffix == ".png"
     with pytest.raises(StudioError, match="not an image"):
         tools_studio.save_upload(b"hello")
+
+
+def fake_vision(settings: Settings, name: str = "qwen2.5-vl-3b") -> None:
+    from imagestudio.registry import VISION_MODELS
+
+    v = VISION_MODELS[name]
+    m = settings.manifest_file
+    d = json.loads(m.read_text()) if m.exists() else {}
+    for fl in v.files:
+        (settings.models_dir / fl.filename).write_bytes(b"stub")
+        d[fl.filename] = fl.sha256
+    m.write_text(json.dumps(d))
+
+
+def test_describe_returns_text_and_captions_the_source_job(settings: Settings):
+    from imagestudio.engine.fake import FakeDescribeEngine
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    fake_vision(settings)
+    studio = Studio(
+        settings=settings,
+        engine=FakeEngine(),
+        hardware=laptop(),
+        describe_engine=FakeDescribeEngine(),
+    )
+    try:
+        src = studio.generate("a cat", preset="fast")
+        wait(studio, src.id)
+        r = studio.describe(src.id)
+        assert (
+            r["task"] == "describe"
+            and "fake description" in r["text"]
+            and r["model"] == "qwen2.5-vl-3b"
+        )
+        assert studio.job_status(src.id)["caption"] == r["text"]
+        r2 = studio.describe(src.id, "prompt")
+        assert "[prompt]" in r2["text"]
+        spec = studio.describe_engine.calls[-1]
+        assert spec.mmproj_path.name.startswith("mmproj-")
+        with pytest.raises(StudioError, match="unknown task"):
+            studio.describe(src.id, "poem")
+        with pytest.raises(StudioError, match="needs a question"):
+            studio.describe(src.id, "custom")
+        caps = studio.capabilities()
+        assert (
+            caps["vision_models"][0]["installed"] is True
+            and caps["vision_engine"]["available"] is True
+        )
+    finally:
+        studio.close()
+
+
+def test_describe_explains_missing_model(settings: Settings):
+    from imagestudio.engine.fake import FakeDescribeEngine
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(
+        settings=settings,
+        engine=FakeEngine(),
+        hardware=laptop(),
+        describe_engine=FakeDescribeEngine(),
+    )
+    try:
+        src = studio.generate("a cat", preset="fast")
+        wait(studio, src.id)
+        with pytest.raises(StudioError, match="not downloaded"):
+            studio.describe(src.id)
+    finally:
+        studio.close()
+
+
+def test_llama_assets_are_pinned():
+    from imagestudio.registry import LLAMA_ASSETS, find_llama_asset
+
+    assert find_llama_asset("win32", "AMD64").exe == "llama-mtmd-cli.exe"
+    assert find_llama_asset("darwin", "arm64").url.startswith(
+        "https://github.com/ggml-org/llama.cpp/"
+    )
+    assert all(len(a.sha256) == 64 for a in LLAMA_ASSETS)
