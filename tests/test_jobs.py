@@ -64,7 +64,12 @@ def test_jobs_run_in_order_and_queue_position_is_reported(settings: Settings):
     try:
         a = studio.generate("first")
         b = studio.generate("second")
-        st_b = studio.job_status(b.id)
+        # position 1 once the worker has picked up "first"; before that both are queued (2)
+        for _ in range(100):
+            st_b = studio.job_status(b.id)
+            if st_b["queue_position"] == 1 or st_b["status"] != "queued":
+                break
+            time.sleep(0.02)
         assert st_b["status"] == "queued" and st_b["queue_position"] == 1
         wait_done(studio, a.id)
         wait_done(studio, b.id)
