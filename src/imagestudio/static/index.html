@@ -544,6 +544,7 @@
     markChanged(); schedulePlan();
   }
   $("widthN").addEventListener("input", () => applySize("w")); $("heightN").addEventListener("input", () => applySize("h"));
+  for (const id of ["widthN", "heightN"]) $(id).addEventListener("change", () => { const el = $(id); if (el.value !== "") { const v = snap16(+el.value); if (v !== +el.value) { el.value = v; toast(`Snapped to ${v}: sizes must be multiples of 16.`); } applySize(); } });
   $("threadsN").addEventListener("input", markChanged);
   for (const id of ["model", "sampler", "variant"]) $(id).addEventListener("input", () => { if (id === "model") renderPresets(); schedulePlan(); });
   $("ar").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; SZ.ratio = b.dataset.ar;
