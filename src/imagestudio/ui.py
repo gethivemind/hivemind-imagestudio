@@ -261,6 +261,28 @@ def build_app(studio: Studio) -> Starlette:
             return JSONResponse({"error": str(e)}, status_code=400)
         return JSONResponse(studio.job_status(job.id))
 
+    async def import_path(request: Request) -> JSONResponse:
+        """Import an image from a path on this machine (the windowed app's file dialog)."""
+        body = await request.json()
+        p = Path(str(body.get("path", "")))
+        if not p.is_file():
+            return JSONResponse({"error": f"not a file: {p}"}, status_code=400)
+        try:
+            job = studio.import_image(p.read_bytes(), p.stem)
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse(studio.job_status(job.id))
+
+    async def lora_import_path(request: Request) -> JSONResponse:
+        body = await request.json()
+        p = Path(str(body.get("path", "")))
+        if not p.is_file():
+            return JSONResponse({"error": f"not a file: {p}"}, status_code=400)
+        try:
+            return JSONResponse(studio.import_lora(p.read_bytes(), p.name))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     async def lineage(request: Request) -> JSONResponse:
         try:
             return JSONResponse(studio.lineage(request.path_params["job_id"]))
@@ -451,6 +473,8 @@ def build_app(studio: Studio) -> Starlette:
             Route("/api/trash", trash),
             Route("/api/trash/empty", empty_trash, methods=["POST"]),
             Route("/api/import", import_image, methods=["POST"]),
+            Route("/api/import-path", import_path, methods=["POST"]),
+            Route("/api/loras/import-path", lora_import_path, methods=["POST"]),
             Route("/api/describe", describe, methods=["POST"]),
             Route("/api/vision/download", vision_download, methods=["POST"]),
             Route("/api/engines/download", engine_download, methods=["POST"]),

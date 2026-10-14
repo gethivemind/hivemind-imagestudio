@@ -2,8 +2,10 @@ Image Studio by Hivemind - Windows app
 ======================================
 
 1. Unzip this folder anywhere (for example C:\Apps\ImageStudio).
-2. Run ImageStudio.exe. A small window shows the address and the log; the studio opens in
-   your browser at http://127.0.0.1:8766/. Close the window to stop it.
+2. Run ImageStudio.exe. The studio opens in a window of its own. Closing it during a render
+   offers to keep rendering in the background (tray icon; click it to come back). Starting it
+   again focuses the running window. ImageStudio.exe --browser uses your browser instead.
+   Logs: %LOCALAPPDATA%\hivemind-imagestudio\logs\app.log
 3. First time: Home shows a getting-started checklist. Install the engine and download a
    model from there (or from Settings). Downloads are hash-verified and need your consent.
 

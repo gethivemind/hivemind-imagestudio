@@ -1,6 +1,6 @@
 [project]
 name = "hivemind-imagestudio"
-version = "0.3.1"
+version = "0.3.2"
 description = "Free, local, permissively licensed image MCP server. Quality is a setting, never a consequence."
 readme = "README.md"
 license = "Apache-2.0"
@@ -38,6 +38,7 @@ Trademark = "https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADE
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
 e2e = ["playwright>=1.45"]
 bg = []  # kept for compatibility: background removal is part of the default install since 0.3.1
+app = ["pywebview>=5", "pystray>=0.19"]  # the windowed desktop app (packaging/launcher.py)
 
 [project.scripts]
 imagestudio = "imagestudio.cli:main"

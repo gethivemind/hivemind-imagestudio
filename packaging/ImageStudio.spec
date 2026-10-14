@@ -19,11 +19,15 @@ hidden = (
     + collect_submodules("starlette")
     + collect_submodules("mcp", filter=lambda n: not n.startswith("mcp.cli"))
     + collect_submodules("imagestudio")
-    + ["truststore", "PIL.PngImagePlugin", "PIL.JpegImagePlugin", "PIL.WebPImagePlugin"]
+    + collect_submodules("webview")
+    + collect_submodules("pystray")
+    + ["truststore", "clr", "PIL.PngImagePlugin", "PIL.JpegImagePlugin", "PIL.WebPImagePlugin", "PIL.IcoImagePlugin"]
 )
 datas = [(str(SRC / "imagestudio" / "static"), "imagestudio/static")]
 datas += collect_data_files("truststore")
 datas += collect_data_files("mcp")
+datas += collect_data_files("webview")
+datas += [(str(ROOT / "packaging" / "ImageStudio.ico"), ".")]
 try:
     import onnxruntime  # noqa: F401
 
@@ -54,7 +58,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=True,  # a small console shows the address and the log; the UI is in the browser
+    console=False,  # a real window; logs go to <data>/logs/app.log
     icon=str(ROOT / "packaging" / "ImageStudio.ico"),
 )
 coll = COLLECT(

@@ -169,3 +169,20 @@ def test_batch_metadata_and_pinned_prompts(studio: Studio):
     ).json()
     assert cfg["pinned_prompts"] == ["a teapot", "a fox"]
     assert client.get("/api/config").json()["pinned_prompts"] == ["a teapot", "a fox"]
+
+
+def test_import_from_local_paths(studio: Studio, tmp_path):
+    from imagestudio.engine.fake import tiny_png
+
+    client = TestClient(build_app(studio))
+    img = tmp_path / "photo.png"
+    img.write_bytes(tiny_png())
+    r = client.post("/api/import-path", json={"path": str(img)}).json()
+    assert r["tool"] == "import" and r["prompt"] == "photo"
+    bad = client.post("/api/import-path", json={"path": str(tmp_path / "missing.png")})
+    assert bad.status_code == 400
+    lora = tmp_path / "ink.safetensors"
+    lora.write_bytes(b"\x00" * 16)
+    r = client.post("/api/loras/import-path", json={"path": str(lora)}).json()
+    assert r["name"] == "ink"
+    assert client.get("/api/loras").json()["loras"][0]["filename"] == "ink.safetensors"

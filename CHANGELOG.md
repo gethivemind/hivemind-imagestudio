@@ -4,6 +4,17 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
+## 0.3.2 — 2026-10-14
+
+### Changed
+- The Windows app is a real window now (WebView2), not a browser tab: title bar and taskbar
+  icon of its own, no console. Closing it during a render offers to keep rendering in the
+  background with a tray icon (progress in its tooltip; click to come back). A second launch
+  focuses the running window. Window size and position are remembered. Native file dialogs
+  for importing images, LoRA files and your own model weights. Logs go to
+  `<data>/logs/app.log` (Settings → About shows it). `--browser` keeps the old behaviour;
+  machines without WebView2 are offered the download or the browser.
+
 ## 0.3.1 — 2026-10-14
 
 ### Added

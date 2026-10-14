@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           uv venv --clear --python 3.12
-          uv pip install -e . pyinstaller
+          uv pip install -e ".[app]" pyinstaller
           uv run pyinstaller packaging/ImageStudio.spec --noconfirm --log-level WARN
           ver="${GITHUB_REF_NAME#v}"
           cp LICENSE NOTICE TRADEMARK.md CHANGELOG.md packaging/README-WINDOWS.txt dist/ImageStudio/
