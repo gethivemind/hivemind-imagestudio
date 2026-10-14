@@ -155,6 +155,22 @@ def claim_instance(on_focus) -> socket.socket | None:
 # ---------------------------------------------------------------- the window
 
 
+class JsApi:
+    """What the page may call as window.pywebview.api.*; only these methods are exposed."""
+
+    def __init__(self, app: App) -> None:
+        self._app = app  # underscore: not exposed, not walked
+
+    def pick_files(self, kind: str = "image", multiple: bool = False):
+        return self._app.pick_files(kind, multiple)
+
+    def app_info(self):
+        return self._app.app_info()
+
+    def open_in_browser(self):
+        return self._app.open_in_browser()
+
+
 class App:
     def __init__(self, server: Server, data_dir: Path, log_path: Path) -> None:
         self.server = server
@@ -298,7 +314,7 @@ class App:
             x=st.get("x"),
             y=st.get("y"),
             min_size=(960, 640),
-            js_api=self,
+            js_api=JsApi(self),
             text_select=True,
         )
         self.window.events.closing += self.on_closing
