@@ -89,7 +89,8 @@ and 11). Closing it during a render offers to keep rendering in the background w
 icon; a second launch focuses the running window. The build is not code-signed yet, so
 SmartScreen asks once per download ("More info" → "Run anyway"); the `.sha256` file next to
 the download lets you verify it. `ImageStudio.exe --browser` uses your browser instead, and
-`ImageStudio.exe cli doctor` reaches the command line. Logs: `%LOCALAPPDATA%\hivemind-imagestudio\logs\app.log`.
+`ImageStudio.exe cli doctor` reaches the command line. A Microsoft Store listing (signed by
+Microsoft, no SmartScreen warning, automatic updates) is in preparation; see `packaging/STORE.md`. Logs: `%LOCALAPPDATA%\hivemind-imagestudio\logs\app.log`.
 
 **Everywhere else** (and for the MCP server and CLI), requires Python 3.11+.
 

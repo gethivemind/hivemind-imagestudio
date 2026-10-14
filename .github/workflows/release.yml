@@ -57,6 +57,24 @@ jobs:
           cd dist && 7z a -tzip "ImageStudio-$ver-windows-x64.zip" ImageStudio >/dev/null
           sha256sum "ImageStudio-$ver-windows-x64.zip" > "ImageStudio-$ver-windows-x64.zip.sha256"
           cat "ImageStudio-$ver-windows-x64.zip.sha256"
+      - name: MSIX for the Microsoft Store
+        # unsigned; the Store signs it. Identity comes from repository variables set up once
+        # (see packaging/STORE.md). Without them a sideload package with a dev certificate is
+        # built instead, so the packaging path is exercised on every release either way.
+        shell: bash
+        env:
+          MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME }}
+          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+          MSIX_PUBLISHER_DISPLAY: ${{ vars.MSIX_PUBLISHER_DISPLAY }}
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          if [ -n "$MSIX_IDENTITY_NAME" ]; then
+            uv run python packaging/build_msix.py --version "$ver" --store
+          else
+            echo "::notice::MSIX identity variables not set; building a sideload (dev-signed) package"
+            uv run python packaging/build_msix.py --version "$ver" --sideload
+          fi
+          cd dist && sha256sum *.msix > msix.sha256 && cat msix.sha256
       - name: Smoke test
         shell: bash
         run: |
@@ -68,6 +86,8 @@ jobs:
           path: |
             dist/*.zip
             dist/*.sha256
+            dist/*.msix
+            dist/*.cer
 
   publish:
     name: publish to PyPI
