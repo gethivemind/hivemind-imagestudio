@@ -137,6 +137,7 @@
   .hero { padding: 34px 24px 10px; max-width: 1100px; margin: 0 auto; width: 100%; }
   .hero h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -.2px; }
   .hero p { margin: 0; color: var(--muted); max-width: 720px; font-size: 14px; }
+  .credit { margin: 18px auto 10px; padding: 0 24px; max-width: 1100px; width: 100%; font-size: 12px; color: var(--muted); } .credit a { color: var(--muted); text-decoration: underline; } .credit a:hover { color: var(--accent); }
   .cards { padding: 14px 24px 40px; max-width: 1100px; margin: 0 auto; width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
   .tcard { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; cursor: pointer; transition: transform .15s, box-shadow .15s; display: flex; flex-direction: column; gap: 8px; min-height: 150px; }
   .tcard:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
@@ -297,6 +298,7 @@
   <div class="hero"><h1>What do you want to make?</h1><p>Everything runs on this machine with permissively licensed models. Quality is a setting, never a consequence: the default is the best this machine can do, and the studio tells you how long it will take before you commit.</p></div>
   <div class="guide" id="guide"></div>
   <div class="cards" id="cards"></div>
+  <div class="credit">Image Studio by Hivemind · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener">Ratul Roy (royal-programmer)</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio" target="_blank" rel="noopener">source</a> · Apache-2.0</div>
 </section>
 <section class="view" id="sketch">
   <div class="skstage" id="skstage">
@@ -884,7 +886,7 @@
     renderLoraPanel(); renderCustomPanel();
     const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgCaption").checked = !!cfg.auto_caption; $("cfgNotify").checked = notifyOn(); $("cfgCaptionNote").textContent = cfg.auto_caption_ready ? "" : "Needs llama.cpp and a vision model (Models and engines above)."; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
     if (c.profile) renderProfile(c.profile);
-    $("aboutPanel").innerHTML = `Hivemind Image Studio ${esc(c.studio_version)} · Apache-2.0<br>${esc(c.policy.quality)}<br><br>` + (c.licences || []).map(l => `${esc(l.component)}: ${esc(l.licence)}`).join("<br>") + `<br><br>Excluded by policy: ${(c.excluded_by_policy || []).map(e => esc(e.model)).join(", ")}.`;
+    $("aboutPanel").innerHTML = `<b>Image Studio by Hivemind</b> ${esc(c.studio_version)} · Apache-2.0 · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener" style="color:var(--accent)">Ratul Roy (royal-programmer)</a><br>${esc(c.policy.quality)}<br><span class="muted">"Hivemind" and "Image Studio by Hivemind" are trademarks; the code is free under Apache-2.0, the name is not. See <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADEMARK.md" target="_blank" rel="noopener" style="color:var(--accent)">TRADEMARK.md</a>.</span><br><br>` + (c.licences || []).map(l => `${esc(l.component)}: ${esc(l.licence)}`).join("<br>") + `<br><br>Excluded by policy: ${(c.excluded_by_policy || []).map(e => esc(e.model)).join(", ")}.`;
     renderTasks(); loadMemory();
   }
   async function renderCustomPanel() {

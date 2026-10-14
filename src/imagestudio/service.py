@@ -1,5 +1,7 @@
 """The studio: wires hardware, models, calibration, planner, engine and the job queue.
 Both the MCP server and the CLI talk to this one object."""
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

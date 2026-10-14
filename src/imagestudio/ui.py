@@ -1,5 +1,7 @@
 """The studio's own local web UI: one HTML page plus a small JSON API over the same Studio
 the MCP tools use. Settings panel with a live load meter, the queue, and a gallery."""
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -4,6 +4,8 @@ The binary is found in this order: ``IMAGESTUDIO_SD_BIN``, the studio's own
 ``tools/sdcpp/<tag>/`` folder, then ``sd-cli`` on PATH. ``install()`` downloads the pinned
 release for this OS and architecture (hash-verified) after consent.
 """
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
 """Paths and settings. Everything the studio writes lives under one data directory."""
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

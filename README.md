@@ -319,9 +319,14 @@ user may always pick a slower setting. Every later job refines the same calibrat
 | Qwen-Image weights (GGUF by city96), Qwen-Image VAE | Apache-2.0 |
 | Qwen2.5-VL-7B-Instruct text encoder (GGUF) | Apache-2.0 |
 
-The code is Apache-2.0: use it, fork it, ship it. The names "Hivemind" and "Hivemind
-Image Studio" and the logos are trademarks and are not licensed (Apache §6); a fork keeps
-the code and takes its own name. Details in NOTICE.
+The code is Apache-2.0: use it, fork it, ship it. The names "Hivemind", "Hivemind Image
+Studio" and the logos are trademarks and are not licensed with the code; forks need their own
+name and may say "based on Hivemind Image Studio". The full policy is in [TRADEMARK.md](TRADEMARK.md).
+Official builds are the GitHub Releases of this repository and the `hivemind-imagestudio`
+package on PyPI.
+
+Image Studio by Hivemind · made with ♥ by [Ratul Roy (royal-programmer)](https://github.com/royal-programmer).
+Cite it with the `CITATION.cff` in the repository.
 
 ## Development
 

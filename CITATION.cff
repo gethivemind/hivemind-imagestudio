@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use Hivemind Image Studio, please cite it as below."
+title: "Hivemind Image Studio"
+type: software
+authors:
+  - family-names: Roy
+    given-names: Ratul
+    alias: royal-programmer
+repository-code: "https://github.com/gethivemind/hivemind-imagestudio"
+license: Apache-2.0
+version: 0.2.0
+date-released: 2026-10-14
+abstract: >-
+  A free, local image studio and MCP server: text-to-image, editing, sketch-to-image,
+  upscaling, background removal and image-to-text with permissively licensed models on the
+  user's own machine. Quality is a setting, never a consequence.

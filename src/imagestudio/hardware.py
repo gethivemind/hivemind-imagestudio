@@ -1,4 +1,6 @@
 """Hardware detection: CPU, RAM, GPU. Best effort, never raises, no network."""
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -5,6 +5,8 @@ The studio downloads the pinned llama.cpp release for this OS (hash-verified) an
 and a prompt. Everything stays on the machine. Used for captions, "write a prompt that would
 make this", and alt text.
 """
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

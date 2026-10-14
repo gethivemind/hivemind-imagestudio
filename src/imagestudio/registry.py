@@ -4,6 +4,8 @@ Every file here is pinned by SHA-256 (the Hugging Face LFS object id) and size, 
 model carries its licence. Only permissive licences are listed: FLUX.1-dev, RMBG-2.0 and
 other non-commercial weights are excluded by policy (ADR-051).
 """
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

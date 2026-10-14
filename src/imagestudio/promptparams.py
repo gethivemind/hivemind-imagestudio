@@ -8,6 +8,8 @@ Grammar: ``--name value`` tokens anywhere in the text; ``--name`` alone for bool
 are case-insensitive. Unknown names are left in the prompt untouched and reported so the UI
 can point at them.
 """
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

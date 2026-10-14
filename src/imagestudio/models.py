@@ -1,6 +1,8 @@
 """Which model files are installed and verified. A small JSON manifest avoids re-hashing
 tens of gigabytes on every start: a file counts as installed when it exists with the pinned
 size and the manifest records its hash as verified."""
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

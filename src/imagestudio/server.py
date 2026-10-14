@@ -1,5 +1,7 @@
 """The MCP server. Tool descriptions are written for an AI caller: what it does, when to use
 it, what comes back."""
+# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

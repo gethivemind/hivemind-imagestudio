@@ -6,7 +6,8 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
-authors = [{ name = "Hivemind" }]
+authors = [{ name = "Ratul Roy (royal-programmer)" }, { name = "Hivemind" }]
+maintainers = [{ name = "Ratul Roy (royal-programmer)" }]
 keywords = ["mcp", "image-generation", "stable-diffusion.cpp", "flux", "local"]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -27,6 +28,8 @@ Homepage = "https://github.com/gethivemind/hivemind-imagestudio"
 Source = "https://github.com/gethivemind/hivemind-imagestudio"
 Issues = "https://github.com/gethivemind/hivemind-imagestudio/issues"
 Changelog = "https://github.com/gethivemind/hivemind-imagestudio/releases"
+Author = "https://github.com/royal-programmer"
+Trademark = "https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADEMARK.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
