@@ -1,5 +1,7 @@
 # Hivemind Image Studio
 
+**Website:** https://gethivemind.github.io/hivemind-imagestudio/ · **PyPI:** https://pypi.org/project/hivemind-imagestudio/ · **Releases:** https://github.com/gethivemind/hivemind-imagestudio/releases
+
 A free, local, permissively licensed image MCP server. Text to image today; edits,
 background removal and upscaling next. It runs on whatever machine you have, on the CPU
 if that is all there is, and plugs into any MCP client (Hivemind, Claude Code, Cursor, ...).
