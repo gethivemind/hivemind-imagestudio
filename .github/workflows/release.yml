@@ -58,11 +58,16 @@ jobs:
           sha256sum "ImageStudio-$ver-windows-x64.zip" > "ImageStudio-$ver-windows-x64.zip.sha256"
           cat "ImageStudio-$ver-windows-x64.zip.sha256"
       - name: Setup installer (Inno Setup)
-        shell: bash
+        # pwsh: Git Bash rewrites /D options into paths
+        shell: pwsh
         run: |
-          ver="${GITHUB_REF_NAME#v}"
-          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/DMyAppVersion=$ver" "/DSourceDir=..\dist\ImageStudio" "/DOutDir=..\dist" packaging/ImageStudio.iss | tail -3
-          cd dist && sha256sum "ImageStudio-$ver-Setup.exe" > "ImageStudio-$ver-Setup.exe.sha256" && cat "ImageStudio-$ver-Setup.exe.sha256"
+          $ver = $env:GITHUB_REF_NAME.TrimStart("v")
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$ver" "/DSourceDir=..\dist\ImageStudio" "/DOutDir=..\dist" "packaging\ImageStudio.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = "dist\ImageStudio-$ver-Setup.exe"
+          $h = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          "$h *ImageStudio-$ver-Setup.exe" | Set-Content -Encoding ascii "$exe.sha256"
+          Get-Content "$exe.sha256"
       - name: MSIX for the Microsoft Store
         # unsigned; the Store signs it. Identity comes from repository variables set up once
         # (see packaging/STORE.md). Without them a sideload package with a dev certificate is
