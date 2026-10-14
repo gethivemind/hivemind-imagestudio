@@ -93,8 +93,15 @@ uv tool install "hivemind-imagestudio[bg]"
 ```
 
 The `bg` extra adds ONNX Runtime for background removal; without it everything else works.
-Releases on PyPI and the entries in the signed Hivemind catalog feed are the official
-builds (see NOTICE). Inside Hivemind, Settings → Tools installs and connects it for you.
+The GitHub Releases of this repository and the `hivemind-imagestudio` package on PyPI are
+the official builds (see NOTICE and TRADEMARK.md). Inside Hivemind, Settings → Tools
+installs and connects it for you.
+
+Open the studio in your browser (everything still runs on your machine):
+
+```bash
+imagestudio ui
+```
 
 or from a checkout:
 

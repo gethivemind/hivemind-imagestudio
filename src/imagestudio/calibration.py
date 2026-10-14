@@ -12,6 +12,9 @@ labelled ``uncalibrated``.
 from __future__ import annotations
 
 import json
+import os
+import threading
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -76,15 +79,28 @@ class Calibration:
             except (OSError, ValueError, TypeError):
                 self._data = {}
 
+    _save_lock = threading.Lock()
+
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        # atomic: another process (UI, MCP server) may be reading at the same moment
-        tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(
-            json.dumps({k: asdict(v) for k, v in self._data.items()}, indent=2),
-            encoding="utf-8",
-        )
-        tmp.replace(self.path)
+        # atomic: another process (UI, MCP server) may be reading at the same moment; the lock
+        # and the per-call temp name keep two threads of this process from tripping over each
+        # other, and the retry covers Windows refusing to replace a file a reader still holds
+        with self._save_lock:
+            tmp = self.path.with_name(f"{self.path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+            tmp.write_text(
+                json.dumps({k: asdict(v) for k, v in self._data.items()}, indent=2),
+                encoding="utf-8",
+            )
+            for attempt in range(20):
+                try:
+                    tmp.replace(self.path)
+                    return
+                except PermissionError:
+                    if attempt == 19:
+                        tmp.unlink(missing_ok=True)
+                        raise
+                    time.sleep(0.05)
 
     def _seed(self, model: ModelSpec, weight_bytes: int) -> Coefficients:
         if self.hardware.usable_gpu is not None:
