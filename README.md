@@ -221,6 +221,19 @@ machine it runs over budget (memory-mapped, slow) and needs the explicit unlock.
 unlock set, the planner prefers a downloaded higher-fidelity set over a smaller one it would
 have to fetch, and says so.
 
+### Phone and remote
+
+Settings → Phone and remote turns on access from your own network. The studio then also
+listens on your LAN; every request that does not come from the machine itself needs a paired
+device. Pairing: the desktop shows a QR code with a one-time code (valid five minutes, one
+device per code), the phone scans it, the studio opens on the phone already paired and gives it
+a long-lived key stored only as a hash in `<data>/devices.json`. Paired devices can be renamed
+and revoked from the same page. The phone gets the full studio at desktop quality: queue,
+gallery, Create, tools, and a Camera button that imports a photo straight into the gallery.
+Nothing leaves your network; away from home use your own VPN (Tailscale works). Add the page
+to the phone's home screen for an app icon. Windows may ask once to allow the studio on the
+network when you turn this on.
+
 ### LoRA
 
 Drop adapter files (`.safetensors`, `.gguf`) into `<models>/loras`, or import them on

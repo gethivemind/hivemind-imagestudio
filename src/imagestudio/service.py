@@ -1613,6 +1613,7 @@ class Studio:
             "auto_caption": bool(cfg.get("auto_caption", False)),
             "auto_caption_ready": self.auto_caption_ready(),
             "pinned_prompts": list(cfg.get("pinned_prompts") or []),
+            "remote_enabled": self.settings.remote_enabled,
             "engine_backend": getattr(self.engine, "flavor", "cpu"),
             "engine_backend_from_env": bool(os.environ.get(ENV_SD_FLAVOR)),
             "engine_backends": self.engine_backends()
@@ -1631,6 +1632,8 @@ class Studio:
             cfg["live_preview"] = bool(changes["live_preview"])
         if "auto_caption" in changes:
             cfg["auto_caption"] = bool(changes["auto_caption"])
+        if "remote_enabled" in changes:
+            cfg["remote_enabled"] = bool(changes["remote_enabled"])
         if "engine_backend" in changes:
             self.set_engine_backend(str(changes["engine_backend"]))
             cfg = self.settings.config()

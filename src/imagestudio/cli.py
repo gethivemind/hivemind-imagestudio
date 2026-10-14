@@ -491,7 +491,7 @@ def build_parser() -> argparse.ArgumentParser:
     j.set_defaults(fn=cmd_jobs)
 
     u = sub.add_parser("ui", help="run the local web UI")
-    u.add_argument("--host", default="127.0.0.1")
+    u.add_argument("--host", default=None)
     u.add_argument("--port", type=int, default=8766)
     u.add_argument(
         "--no-worker",

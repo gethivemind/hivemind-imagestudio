@@ -73,23 +73,42 @@ class Server:
         self.thread: threading.Thread | None = None
 
     def start(self) -> None:
-        import uvicorn
-
         from imagestudio.service import Studio
         from imagestudio.ui import build_app
 
         self.studio = Studio(start_worker=True)
-        config = uvicorn.Config(
-            build_app(self.studio), host=HOST, port=PORT, log_level="warning", lifespan="off"
-        )
+        self.app = build_app(self.studio, on_remote_change=self.rebind)
+        self._listen()
+
+    def _listen(self) -> None:
+        import uvicorn
+
+        host = "0.0.0.0" if self.studio.settings.remote_enabled else HOST
+        config = uvicorn.Config(self.app, host=host, port=PORT, log_level="warning", lifespan="off")
         self.server = uvicorn.Server(config)
         self.thread = threading.Thread(target=self.server.run, name="ui-server", daemon=True)
         self.thread.start()
         for _ in range(150):
             if port_open(PORT):
+                logging.getLogger("app").info("listening on %s:%s", host, PORT)
                 return
             time.sleep(0.1)
         raise RuntimeError("the studio server did not start")
+
+    def rebind(self, enabled: bool) -> bool:
+        """Remote access toggled: restart the listener on the right interface. Runs on its
+        own thread because the call arrives from a request on the server's own loop."""
+
+        def later() -> None:
+            time.sleep(0.5)  # let the response go out first
+            if self.server is not None:
+                self.server.should_exit = True
+                if self.thread is not None:
+                    self.thread.join(10)
+            self._listen()
+
+        threading.Thread(target=later, name="rebind", daemon=True).start()
+        return True
 
     def rendering(self) -> bool:
         if self.studio is None:

@@ -31,9 +31,166 @@ def _str(v: str | None) -> str | None:
     return v if v not in (None, "", "auto") else None
 
 
-def build_app(studio: Studio) -> Starlette:
+def build_app(studio: Studio, on_remote_change=None) -> Starlette:
+    """The local web app. ``on_remote_change(enabled)`` is called when the user toggles
+    remote access, so a host process (the Windows app) can rebind the listener."""
+    from starlette.middleware import Middleware
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import RedirectResponse
+
+    from imagestudio import remote as rmt
+
+    devices = rmt.Devices(studio.settings.devices_file)
+    public_prefixes = ("/pair/", "/manifest.webmanifest", "/icon.svg")
+
+    class DeviceAuth(BaseHTTPMiddleware):
+        """Loopback requests are the owner. Anything else needs a paired device token."""
+
+        async def dispatch(self, request, call_next):
+            host = request.client.host if request.client else None
+            if rmt.is_loopback(host) or request.url.path.startswith(public_prefixes):
+                return await call_next(request)
+            token = request.cookies.get(rmt.COOKIE) or request.headers.get(rmt.HEADER)
+            dev = devices.authenticate(token)
+            if dev is None:
+                if request.url.path.startswith("/api/"):
+                    return JSONResponse(
+                        {"error": "not paired with this studio; scan the QR code on Settings"},
+                        status_code=401,
+                    )
+                return HTMLResponse(
+                    (STATIC / "pair.html").read_text(encoding="utf-8"), status_code=401
+                )
+            request.state.device = dev
+            return await call_next(request)
+
     async def index(_: Request) -> HTMLResponse:
         return HTMLResponse((STATIC / "index.html").read_text(encoding="utf-8"))
+
+    async def manifest(_: Request) -> JSONResponse:
+        return JSONResponse(
+            {
+                "name": "Image Studio by Hivemind",
+                "short_name": "Image Studio",
+                "start_url": "/",
+                "display": "standalone",
+                "background_color": "#0f1012",
+                "theme_color": "#0f1012",
+                "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml"}],
+            },
+            media_type="application/manifest+json",
+        )
+
+    async def icon(_: Request) -> Response:
+        return Response(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" h'
+            'eight="64" rx="14" fill="#0f1012"/><path d="M32 6 54 19v26L32 58 10 45V19z" fi'
+            'll="#f0b429"/><circle cx="32" cy="32" r="12" fill="#1b1b19"/><circle cx="32" c'
+            'y="32" r="5.5" fill="#f7f6f2"/></svg>',
+            media_type="image/svg+xml",
+        )
+
+    # -- remote access and pairing (the owner's machine only, except completing a pairing) --
+
+    def _owner_only(request: Request) -> JSONResponse | None:
+        host = request.client.host if request.client else None
+        if rmt.is_loopback(host):
+            return None
+        return JSONResponse({"error": "only from the studio's own machine"}, status_code=403)
+
+    async def remote_status(request: Request) -> JSONResponse:
+        return JSONResponse(
+            {
+                "enabled": studio.settings.remote_enabled,
+                "addresses": rmt.lan_addresses(),
+                "port": request.url.port or 8766,
+                "devices": devices.list(),
+                "pending": devices.pending_count(),
+                "this_device": getattr(request.state, "device", None).public()
+                if getattr(request.state, "device", None)
+                else None,
+            }
+        )
+
+    async def remote_set(request: Request) -> JSONResponse:
+        if (deny := _owner_only(request)) is not None:
+            return deny
+        body = await request.json()
+        enabled = bool(body.get("enabled"))
+        studio.set_config({"remote_enabled": enabled})
+        restarted = False
+        if on_remote_change is not None:
+            try:
+                restarted = bool(on_remote_change(enabled))
+            except Exception as e:  # the toggle is saved either way
+                return JSONResponse({"enabled": enabled, "error": str(e)}, status_code=500)
+        return JSONResponse(
+            {
+                "enabled": enabled,
+                "restarted": restarted,
+                "restart_required": not restarted and on_remote_change is None,
+            }
+        )
+
+    async def pair_start(request: Request) -> JSONResponse:
+        if (deny := _owner_only(request)) is not None:
+            return deny
+        if not studio.settings.remote_enabled:
+            return JSONResponse({"error": "enable phone access first"}, status_code=400)
+        body = (
+            await request.json()
+            if request.headers.get("content-length", "0") not in ("0", "")
+            else {}
+        )
+        pc = devices.start_pairing(str(body.get("name") or "phone"))
+        addrs = rmt.lan_addresses()
+        port = request.url.port or 8766
+        urls = [f"http://{a}:{port}/pair/{pc.code}" for a in addrs]
+        return JSONResponse(
+            {
+                "code": pc.code,
+                "expires_in": int(pc.expires - __import__("time").time()),
+                "urls": urls,
+                "qr_svg": rmt.qr_svg(urls[0]) if urls else None,
+            }
+        )
+
+    async def pair_complete(request: Request):
+        code = request.path_params["code"]
+        res = devices.complete_pairing(code, request.headers.get("user-agent", ""))
+        if res is None:
+            return HTMLResponse(
+                (STATIC / "pair.html")
+                .read_text(encoding="utf-8")
+                .replace(
+                    "<!--MSG-->",
+                    "This pairing code has expired or was already used. "
+                    "Ask the studio for a new QR code.",
+                ),
+                status_code=410,
+            )
+        _dev, token = res
+        resp = RedirectResponse("/", status_code=303)
+        resp.set_cookie(
+            rmt.COOKIE, token, max_age=3650 * 24 * 3600, httponly=True, samesite="lax", path="/"
+        )
+        return resp
+
+    async def device_rename(request: Request) -> JSONResponse:
+        if (deny := _owner_only(request)) is not None:
+            return deny
+        body = await request.json()
+        ok = devices.rename(str(body.get("id", "")), str(body.get("name", "")))
+        return JSONResponse({"ok": ok}, status_code=200 if ok else 404)
+
+    async def device_revoke(request: Request) -> JSONResponse:
+        if (deny := _owner_only(request)) is not None:
+            return deny
+        body = await request.json()
+        if body.get("all"):
+            return JSONResponse({"revoked": devices.revoke_all()})
+        ok = devices.revoke(str(body.get("id", "")))
+        return JSONResponse({"ok": ok}, status_code=200 if ok else 404)
 
     async def capabilities(_: Request) -> JSONResponse:
         return JSONResponse(studio.capabilities())
@@ -448,7 +605,16 @@ def build_app(studio: Studio) -> Starlette:
         return JSONResponse(studio.task_list())
 
     return Starlette(
+        middleware=[Middleware(DeviceAuth)],
         routes=[
+            Route("/manifest.webmanifest", manifest),
+            Route("/icon.svg", icon),
+            Route("/api/remote", remote_status),
+            Route("/api/remote", remote_set, methods=["POST"]),
+            Route("/api/pair/start", pair_start, methods=["POST"]),
+            Route("/pair/{code}", pair_complete),
+            Route("/api/remote/devices/rename", device_rename, methods=["POST"]),
+            Route("/api/remote/devices/revoke", device_revoke, methods=["POST"]),
             Route("/api/preview/{job_id}", preview),
             Route("/api/download/{job_id}", download),
             Route("/api/export-size/{job_id}", export_size),
@@ -494,14 +660,17 @@ def build_app(studio: Studio) -> Starlette:
             Route("/api/jobs/{job_id}", job),
             Route("/api/jobs/{job_id}/cancel", cancel, methods=["POST"]),
             Route("/api/image/{job_id}", image),
-        ]
+        ],
     )
 
 
-def serve_ui(host: str = "127.0.0.1", port: int = 8766, start_worker: bool = True) -> None:
+def serve_ui(host: str | None = None, port: int = 8766, start_worker: bool = True) -> None:
+    """``host`` None: loopback, or every interface when remote access is enabled in config."""
     import uvicorn
 
     studio = Studio(start_worker=start_worker)
+    if host is None:
+        host = "0.0.0.0" if studio.settings.remote_enabled else "127.0.0.1"
     mode = "rendering jobs" if studio.worker_active else "submitting to the running worker"
     print(f"Hivemind Image Studio UI at http://{host}:{port}  ({mode})", flush=True)
     try:

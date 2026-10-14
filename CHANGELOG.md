@@ -4,6 +4,19 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
+## 0.3.3 — 2026-10-14
+
+### Added
+- Phone and remote access (Settings → Phone and remote): the studio listens on your local
+  network, phones pair by scanning a QR code with a one-time code and get a revocable device
+  key; the full studio at desktop quality on the phone, with a Camera button that imports a
+  photo into the gallery. Device list with rename and revoke. Web app manifest and icon so the
+  page can be added to the home screen. Nothing leaves your network.
+- MSIX packaging for the Microsoft Store (`packaging/STORE.md`); every release builds it.
+
+### Changed
+- The window and taskbar show the studio icon when run from source too.
+
 ## 0.3.2 — 2026-10-14
 
 ### Changed

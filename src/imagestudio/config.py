@@ -74,6 +74,15 @@ class Settings:
             return {}
 
     @property
+    def devices_file(self) -> Path:
+        return self.data_dir / "devices.json"
+
+    @property
+    def remote_enabled(self) -> bool:
+        """Listen on the local network for paired phones (Settings → Phone and remote)."""
+        return bool(self.config().get("remote_enabled", False))
+
+    @property
     def engine_flavor(self) -> str:
         """Which stable-diffusion.cpp build runs: ``cpu`` (default) or ``vulkan`` (GPU through
         the Vulkan API). Environment variable first, then ``engine_backend`` in config.json."""

@@ -1,6 +1,6 @@
 [project]
 name = "hivemind-imagestudio"
-version = "0.3.2"
+version = "0.3.3"
 description = "Free, local, permissively licensed image MCP server. Quality is a setting, never a consequence."
 readme = "README.md"
 license = "Apache-2.0"
@@ -24,6 +24,7 @@ dependencies = [
   "uvicorn>=0.30",
   "onnxruntime>=1.17",
   "numpy>=1.26",
+  "segno>=1.6",
 ]
 
 [project.urls]
