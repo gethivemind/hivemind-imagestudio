@@ -85,16 +85,12 @@ real runs on your machine, kept per model variant in `calibration.json`.
 Requires Python 3.11+.
 
 ```bash
-pip install "hivemind-imagestudio[bg]"
+pipx install hivemind-imagestudio
 ```
 
-or, kept out of every other environment:
-
-```bash
-uv tool install "hivemind-imagestudio[bg]"
-```
-
-The `bg` extra adds ONNX Runtime for background removal; without it everything else works.
+or with pip or uv (`pip install hivemind-imagestudio`, `uv tool install hivemind-imagestudio`).
+Background removal needs ONNX Runtime, which is one extra: `pipx install
+"hivemind-imagestudio[bg]"`. Everything else works without it.
 The GitHub Releases of this repository and the `hivemind-imagestudio` package on PyPI are
 the official builds (see NOTICE and TRADEMARK.md). Inside Hivemind, Settings → Tools
 installs and connects it for you.

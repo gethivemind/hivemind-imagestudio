@@ -17,6 +17,8 @@
   }
   @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f7f6f2; --surface: #ffffff; --surface2: #f0efe9; --line: #e2e1da; --ink: #1b1b19; --ink2: #3a3a37; --muted: #6b6b68; --accent: #2f6fed; --ok: #2e8b57; } }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; } section, .hero { scroll-margin-top: 72px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   a { color: var(--accent); }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
@@ -142,8 +144,8 @@
     <h2>Install</h2>
     <p class="sub">Python 3.11 or newer. Everything else is downloaded by the studio itself, with your consent, hash-verified. A single-file Windows app is in progress.</p>
     <div class="install">
-      <div class="card"><h3>With pipx or pip</h3><pre>pipx install "hivemind-imagestudio[bg]"
-imagestudio ui</pre><p class="note">Opens the studio in your browser. Everything still runs on your machine. The <code>bg</code> extra adds background removal.</p></div>
+      <div class="card"><h3>With pipx or pip</h3><pre>pipx install hivemind-imagestudio
+imagestudio ui</pre><p class="note">Opens the studio in your browser. Everything still runs on your machine. Background removal needs one more package: <code>pipx install "hivemind-imagestudio[bg]"</code>, or install it later from Settings.</p></div>
       <div class="card"><h3>First run</h3><pre>imagestudio doctor
 imagestudio install-engine --yes
 imagestudio download-model flux-schnell --yes</pre><p class="note">Or do the same from Settings in the app: engine, models and tools each have an Install button and a getting-started checklist on Home.</p></div>
