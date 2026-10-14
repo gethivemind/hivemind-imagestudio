@@ -152,6 +152,21 @@ def claim_instance(on_focus) -> socket.socket | None:
     return s
 
 
+def icon_file() -> Path:
+    return Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "ImageStudio.ico"
+
+
+def set_app_id() -> None:
+    """Group this process under its own taskbar identity (own icon, not Python's)."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Hivemind.ImageStudio")
+        except Exception:
+            pass
+
+
 # ---------------------------------------------------------------- the window
 
 
@@ -202,6 +217,21 @@ class App:
     def open_in_browser(self):
         webbrowser.open(f"http://{HOST}:{PORT}/")
         return True
+
+    def apply_icon(self) -> None:
+        """Window and taskbar icon. The packaged exe carries it as a resource; when run from
+        Python (pythonw launcher.py) the form would show Python's icon without this."""
+        if sys.platform != "win32":
+            return
+        try:
+            import clr  # pythonnet, pulled in by pywebview on Windows
+
+            clr.AddReference("System.Drawing")
+            from System.Drawing import Icon  # type: ignore
+
+            self.window.native.Icon = Icon(str(icon_file()))
+        except Exception:
+            logging.getLogger("app").exception("window icon not applied")
 
     # ---- window state
     def load_state(self) -> dict:
@@ -265,7 +295,7 @@ class App:
             import pystray
             from PIL import Image
 
-            icon_path = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "ImageStudio.ico"
+            icon_path = icon_file()
             image = (
                 Image.open(icon_path)
                 if icon_path.exists()
@@ -318,6 +348,7 @@ class App:
             text_select=True,
         )
         self.window.events.closing += self.on_closing
+        self.window.events.shown += self.apply_icon
         storage = self.data_dir / "webview"
         storage.mkdir(parents=True, exist_ok=True)
         webview.start(gui="edgechromium", private_mode=False, storage_path=str(storage))
@@ -434,6 +465,7 @@ def main() -> int:
         server.stop()
         return 0
 
+    set_app_id()
     app = App(server, settings.data_dir, log_path)
     control = claim_instance(app.focus)
     try:
