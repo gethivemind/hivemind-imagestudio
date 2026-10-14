@@ -4,6 +4,13 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
+## 0.3.6 — 2026-10-15
+
+### Added
+- First Microsoft Store package: `ImageStudio-0.3.6-windows-x64-store.msix` built with the
+  publisher's Partner Center identity (signed by Microsoft on submission). Privacy policy page
+  on the website.
+
 ## 0.3.5 — 2026-10-14
 
 Same as 0.3.4; the 0.3.4 Windows build failed in the installer step, so 0.3.4 exists on PyPI only.
