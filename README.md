@@ -82,9 +82,11 @@ real runs on your machine, kept per model variant in `calibration.json`.
 
 ## Install
 
-**Windows app:** download `ImageStudio-<version>-windows-x64.zip` from the
-[latest release](https://github.com/gethivemind/hivemind-imagestudio/releases/latest), unzip,
-run `ImageStudio.exe`. The studio opens in a window of its own (WebView2, part of Windows 10
+**Windows app:** download `ImageStudio-<version>-Setup.exe` from the
+[latest release](https://github.com/gethivemind/hivemind-imagestudio/releases/latest) and run it:
+Start menu entry, search, Pin to Start, uninstall from Settings → Apps, optional desktop
+shortcut and start-at-sign-in. No administrator rights needed. Prefer portable? The
+`…-windows-x64.zip` is the same app: unzip, run `ImageStudio.exe`. The studio opens in a window of its own (WebView2, part of Windows 10
 and 11). Closing it during a render offers to keep rendering in the background with a tray
 icon; a second launch focuses the running window. The build is not code-signed yet, so
 SmartScreen asks once per download ("More info" → "Run anyway"); the `.sha256` file next to

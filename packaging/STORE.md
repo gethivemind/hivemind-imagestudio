@@ -4,7 +4,8 @@ Two installable forms of the Windows app come out of the release workflow:
 
 | File | Signed by | For |
 | --- | --- | --- |
-| `ImageStudio-<ver>-windows-x64.zip` | nobody (yet) | unzip and run; SmartScreen asks once |
+| `ImageStudio-<ver>-Setup.exe` | nobody (yet) | the normal installer: Start menu, search, Pin to Start, uninstall; SmartScreen asks once |
+| `ImageStudio-<ver>-windows-x64.zip` | nobody (yet) | portable: unzip and run; SmartScreen asks once |
 | `ImageStudio-<ver>-windows-x64-store.msix` | Microsoft, on submission | upload to Partner Center |
 
 A third, `…-sideload.msix` with a throw-away certificate, is only for local testing
@@ -13,15 +14,15 @@ A third, `…-sideload.msix` with a throw-away certificate, is only for local te
 ## Why the Store
 
 An MSIX from the Store is signed by Microsoft, so there is no SmartScreen warning, no
-certificate to buy or renew, and updates are delivered by the Store. The one-time developer
-registration is about US$19 for an individual. `winget install Hivemind.ImageStudio` becomes
+certificate to buy or renew, and updates are delivered by the Store. Developer registration is
+free for individuals since September 2025 (and for companies since May 2026); if the sign-up ever
+shows a fee, stop and re-check, the official blog says there is none. `winget install Hivemind.ImageStudio` becomes
 possible through the Store as well. The app keeps running fully offline; the Store only
 delivers the package.
 
 ## Steps, once
 
-1. Register at https://partner.microsoft.com/dashboard (individual account is fine; a company
-   account needs business verification). Developer name: **Hivemind** (or your own name with
+1. Register at https://developer.microsoft.com/microsoft-store/register (individual account; free). Developer name: **Hivemind** (or your own name with
    Hivemind as the publisher display name).
 2. Create the app with the name **Image Studio by Hivemind**. Reserving the name is the
    trademark-relevant step: do it early.

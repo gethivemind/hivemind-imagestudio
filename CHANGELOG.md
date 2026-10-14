@@ -4,6 +4,13 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
+## 0.3.4 — 2026-10-14
+
+### Added
+- `ImageStudio-<version>-Setup.exe`: a normal Windows installer (per user, no administrator
+  rights). Start menu entry, search, Pin to Start, uninstall from Settings → Apps, optional
+  desktop shortcut and start-at-sign-in. Models, images and settings are kept on uninstall.
+
 ## 0.3.3 — 2026-10-14
 
 ### Added

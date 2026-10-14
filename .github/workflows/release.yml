@@ -57,6 +57,12 @@ jobs:
           cd dist && 7z a -tzip "ImageStudio-$ver-windows-x64.zip" ImageStudio >/dev/null
           sha256sum "ImageStudio-$ver-windows-x64.zip" > "ImageStudio-$ver-windows-x64.zip.sha256"
           cat "ImageStudio-$ver-windows-x64.zip.sha256"
+      - name: Setup installer (Inno Setup)
+        shell: bash
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/DMyAppVersion=$ver" "/DSourceDir=..\dist\ImageStudio" "/DOutDir=..\dist" packaging/ImageStudio.iss | tail -3
+          cd dist && sha256sum "ImageStudio-$ver-Setup.exe" > "ImageStudio-$ver-Setup.exe.sha256" && cat "ImageStudio-$ver-Setup.exe.sha256"
       - name: MSIX for the Microsoft Store
         # unsigned; the Store signs it. Identity comes from repository variables set up once
         # (see packaging/STORE.md). Without them a sideload package with a dev certificate is
@@ -88,6 +94,7 @@ jobs:
             dist/*.sha256
             dist/*.msix
             dist/*.cer
+            dist/*-Setup.exe
 
   publish:
     name: publish to PyPI
