@@ -360,6 +360,13 @@ pinned prompts stored in config.json. The viewer fits the image to the window, z
 towards the cursor with the wheel, pans by dragging, and toggles fit / 100% on double-click.
 Next: Qwen-Image-Edit as an instruction-edit model, LoRA, GPU builds (Vulkan, CUDA), optional
 cloud engines behind the same interface, a marketing site.
+Packaged app (noted 2026-10-14, after the first PyPI release): today the studio is a command-line
+program plus a browser UI (`imagestudio ui`) and an MCP server (`imagestudio serve`); it needs
+Python 3.11+ or uv, and something has to run those commands (inside Hivemind, the hub does; in
+Claude Desktop or Cursor, the MCP config does). A double-click experience is a later step: a
+packaged build with a tray icon that keeps `serve` and `ui` running, an installer per platform,
+and no Python on the machine. Planned after the first external users arrive, since Hivemind
+users already have the one-click path through Settings → Tools.
 Later: optional ComfyUI engine, GPU builds (CUDA, ROCm), the Hivemind catalogue entry,
 and a three-tier model list (Hivemind-verified, compatible-but-unverified, bring your own
 model with a declared licence).
