@@ -142,8 +142,10 @@
 
   <section id="install">
     <h2>Install</h2>
-    <p class="sub">Python 3.11 or newer. Everything else is downloaded by the studio itself, with your consent, hash-verified. A single-file Windows app is in progress.</p>
+    <p class="sub">A Windows app, or Python 3.11 or newer on any OS. Everything else is downloaded by the studio itself, with your consent, hash-verified.</p>
     <div class="install">
+      <div class="card"><h3>Windows app</h3><pre>ImageStudio-x.y.z-windows-x64.zip
+→ unzip → ImageStudio.exe</pre><p class="note">From the <a href="https://github.com/gethivemind/hivemind-imagestudio/releases/latest">latest release</a>. Opens the studio in your browser; close the window to stop it. Not code-signed yet: SmartScreen asks once per download ("More info" → "Run anyway"). The SHA-256 is next to the download.</p></div>
       <div class="card"><h3>With pipx or pip</h3><pre>pipx install hivemind-imagestudio
 imagestudio ui</pre><p class="note">Opens the studio in your browser. Everything still runs on your machine. Background removal needs one more package: <code>pipx install "hivemind-imagestudio[bg]"</code>, or install it later from Settings.</p></div>
       <div class="card"><h3>First run</h3><pre>imagestudio doctor

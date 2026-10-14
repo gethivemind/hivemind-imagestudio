@@ -2,10 +2,12 @@ name: Release
 
 # ADR-056 (Hivemind): a tag `vX.Y.Z` builds the wheel and sdist, publishes them to PyPI
 # through Trusted Publishing (no long-lived token anywhere), and attaches them to a GitHub
-# release. The tag must match the version in pyproject.toml; the job refuses otherwise.
+# release, together with the Windows app folder (PyInstaller, zipped, with its SHA-256).
+# The tag must match the version in pyproject.toml; the job refuses otherwise.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -36,6 +38,37 @@ jobs:
           name: dist
           path: dist/
 
+  windows-app:
+    name: Windows app
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        shell: bash
+        run: |
+          uv venv --clear --python 3.12
+          uv pip install -e . pyinstaller
+          uv run pyinstaller packaging/ImageStudio.spec --noconfirm --log-level WARN
+          ver="${GITHUB_REF_NAME#v}"
+          cp LICENSE NOTICE TRADEMARK.md CHANGELOG.md packaging/README-WINDOWS.txt dist/ImageStudio/
+          cd dist && 7z a -tzip "ImageStudio-$ver-windows-x64.zip" ImageStudio >/dev/null
+          sha256sum "ImageStudio-$ver-windows-x64.zip" > "ImageStudio-$ver-windows-x64.zip.sha256"
+          cat "ImageStudio-$ver-windows-x64.zip.sha256"
+      - name: Smoke test
+        shell: bash
+        run: |
+          ./dist/ImageStudio/ImageStudio.exe --version
+          ./dist/ImageStudio/ImageStudio.exe cli doctor || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: |
+            dist/*.zip
+            dist/*.sha256
+
   publish:
     name: publish to PyPI
     needs: build
@@ -52,7 +85,7 @@ jobs:
 
   github-release:
     name: GitHub release
-    needs: publish
+    needs: [publish, windows-app]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -60,6 +93,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: dist
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-app
           path: dist/
       - uses: softprops/action-gh-release@v2
         with:

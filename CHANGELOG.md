@@ -4,6 +4,19 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
+## 0.3.1 — 2026-10-14
+
+### Added
+- Windows app: `ImageStudio-<version>-windows-x64.zip` on GitHub Releases. Unzip, run
+  `ImageStudio.exe`, the studio opens in your browser. Unsigned for now, so SmartScreen asks
+  once per download; endpoint protection may ask about the engine the first time it runs.
+  `ImageStudio.exe cli doctor` reaches the command line.
+
+### Changed
+- Background removal (ONNX Runtime) is part of the default install; the `bg` extra is kept
+  as a no-op for compatibility. `pipx install hivemind-imagestudio` now gives the whole studio.
+- Website: smooth scrolling, plain install command first.
+
 ## 0.3.0 — 2026-10-14
 
 First public release of the full studio.

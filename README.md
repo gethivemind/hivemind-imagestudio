@@ -82,7 +82,14 @@ real runs on your machine, kept per model variant in `calibration.json`.
 
 ## Install
 
-Requires Python 3.11+.
+**Windows app:** download `ImageStudio-<version>-windows-x64.zip` from the
+[latest release](https://github.com/gethivemind/hivemind-imagestudio/releases/latest), unzip,
+run `ImageStudio.exe`. The studio opens in your browser; close the window to stop it. The build
+is not code-signed yet, so SmartScreen asks once per download ("More info" → "Run anyway");
+the `.sha256` file next to the download lets you verify it. `ImageStudio.exe cli doctor`
+reaches the command line.
+
+**Everywhere else** (and for the MCP server and CLI), requires Python 3.11+.
 
 ```bash
 pipx install hivemind-imagestudio

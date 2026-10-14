@@ -1,6 +1,6 @@
 [project]
 name = "hivemind-imagestudio"
-version = "0.3.0"
+version = "0.3.1"
 description = "Free, local, permissively licensed image MCP server. Quality is a setting, never a consequence."
 readme = "README.md"
 license = "Apache-2.0"
@@ -22,6 +22,8 @@ dependencies = [
   "truststore>=0.9",
   "pillow>=10",
   "uvicorn>=0.30",
+  "onnxruntime>=1.17",
+  "numpy>=1.26",
 ]
 
 [project.urls]
@@ -35,7 +37,7 @@ Trademark = "https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADE
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
 e2e = ["playwright>=1.45"]
-bg = ["onnxruntime>=1.17", "numpy>=1.26"]
+bg = []  # kept for compatibility: background removal is part of the default install since 0.3.1
 
 [project.scripts]
 imagestudio = "imagestudio.cli:main"
