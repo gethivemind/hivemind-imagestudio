@@ -16,6 +16,28 @@ from starlette.routing import Route
 from imagestudio.registry import GIB, MODELS
 from imagestudio.service import Studio, StudioError
 
+
+def _draw_icon(size: int) -> bytes:
+    """The studio mark (hexagon and lens) as a PNG of ``size`` px, same geometry as icon.svg,
+    drawn at 4x and downsampled so the edges are smooth."""
+    import io
+
+    from PIL import Image, ImageDraw
+
+    s = size * 4
+    u = s / 64
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle((0, 0, s - 1, s - 1), radius=int(14 * u), fill="#0f1012")
+    hexagon = [(32, 6), (54, 19), (54, 45), (32, 58), (10, 45), (10, 19)]
+    d.polygon([(x * u, y * u) for x, y in hexagon], fill="#f0b429")
+    d.ellipse((20 * u, 20 * u, 44 * u, 44 * u), fill="#1b1b19")
+    d.ellipse((26.5 * u, 26.5 * u, 37.5 * u, 37.5 * u), fill="#f7f6f2")
+    out = io.BytesIO()
+    img.resize((size, size), Image.LANCZOS).save(out, "PNG", optimize=True)
+    return out.getvalue()
+
+
 STATIC = Path(__file__).parent / "static"
 
 
@@ -41,7 +63,7 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
     from imagestudio import remote as rmt
 
     devices = rmt.Devices(studio.settings.devices_file)
-    public_prefixes = ("/pair/", "/manifest.webmanifest", "/icon.svg")
+    public_prefixes = ("/pair/", "/manifest.webmanifest", "/icon.svg", "/icon-")
 
     class DeviceAuth(BaseHTTPMiddleware):
         """Loopback requests are the owner. Anything else needs a paired device token."""
@@ -76,9 +98,36 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
                 "display": "standalone",
                 "background_color": "#0f1012",
                 "theme_color": "#0f1012",
-                "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml"}],
+                "icons": [
+                    {"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml"},
+                    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                    {
+                        "src": "/icon-512.png",
+                        "sizes": "512x512",
+                        "type": "image/png",
+                        "purpose": "any maskable",
+                    },
+                ],
             },
             media_type="application/manifest+json",
+        )
+
+    _png_icons: dict[int, bytes] = {}
+
+    async def icon_png(request: Request) -> Response:
+        """Raster icon for home screens (iOS ignores SVG touch icons). Drawn, not shipped."""
+        try:
+            size = int(request.path_params["size"])
+        except (KeyError, ValueError):
+            return JSONResponse({"error": "bad size"}, status_code=404)
+        if size not in (120, 152, 167, 180, 192, 256, 512):
+            return JSONResponse({"error": "no such icon"}, status_code=404)
+        if size not in _png_icons:
+            _png_icons[size] = _draw_icon(size)
+        return Response(
+            _png_icons[size],
+            media_type="image/png",
+            headers={"cache-control": "public, max-age=86400"},
         )
 
     async def icon(_: Request) -> Response:
@@ -170,7 +219,7 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
                 status_code=410,
             )
         _dev, token = res
-        resp = RedirectResponse("/", status_code=303)
+        resp = RedirectResponse("/?paired=1", status_code=303)
         resp.set_cookie(
             rmt.COOKIE, token, max_age=3650 * 24 * 3600, httponly=True, samesite="lax", path="/"
         )
@@ -629,6 +678,7 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
         routes=[
             Route("/manifest.webmanifest", manifest),
             Route("/icon.svg", icon),
+            Route("/icon-{size}.png", icon_png),
             Route("/api/remote", remote_status),
             Route("/api/remote", remote_set, methods=["POST"]),
             Route("/api/pair/start", pair_start, methods=["POST"]),

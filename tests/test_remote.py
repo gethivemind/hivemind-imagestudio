@@ -52,6 +52,7 @@ def test_remote_requests_need_a_paired_device(studio: Studio):
     # completing the pairing sets the device cookie; the phone is in
     done = phone.get(f"/pair/{pair['code']}", follow_redirects=False)
     assert done.status_code == 303 and remote.COOKIE in done.cookies
+    assert done.headers["location"] == "/?paired=1"
     assert phone.get("/api/capabilities").status_code == 200
     # the owner-only endpoints still refuse a paired phone
     assert phone.post("/api/pair/start", json={}).status_code == 403
@@ -67,3 +68,7 @@ def test_remote_requests_need_a_paired_device(studio: Studio):
     # the manifest and icon are public
     assert phone.get("/manifest.webmanifest").status_code == 200
     assert phone.get("/icon.svg").status_code == 200
+    png = phone.get("/icon-180.png")
+    assert png.status_code == 200 and png.content[1:4] == b"PNG"
+    assert phone.get("/icon-999.png").status_code == 404
+    assert any(i["sizes"] == "512x512" for i in phone.get("/manifest.webmanifest").json()["icons"])

@@ -6,8 +6,12 @@
 <title>Image Studio by Hivemind</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Image Studio">
 <meta name="theme-color" content="#0f1012">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4 56 18v28L32 60 8 46V18z' fill='%23f0b429'/%3E%3Ccircle cx='32' cy='32' r='13' fill='%231d1d1b'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23f6f5f2'/%3E%3C/svg%3E">
 <style>
@@ -1167,6 +1171,8 @@
   new ResizeObserver(() => { if (S.tab === "sketch") skFit(); }).observe(skv);
   skReset(1024, 1024);
   loadCaps().then(plan).then(refreshJobs).then(pollTasks).then(() => { renderHome(); if (!S.jobs.length) showTab("home"); });
+  // a phone that has just paired: offer the home-screen icon once (no store, no account)
+  if (new URLSearchParams(location.search).get("paired") === "1") { history.replaceState(null, "", "/"); const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent); const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone; if (!standalone) setTimeout(() => ask({ title: "Paired with this studio", text: ios ? "This phone now has its own key. For an app icon: tap Share, then \"Add to Home Screen\". It opens full screen, like an app, and stays paired." : "This phone now has its own key. For an app icon: open the browser menu (⋮) and choose \"Add to Home screen\" or \"Install app\". It opens full screen, like an app, and stays paired.", ok: "Got it", cancel: "Not now" }), 600); }
   setInterval(refreshJobs, 4000);
   setInterval(async () => { if (!S.caps) return; const c = await api("/api/capabilities"); S.caps = c; const hw = c.hardware; $("hwtext").textContent = `${hw.ram_available_gib} / ${hw.ram_total_gib} GiB free · ${c.queue.worker_in_this_process ? "worker here" : c.queue.worker_pid ? "worker " + c.queue.worker_pid : "no worker"}`; }, 30000);
 })();
