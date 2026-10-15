@@ -1199,6 +1199,29 @@ class Studio:
             )
         return out
 
+    def try_start_worker(self) -> bool:
+        """Start rendering in this process if the lock became free (after a handover)."""
+        if self.worker_active:
+            return True
+        try:
+            self.worker.start()
+        except Exception:
+            return False
+        return self.worker_active
+
+    def request_worker_handover(self) -> dict[str, Any]:
+        """Ask the process holding the worker lock to stop once idle, so this one can take
+        over (used when the rendering worker runs an older build). Refused mid-render."""
+        if self.worker_active:
+            return {"ok": False, "message": "the worker already runs in this process"}
+        if any(j.status == "running" for j in self.jobs.all()):
+            raise StudioError("a render is in progress; wait for it to finish before handing over")
+        self.jobs.exit_marker().write_text("exit", encoding="utf-8")
+        return {
+            "ok": True,
+            "message": "asked the other worker to stop; this studio takes over within a few seconds",
+        }
+
     def set_engine_backend(self, flavor: str) -> None:
         """Switch the image engine build. Refused while jobs are queued or running."""
         flavor = (flavor or "cpu").lower()
@@ -1424,6 +1447,8 @@ class Studio:
             "total_steps": job.total_steps or job.steps,
             "seconds_per_step": job.seconds_per_step,
             "eta_seconds": None if eta is None else round(eta),
+            "elapsed_seconds": round(job.elapsed_seconds()) if job.status == "running" else None,
+            "summary": job.summary(queue_position=position, eta=eta),
             "eta_human": None if eta is None else human_duration(eta),
             "estimate_basis": job.estimate_basis,
             "queue_position": position,

@@ -62,8 +62,9 @@
   .view.active { display: flex !important; }
 
   /* CREATE */
-  .ws { flex: 1; display: grid; grid-template-columns: var(--rail) minmax(0, 1fr) var(--qrail); min-height: 0; position: relative; }
-  .ws.rail-off { --rail: 0px; } .ws.q-off { --qrail: 0px; } .ws.focus { --rail: 0px; --qrail: 0px; }
+  .ws { --rail: var(--rail-w, 360px); --qrail: var(--qrail-w, 300px); flex: 1; display: grid; grid-template-columns: var(--rail) minmax(0, 1fr) var(--qrail); min-height: 0; position: relative; }
+  .ws.rail-off { --rail: 0px !important; } .ws.q-off { --qrail: 0px !important; } .ws.focus { --rail: 0px !important; --qrail: 0px !important; }
+  .rail, .qrail { overflow: hidden auto; }
   .rail { background: var(--surface); border-right: 1px solid var(--line); overflow: auto; min-width: 0; position: relative; }
   .ws.rail-off .rail, .ws.focus .rail { overflow: hidden; border: 0; }
   .handle { position: absolute; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 4; }
@@ -132,7 +133,7 @@
   .qcard { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface2); margin-bottom: 8px; cursor: pointer; }
   .qcard.sel { border-color: var(--accent); }
   .qcard img, .qcard .ph { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; background: var(--track); display: grid; place-items: center; color: var(--muted); font-size: 10.5px; text-align: center; padding: 4px; }
-  .qcard .t { font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qcard > div { min-width: 0; } .qcard .t { font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .qcard .m { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .qcard .bar { height: 4px; border-radius: 2px; background: var(--track); margin: 6px 0; overflow: hidden; } .qcard .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s; }
   .qempty { color: var(--muted); font-size: 12.5px; padding: 12px 4px; }
@@ -496,6 +497,7 @@
     <div class="sw"><div>Live preview<div class="d">Show the image forming while it renders. Costs almost nothing.</div></div><input type="checkbox" id="cfgPreview"></div>
     <div class="sw"><div>Auto-captions<div class="d">Describe every finished image with the local vision model, in the background. Captions show in the viewer and in search. <span id="cfgCaptionNote"></span></div></div><input type="checkbox" id="cfgCaption"></div>
     <div class="sw"><div>Desktop notifications<div class="d">Tell me when a job finishes or fails while this tab is in the background. Stays on this browser.</div></div><input type="checkbox" id="cfgNotify"></div>
+    <div class="sw" id="workerRow" style="display:none"><div>Rendering worker<div class="d" id="workerNote"></div></div><button class="btn sm" id="workerTake">Take over rendering</button></div>
     <div class="sw"><div>Getting-started guide<div class="d">The checklist on Home. It hides itself once the basics are done.</div></div><button class="btn sm" id="cfgGuide">Show again</button></div>
     <div class="sw"><div>Allow over-budget runs<div class="d">Start jobs that need more memory than this machine has. They may swap for hours or fail; each is marked.</div></div><input type="checkbox" id="cfgOver"></div>
     <div class="sw"><div>Default threads<div class="d">Empty = all physical cores.</div></div><input type="number" id="cfgThreads" style="width:84px;height:30px" placeholder="cores"></div>
@@ -517,6 +519,12 @@
     </dl></details></div>
 </div></section>
 
+<dialog class="dl" id="askDlg"><div class="dlg">
+  <div class="head"><h3 id="askTitle">Confirm</h3><button class="ib" id="askX">✕</button></div>
+  <p class="muted" id="askText" style="margin:0 0 10px;font-size:13.5px;line-height:1.5"></p>
+  <input type="text" id="askInput" style="display:none;width:100%;height:32px;margin-bottom:10px">
+  <div class="acts" style="justify-content:flex-end"><button class="btn sm" id="askNo">Cancel</button><button class="btn sm" id="askAlt" style="display:none">Alt</button><button class="btn sm primary" id="askOk">OK</button></div>
+</div></dialog>
 <dialog class="dl keys" id="keysDlg"><div class="dlg">
   <div class="head"><h3>Keyboard shortcuts</h3><button class="ib" id="keysX">✕</button></div>
   <h4>Everywhere</h4><table>
@@ -567,9 +575,29 @@
   const num = (id) => { const v = $(id).value.trim(); return v === "" ? null : +v; };
   const str = (id) => { const v = $(id).value.trim(); return v === "" ? null : v; };
   const fmtDur = (s) => { if (s == null) return "–"; s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60; return h ? `${h} h ${m} min` : m ? `${m} min ${r} s` : `${r} s`; };
-  const fmtEta = (s) => s == null ? "" : s < 60 ? `${Math.round(s)} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`;
+  const fmtEta = (s) => s == null ? "measuring…" : s < 60 ? `${Math.round(s)} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`;
   const fmtBytes = (b) => b >= 1048576 ? `${(b / 1048576).toFixed(2)} MB` : `${Math.round(b / 1024)} KB`;
   const api = async (u, o) => (await fetch(u, o)).json();
+  // ---- themed dialogs (no browser confirm/prompt, no system message boxes)
+  function ask({ title = "Confirm", text = "", ok = "OK", cancel = "Cancel", alt = null, danger = false, input = null }) {
+    return new Promise((resolve) => {
+      const d = $("askDlg"); $("askTitle").textContent = title; $("askText").innerHTML = text; $("askOk").textContent = ok; $("askNo").textContent = cancel;
+      $("askOk").style.color = danger ? "#fff" : ""; $("askOk").style.background = danger ? "var(--bad)" : ""; $("askOk").style.borderColor = danger ? "var(--bad)" : "";
+      const inp = $("askInput"); inp.style.display = input !== null ? "" : "none"; inp.value = input || "";
+      const altB = $("askAlt"); altB.style.display = alt ? "" : "none"; altB.textContent = alt || "";
+      const done = (v) => { d.close(); cleanup(); resolve(v); };
+      const onOk = () => done(input !== null ? inp.value.trim() : true), onNo = () => done(input !== null ? null : false), onAlt = () => done("alt");
+      const onKey = (e) => { if (e.key === "Enter" && input !== null) { e.preventDefault(); onOk(); } };
+      const cleanup = () => { $("askOk").removeEventListener("click", onOk); $("askNo").removeEventListener("click", onNo); $("askX").removeEventListener("click", onNo); altB.removeEventListener("click", onAlt); inp.removeEventListener("keydown", onKey); d.removeEventListener("cancel", onCancel); };
+      const onCancel = (e) => { e.preventDefault(); onNo(); };
+      $("askOk").addEventListener("click", onOk); $("askNo").addEventListener("click", onNo); $("askX").addEventListener("click", onNo); altB.addEventListener("click", onAlt); inp.addEventListener("keydown", onKey); d.addEventListener("cancel", onCancel);
+      d.showModal(); if (input !== null) inp.focus(); else $("askOk").focus();
+    });
+  }
+  const uiConfirm = (text, opts = {}) => ask({ text, ...opts });
+  const uiPrompt = (text, value = "", opts = {}) => ask({ text, input: value, ...opts });
+  // the Windows app asks here when the window is closed during a render
+  window.askClose = async () => { const r = await ask({ title: "A render is still running", text: "Keep rendering in the background? The studio stays in the tray and you can come back from its icon.", ok: "Keep rendering in the tray", alt: "Stop and quit", cancel: "Back to the studio" }); const choice = r === true ? "tray" : r === "alt" ? "quit" : "cancel"; try { await window.pywebview.api.close_decision(choice); } catch (e) {} };
   const post = (u, b) => api(u, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b || {}) });
   const toast = (m, ms = 3800) => { const t = document.createElement("div"); t.className = "toast"; t.textContent = m; $("toasts").appendChild(t); setTimeout(() => t.remove(), ms); };
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
@@ -613,7 +641,7 @@
   $("railBtn").onclick = () => $("ws").classList.toggle("rail-off");
   $("qBtn").onclick = () => $("ws").classList.toggle("q-off");
   // resizable rails: drag the handles; widths are remembered in this browser
-  try { const w = JSON.parse(localStorage.getItem("rails") || "{}"); if (w.rail) $("ws").style.setProperty("--rail", w.rail + "px"); if (w.qrail) $("ws").style.setProperty("--qrail", w.qrail + "px"); } catch (e) {}
+  try { const w = JSON.parse(localStorage.getItem("rails") || "{}"); if (w.rail) $("ws").style.setProperty("--rail-w", w.rail + "px"); if (w.qrail) $("ws").style.setProperty("--qrail-w", w.qrail + "px"); } catch (e) {}
   function drag(handle, side) {
     handle.addEventListener("pointerdown", (e) => {
       e.preventDefault(); handle.setPointerCapture(e.pointerId); handle.classList.add("drag");
@@ -758,7 +786,7 @@
     for (const j of [...active, ...recent]) {
       const el = document.createElement("div"); el.className = "qcard" + (S.sel === j.id ? " sel" : "");
       const thumb = j.status === "done" ? `<img src="/api/image/${j.id}" alt="">` : j.has_preview ? `<img src="/api/preview/${j.id}?t=${Date.now()}" alt="">` : `<div class="ph">${j.status === "running" ? j.phase : j.status}</div>`;
-      const meta = j.status === "running" ? (j.phase === "sampling" ? `step ${j.step}/${j.total_steps} · ${fmtEta(j.eta_seconds)} left` : `${j.phase} · ≈ ${fmtEta(j.eta_seconds)} left`) : j.status === "queued" ? `queued #${j.queue_position} · ≈ ${fmtEta(j.eta_seconds)}` : j.status === "done" ? fmtDur(j.total_seconds) : j.status;
+      const meta = j.summary || j.status;
       const bar = (j.status === "running" || j.status === "queued") ? `<div class="bar"><i style="width:${Math.round((j.progress || 0) * 100)}%"></i></div>` : "";
       const act = j.status === "running" || j.status === "queued" ? `<button class="btn sm" data-c="${j.id}">Cancel</button>` : j.status === "done" ? `<button class="btn sm" data-g="${j.id}">Open</button>` : "";
       el.innerHTML = `${thumb}<div><div class="t">${esc(j.title)}</div><div class="m" title="${esc(j.prompt || j.caption || "")}">${esc(j.prompt || j.caption || "")}</div>${bar}<div class="m">${meta}</div><div style="margin-top:6px">${act}</div></div>`;
@@ -770,7 +798,7 @@
     if (!active.length && !recent.length) box.innerHTML = '<div class="qempty">Nothing queued. Finished work is in the gallery.</div>';
     renderCanvas(jobs.find(j => j.id === S.sel) || active[0]);
     if (S.tab === "gallery") renderGallery(false);
-    $("hwdot").className = "dot" + (active.some(j => j.status === "running") ? " busy" : "");
+    $("hwdot").className = "dot" + (active.some(j => j.status === "running") ? " busy" : ""); renderTasks();
   }
   function renderCanvas(j) {
     const c = $("canvas"); c.querySelectorAll(":scope > img").forEach(n => n.remove()); $("stwrap").innerHTML = "";
@@ -779,10 +807,10 @@
     emptyEl.style.display = "none";
     if (j.status === "done") { const img = document.createElement("img"); img.src = `/api/image/${j.id}`; c.appendChild(img); }
     else if (j.has_preview) { const img = document.createElement("img"); img.src = `/api/preview/${j.id}?t=${Date.now()}`; img.title = "live preview: a rough projection of the image forming"; c.appendChild(img); }
-    else { emptyEl.style.display = ""; emptyEl.innerHTML = `<b>${j.status === "queued" ? "Waiting in the queue…" : esc(j.phase[0].toUpperCase() + j.phase.slice(1)) + "…"}</b>${esc(j.prompt)}`; }
+    else { if (j.source_job && j.status === "running") { const img = document.createElement("img"); img.src = `/api/image/${j.source_job}`; img.style.opacity = ".35"; img.style.filter = "saturate(.6)"; img.title = "the image being edited; the live preview replaces it after the first step"; c.appendChild(img); } emptyEl.style.display = ""; emptyEl.innerHTML = `<b>${j.status === "queued" ? "Waiting in the queue…" : j.phase === "sampling" ? "Rendering…" : j.phase === "encoding" || j.phase === "loading" ? "Loading the model…" : esc(j.phase[0].toUpperCase() + j.phase.slice(1)) + "…"}</b>${esc(j.prompt)}<div class="muted small" style="margin-top:6px">${esc(j.summary || "")}</div>`; }
     const st = document.createElement("div"); st.className = "status"; $("stwrap").appendChild(st);
     if (j.status === "done") st.innerHTML = `<span><b>Done</b> <span class="m">${esc(j.title)} · ${fmtDur(j.total_seconds)}</span></span><button class="btn sm" id="stOpen">Open in gallery</button>`;
-    else st.innerHTML = `<span><b>${j.status === "running" ? "Rendering" : "Queued"}</b> <span class="m">${j.phase === "sampling" ? `step ${j.step}/${j.total_steps}` : j.phase} · ${fmtEta(j.eta_seconds)} left</span></span><span class="bar"><i style="width:${Math.round((j.progress || 0) * 100)}%"></i></span><button class="btn sm" id="stCancel">Cancel</button>`;
+    else st.innerHTML = `<span><b>${j.status === "running" ? "Rendering" : "Queued"}</b> <span class="m">${esc(j.summary || "")}</span></span><span class="bar"><i style="width:${Math.round((j.progress || 0) * 100)}%"></i></span><button class="btn sm" id="stCancel">Cancel</button>`;
     const so = $("stOpen"); if (so) so.onclick = () => { showTab("gallery"); openLightbox(j.id); };
     const sc = $("stCancel"); if (sc) sc.onclick = async () => { sc.disabled = true; await post(`/api/jobs/${j.id}/cancel`); toast("Cancel requested."); setTimeout(refreshJobs, 1200); };
   }
@@ -872,7 +900,7 @@
   }
   $("lbPrev").onclick = () => lbStep(-1); $("lbNext").onclick = () => lbStep(1); $("lbClose").onclick = () => $("lb").close();
   $("lbStar").onclick = async () => { const j = S.lbJob; const r = await post(`/api/jobs/${j.id}/favorite`, { favorite: !j.favorite }); j.favorite = r.favorite; $("lbStar").style.color = j.favorite ? "var(--honey)" : ""; renderGallery(true); };
-  $("lbDel").onclick = async () => { const j = S.lbJob; if (!confirm("Move this image to the trash? You can restore it from Gallery → Trash.")) return; await fetch(`/api/jobs/${j.id}`, { method: "DELETE" }); toast("Moved to trash."); $("lb").close(); await refreshJobs(); renderGallery(true); };
+  $("lbDel").onclick = async () => { const j = S.lbJob; if (!(await uiConfirm("Move this image to the trash? You can restore it from Gallery → Trash.", { title: "Move to trash", ok: "Move to trash", danger: true }))) return; await fetch(`/api/jobs/${j.id}`, { method: "DELETE" }); toast("Moved to trash."); $("lb").close(); await refreshJobs(); renderGallery(true); };
   // import: button, file picker, drag and drop anywhere
   async function importFiles(files) { let last = null; for (const f of files) { if (!f.type.startsWith("image/")) continue; const r = await (await fetch(`/api/import?name=${encodeURIComponent(f.name)}`, { method: "POST", body: f })).json(); if (r.error) toast(r.error, 6000); else last = r.id; } if (last) { toast("Imported. Open it to edit, upscale, cut out or describe."); await refreshJobs(); showTab("gallery"); renderGallery(true); } }
   const inApp = () => !!(window.pywebview && window.pywebview.api);
@@ -881,7 +909,7 @@
   let dragDepth = 0; document.addEventListener("dragenter", (e) => { if ([...e.dataTransfer.types].includes("Files")) { dragDepth++; $("drop").classList.add("on"); } }); document.addEventListener("dragleave", () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $("drop").classList.remove("on"); }); document.addEventListener("dragover", (e) => e.preventDefault()); document.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("drop").classList.remove("on"); if (e.dataTransfer.files.length) importFiles([...e.dataTransfer.files]); });
   // trash
   async function openTrash() { const t = await api("/api/trash"); $("trashBody").innerHTML = t.trash.length ? t.trash.map(r => `<div class="sw"><div>${esc(r.title)}<div class="d">${r.width}×${r.height} · deleted ${(r.deleted_at || "").replace("T", " ").slice(0, 16)}</div></div><button class="btn sm" data-restore="${r.id}">Restore</button></div>`).join("") : '<p class="muted">The trash is empty.</p>'; $("trashBody").querySelectorAll("[data-restore]").forEach(b => b.onclick = async () => { await post(`/api/jobs/${b.dataset.restore}/restore`); await refreshJobs(); renderGallery(true); openTrash(); }); $("trashDialog").showModal(); }
-  $("trashBtn").onclick = openTrash; $("trashX").onclick = () => $("trashDialog").close(); $("trashEmpty").onclick = async () => { if (!confirm("Delete everything in the trash permanently?")) return; await post("/api/trash/empty"); openTrash(); };
+  $("trashBtn").onclick = openTrash; $("trashX").onclick = () => $("trashDialog").close(); $("trashEmpty").onclick = async () => { if (!(await uiConfirm("Delete everything in the trash permanently?", { title: "Empty trash", ok: "Empty trash", danger: true }))) return; await post("/api/trash/empty"); openTrash(); };
   $("lb").addEventListener("click", (e) => { if (e.target === $("lb")) $("lb").close(); });
   $("lbCopy").onclick = async () => { try { await navigator.clipboard.writeText(S.lbJob.reproducible_prompt); toast("Copied. Paste it into the prompt box to recreate this image exactly."); } catch (e) { toast("Copy failed; select the text instead."); } };
   $("lbReuse").onclick = () => { const j = S.lbJob; $("prompt").value = j.reproducible_prompt; $("style").value = ""; $("stytext").textContent = ""; $("lb").close(); showTab("create"); $("prompt").dispatchEvent(new Event("input")); $("prompt").focus(); };
@@ -909,8 +937,8 @@
     $("modelsPanel").querySelectorAll("[data-inst]").forEach(b => b.onclick = () => { const [kind, name] = b.dataset.inst.split("|"); if (kind === "model") { const [m, v] = name.split(":"); openDownload(m, v); } else if (kind === "tool") openToolDownload(name); else if (kind === "vision") openVisionDownload(name); else openEngineDownload(name); });
     $("modelsPanel").querySelectorAll("[data-use]").forEach(b => b.onclick = async () => { b.disabled = true; const r = await post("/api/config", { engine_backend: b.dataset.use }); if (r.error) { toast(r.error, 7000); b.disabled = false; return; } S.cfg = r; toast(`Engine backend: ${b.dataset.use}. New jobs use it; run the benchmark again to recalibrate the estimates.`, 7000); await loadCaps(); renderMachine(); });
     $("modelsPanel").querySelectorAll("[data-show]").forEach(b => b.onclick = async () => { const r = await post("/api/reveal", { path: b.dataset.show }); if (r.error) toast(r.error); });
-    $("modelsPanel").querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { const [kind, name] = b.dataset.rm.split("|"); if (!confirm(`Remove ${name} from this machine? You can install it again later.`)) return; const r = await post("/api/components/remove", { kind, name }); if (r.error) { toast(r.error, 7000); return; } toast(`Removed · ${gib(r.freed_bytes)} freed`); await loadCaps(); renderMachine(); plan(); });
-    renderLoraPanel(); renderCustomPanel(); renderRemotePanel();
+    $("modelsPanel").querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { const [kind, name] = b.dataset.rm.split("|"); if (!(await uiConfirm(`Remove ${esc(name)} from this machine? You can install it again later.`, { title: "Remove component", ok: "Remove", danger: true }))) return; const r = await post("/api/components/remove", { kind, name }); if (r.error) { toast(r.error, 7000); return; } toast(`Removed · ${gib(r.freed_bytes)} freed`); await loadCaps(); renderMachine(); plan(); });
+    renderLoraPanel(); renderCustomPanel(); renderRemotePanel(); renderWorkerRow(c);
     const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgCaption").checked = !!cfg.auto_caption; $("cfgNotify").checked = notifyOn(); $("cfgCaptionNote").textContent = cfg.auto_caption_ready ? "" : "Needs llama.cpp and a vision model (Models and engines above)."; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
     if (c.profile) renderProfile(c.profile);
     let appInfo = null; if (inApp()) { try { appInfo = await window.pywebview.api.app_info(); } catch (e) {} }
@@ -922,7 +950,7 @@
     const rows = d.models.map(m => `<tr><td><b>${esc(m.display_name || m.name)}</b> <span class="pill">${esc(m.licence || "licence as declared")}</span><div class="muted small mono">${esc(m.name)} · ${esc(d.families[m.family]?.label || m.family)}</div><div class="muted small mono" style="white-space:normal">${Object.values(m.files || {}).map(esc).join("<br>")}</div></td><td class="r" style="white-space:nowrap"><button class="btn sm ghost" data-cmrm="${esc(m.name)}" style="color:var(--bad)">Forget</button></td></tr>`).join("");
     const problems = (d.problems || []).map(p => `<div class="pill" style="color:var(--bad);margin:2px 0">${esc(p)}</div>`).join("");
     $("cmPanel").innerHTML = (rows ? `<table class="t"><tr><th>Model</th><th></th></tr>${rows}</table>` : `<div class="muted small">No custom models yet. Add a FLUX or Qwen-Image finetune in GGUF or safetensors, or a Stable Diffusion 1.5 / XL checkpoint. The studio's own encoders (CLIP-L, T5, VAE) can be reused.</div>`) + problems;
-    $("cmPanel").querySelectorAll("[data-cmrm]").forEach(b => b.onclick = async () => { if (!confirm(`Forget ${b.dataset.cmrm}? Your files stay where they are.`)) return; const r = await post("/api/custom-models/remove", { name: b.dataset.cmrm }); if (r.error) { toast(r.error, 6000); return; } toast("Forgotten."); await loadCaps(); renderCustomPanel(); });
+    $("cmPanel").querySelectorAll("[data-cmrm]").forEach(b => b.onclick = async () => { if (!(await uiConfirm(`Forget ${esc(b.dataset.cmrm)}? Your files stay where they are.`, { title: "Forget model", ok: "Forget" }))) return; const r = await post("/api/custom-models/remove", { name: b.dataset.cmrm }); if (r.error) { toast(r.error, 6000); return; } toast("Forgotten."); await loadCaps(); renderCustomPanel(); });
   }
   function cmRenderFiles() { const fam = S.cmFamilies[$("cmFamily").value]; if (!fam) return; $("cmFiles").innerHTML = Object.entries(fam.components).map(([flag, label]) => `<div class="row" style="gap:8px;margin-top:6px"><label style="width:90px" class="small muted mono" title="${esc(flag)}">${esc(flag.replace(/^-+/, ""))}</label><input type="text" data-flag="${esc(flag)}" placeholder="${esc(label)} · full path" value="${esc(fam.shared[flag] || "")}" style="flex:1;height:30px">${inApp() ? `<button class="btn sm" data-browse="${esc(flag)}">Browse…</button>` : ""}</div>`).join("");
     $("cmFiles").querySelectorAll("[data-browse]").forEach(b => b.onclick = async () => { const p = await pickNative("weights", false); if (p[0]) $("cmFiles").querySelector(`[data-flag="${b.dataset.browse}"]`).value = p[0]; }); $("cmNote").textContent = Object.keys(fam.shared).length ? "Shared encoders are prefilled from the studio's own downloads; replace only the model file." : ""; }
@@ -938,9 +966,9 @@
     const devs = (r.devices || []).map(d => `<div class="devrow"><div><b>${esc(d.name)}</b><div class="d">paired ${new Date(d.created_at * 1000).toLocaleString()} · last seen ${d.last_seen ? new Date(d.last_seen * 1000).toLocaleString() : "never"}<br>${esc(d.user_agent || "")}</div></div><div style="white-space:nowrap"><button class="btn sm ghost" data-devname="${d.id}">Rename</button> <button class="btn sm ghost" data-devrm="${d.id}" style="color:var(--bad)">Revoke</button></div></div>`).join("") || `<div class="muted small">No phones paired yet.</div>`;
     box.innerHTML = `<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start"><div id="qrSlot"><button class="btn" id="pairBtn">Show pairing QR code</button></div><div style="flex:1;min-width:240px"><div class="small muted">1. Phone on the same Wi-Fi. 2. Scan the code with the camera app. 3. The studio opens on the phone, already paired; add it to the home screen for an app icon.<br>Studio address: <span class="mono">${(r.addresses || []).map(a => `http://${a}:${r.port}`).map(esc).join(" · ") || "no network address found"}</span></div><h3 style="margin:14px 0 4px;font-size:13px">Paired devices</h3>${devs}${(r.devices || []).length ? `<div style="margin-top:8px"><button class="btn sm ghost" id="revokeAll" style="color:var(--bad)">Revoke all</button></div>` : ""}</div></div>`;
     $("pairBtn").onclick = async () => { const p = await post("/api/pair/start", { name: "phone" }); if (p.error) { toast(p.error, 6000); return; } $("qrSlot").innerHTML = `<div class="qrbox">${p.qr_svg}</div><div class="small muted" style="margin-top:6px">Valid ${Math.round(p.expires_in / 60)} min · one phone per code<br><span class="mono" style="font-size:11px">${esc(p.urls[0])}</span></div><div style="margin-top:6px"><button class="btn sm" id="pairAgain">New code</button></div>`; $("pairAgain").onclick = () => $("pairBtn") ? $("pairBtn").click() : renderRemotePanel(); const t = setInterval(async () => { const st = await api("/api/remote"); if ((st.devices || []).length > (r.devices || []).length) { clearInterval(t); toast("Phone paired."); renderRemotePanel(); } }, 2500); setTimeout(() => clearInterval(t), 320000); };
-    box.querySelectorAll("[data-devrm]").forEach(b => b.onclick = async () => { if (!confirm("Revoke this device? It will need to pair again.")) return; await post("/api/remote/devices/revoke", { id: b.dataset.devrm }); renderRemotePanel(); });
-    box.querySelectorAll("[data-devname]").forEach(b => b.onclick = async () => { const n = prompt("Name for this device:"); if (n) { await post("/api/remote/devices/rename", { id: b.dataset.devname, name: n }); renderRemotePanel(); } });
-    const ra = $("revokeAll"); if (ra) ra.onclick = async () => { if (!confirm("Revoke every paired device?")) return; await post("/api/remote/devices/revoke", { all: true }); renderRemotePanel(); };
+    box.querySelectorAll("[data-devrm]").forEach(b => b.onclick = async () => { if (!(await uiConfirm("Revoke this device? It will need to pair again.", { title: "Revoke device", ok: "Revoke", danger: true }))) return; await post("/api/remote/devices/revoke", { id: b.dataset.devrm }); renderRemotePanel(); });
+    box.querySelectorAll("[data-devname]").forEach(b => b.onclick = async () => { const n = await uiPrompt("Name for this device:", "", { title: "Rename device", ok: "Rename" }); if (n) { await post("/api/remote/devices/rename", { id: b.dataset.devname, name: n }); renderRemotePanel(); } });
+    const ra = $("revokeAll"); if (ra) ra.onclick = async () => { if (!(await uiConfirm("Revoke every paired device?", { title: "Revoke all devices", ok: "Revoke all", danger: true }))) return; await post("/api/remote/devices/revoke", { all: true }); renderRemotePanel(); };
   }
   $("cfgRemote").onchange = async () => { const on = $("cfgRemote").checked; const r = await post("/api/remote", { enabled: on }); if (r.error) { toast(r.error, 7000); return; } if (r.restart_required) toast(on ? "Saved. Restart the studio (imagestudio ui) so it listens on the network." : "Saved. Restart the studio to stop listening on the network.", 8000); else if (r.restarted) { toast(on ? "Phone access on. Windows may ask to allow the studio on your network." : "Phone access off.", 6000); setTimeout(renderRemotePanel, 1500); return; } renderRemotePanel(); };
   // camera on phones: straight into the gallery
@@ -949,7 +977,7 @@
     const d = await api("/api/loras"); const gib = (b) => b >= 1073741824 ? (b / 1073741824).toFixed(2) + " GiB" : Math.round(b / 1048576) + " MB";
     $("loraPanel").innerHTML = `<div class="muted small" style="margin-bottom:8px">Folder: <span class="mono">${esc(d.folder)}</span> <button class="btn sm ghost" id="loraShow">Show</button>. Any LoRA trained for the base model you generate with (FLUX.1 or Qwen-Image) works; the studio cannot check that up front, a mismatch shows as an engine error on the first job. Use it with <span class="mono">--lora name:0.8</span> in the prompt or the LoRA picker on Create.</div>` + (d.loras.length ? `<table class="t"><tr><th>Name</th><th>File</th><th class="r">Size</th><th></th></tr>${d.loras.map(l => `<tr><td><b>${esc(l.name)}</b></td><td class="mono small">${esc(l.filename)}</td><td class="r mono">${gib(l.bytes)}</td><td class="r"><button class="btn sm ghost" data-lrm="${esc(l.name)}" style="color:var(--bad)">Remove</button></td></tr>`).join("")}</table>` : `<div class="muted small">No LoRA files yet. Import one, or copy files into the folder.</div>`);
     $("loraShow").onclick = async () => { const r = await post("/api/reveal", { path: d.folder }); if (r.error) toast(r.error); };
-    $("loraPanel").querySelectorAll("[data-lrm]").forEach(b => b.onclick = async () => { if (!confirm(`Remove LoRA ${b.dataset.lrm}?`)) return; const r = await post("/api/loras/remove", { name: b.dataset.lrm }); if (r.error) { toast(r.error, 6000); return; } toast("Removed."); await loadCaps(); renderLoraPanel(); });
+    $("loraPanel").querySelectorAll("[data-lrm]").forEach(b => b.onclick = async () => { if (!(await uiConfirm(`Remove LoRA ${esc(b.dataset.lrm)}?`, { title: "Remove LoRA", ok: "Remove", danger: true }))) return; const r = await post("/api/loras/remove", { name: b.dataset.lrm }); if (r.error) { toast(r.error, 6000); return; } toast("Removed."); await loadCaps(); renderLoraPanel(); });
   }
   $("loraImport").onclick = async () => { if (!inApp()) { $("loraFile").click(); return; } const paths = await pickNative("lora", true); for (const path of paths) { const r = await post("/api/loras/import-path", { path }); if (r.error) toast(r.error, 7000); else toast(`${r.name} added.`); } if (paths.length) { await loadCaps(); renderLoraPanel(); } };
   $("loraFile").onchange = async () => { const f = $("loraFile").files[0]; if (!f) return; toast(`Importing ${f.name}…`); const r = await (await fetch(`/api/loras/upload?name=${encodeURIComponent(f.name)}`, { method: "POST", body: f })).json(); $("loraFile").value = ""; if (r.error) { toast(r.error, 7000); return; } toast(`${r.name} added.`); await loadCaps(); renderLoraPanel(); };
@@ -958,6 +986,8 @@
   $("cfgOver").onchange = async () => { S.cfg = await post("/api/config", { allow_over_budget: $("cfgOver").checked }); toast($("cfgOver").checked ? "Over-budget runs allowed. They may swap for hours or fail." : "Over-budget runs locked."); plan(); };
   $("cfgCaption").onchange = async () => { S.cfg = await post("/api/config", { auto_caption: $("cfgCaption").checked }); toast(S.cfg.auto_caption && !S.cfg.auto_caption_ready ? "Saved. Captions start once llama.cpp and a vision model are installed." : "Saved."); };
   $("cfgNotify").onchange = async () => { if ($("cfgNotify").checked) { if (!("Notification" in window)) { toast("This browser has no notifications."); $("cfgNotify").checked = false; return; } const perm = await Notification.requestPermission(); if (perm !== "granted") { toast("Notifications were not allowed by the browser."); $("cfgNotify").checked = false; return; } } try { localStorage.setItem("notify", $("cfgNotify").checked ? "1" : "0"); } catch (e) {} toast($("cfgNotify").checked ? "You will be told when a job finishes while this tab is in the background." : "Notifications off."); };
+  function renderWorkerRow(c) { const q = c.queue || {}; const row = $("workerRow"); if (q.worker_in_this_process) { row.style.display = "none"; return; } row.style.display = ""; $("workerNote").textContent = q.worker_pid ? `Renders run in another studio process (pid ${q.worker_pid}${q.worker_version ? ", build " + q.worker_version : ""}). Take over when it is idle to render here with this build.` : "No worker is running."; $("workerTake").textContent = q.worker_pid ? "Take over rendering" : "Start rendering here"; }
+  $("workerTake").onclick = async () => { let r = await post("/api/worker/handover", {}); if (r.error) { toast(r.error, 7000); return; } toast(r.message || "Requested."); for (let i = 0; i < 10; i++) { await new Promise(res => setTimeout(res, 1000)); const s2 = await post("/api/worker/start", {}); if (s2.worker_in_this_process) { toast("This studio renders now."); await loadCaps(); renderMachine(); return; } } toast("The other worker has not stopped yet; try again in a moment.", 6000); };
   $("cfgGuide").onclick = () => { try { localStorage.removeItem("guideHidden"); } catch (e) {} showTab("home"); };
   $("cfgPreview").onchange = async () => { S.cfg = await post("/api/config", { live_preview: $("cfgPreview").checked }); setLp(); toast("Saved."); };
   $("cfgThreads").onchange = async () => { await post("/api/config", { default_threads: num("cfgThreads") }); toast("Saved."); };
@@ -984,7 +1014,8 @@
   async function pollTasks() { clearTimeout(taskTimer); const t = await api("/api/tasks"); S.tasks = t; renderTasks(); if (Object.values(t).some(x => x.status === "running")) taskTimer = setTimeout(pollTasks, 3000); else if (Object.values(t).some(x => x.status === "done" && x.kind === "download")) { await loadCaps(); plan(); if (S.tab === "machine") renderMachine(); if (S.tab === "home") renderHome(); } }
   function renderTasks() {
     const entries = Object.entries(S.tasks); const running = entries.filter(([, t]) => t.status === "running").length;
-    $("acttext").textContent = running ? `${running} running` : entries.length ? "done" : "idle"; $("actdot").className = "dot" + (running ? " busy" : entries.length ? "" : " off");
+    const rendering = (S.jobs || []).find(j => j.status === "running"); const queuedN = (S.jobs || []).filter(j => j.status === "queued").length;
+    $("acttext").textContent = rendering ? `rendering${queuedN ? ` +${queuedN}` : ""}` : running ? `${running} running` : entries.length ? "done" : "idle"; $("actdot").className = "dot" + (rendering || running ? " busy" : entries.length ? "" : " off"); $("actchip").title = rendering ? rendering.summary || "rendering" : "downloads and benchmark";
     const html = entries.length ? entries.map(([k, t]) => { let b = `<b>${esc(t.label)}</b> · ${t.status} · ${fmtDur(t.elapsed_seconds)}`; if (t.kind === "download") { const pct = t.progress != null ? Math.round(t.progress * 100) : 0; b += `<div class="muted">${(t.done_bytes / 1073741824).toFixed(2)} / ${(t.total_bytes / 1073741824).toFixed(2)} GiB${t.current_file ? " · " + esc(t.current_file) : ""}</div><div class="bar"><i style="width:${pct}%"></i></div>`; } else { b += `<div class="muted">${esc(t.message || "")}</div>`; if (t.result?.profile) renderProfile(t.result.profile); } if (t.error) b += `<div style="color:var(--bad)">${esc(t.error)}</div>`; return `<div class="task">${b}</div>`; }).join("") : '<div class="muted small">Nothing running.</div>';
     $("actpop").innerHTML = html; $("tasksPanel").innerHTML = html;
   }
@@ -1109,7 +1140,7 @@
   $("skFile").onchange = () => { const f = $("skFile").files[0]; if (!f) return; const img = new Image(); img.onload = () => { skrx.clearRect(0, 0, skr.width, skr.height); const sc = Math.min(skr.width / img.width, skr.height / img.height); const w = img.width * sc, h = img.height * sc; skrx.drawImage(img, (skr.width - w) / 2, (skr.height - h) / 2, w, h); URL.revokeObjectURL(img.src); setRef(true); toast("Reference placed under the drawing. Use the reference slider to fade it."); }; img.src = URL.createObjectURL(f); $("skFile").value = ""; };
   $("skRefX").onclick = () => setRef(false);
   function skExport() { const out = document.createElement("canvas"); out.width = skc.width; out.height = skc.height; const x = out.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, out.width, out.height); if (K.hasRef) { x.globalAlpha = +$("skRef").value / 100; x.drawImage(skr, 0, 0); x.globalAlpha = 1; } x.drawImage(skc, 0, 0); return new Promise(r => out.toBlob(r, "image/png")); }
-  $("skSizeSel").onchange = () => { const [w, h] = $("skSizeSel").value.split("x").map(Number); if ((K.undo.length || K.hasRef) && !confirm("Changing the canvas size clears the drawing. Continue?")) { return; } skReset(w, h); };
+  $("skSizeSel").onchange = async () => { const [w, h] = $("skSizeSel").value.split("x").map(Number); if ((K.undo.length || K.hasRef) && !(await uiConfirm("Changing the canvas size clears the drawing. Continue?", { title: "Change canvas size", ok: "Clear and resize", danger: true }))) { return; } skReset(w, h); };
   $("skStr").addEventListener("input", () => { $("skStrV").textContent = $("skStr").value; });
   $("skPreset").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; document.querySelectorAll("#skPreset button").forEach(x => x.classList.toggle("active", x === b)); };
   $("skPrompt").addEventListener("input", () => { const t = $("skPrompt"); t.style.height = "auto"; t.style.height = Math.min(140, t.scrollHeight) + "px"; });

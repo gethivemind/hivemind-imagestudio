@@ -121,10 +121,9 @@ class Server:
         running = [j for j in self.studio.jobs.all() if j.status == "running"]
         queued = [j for j in self.studio.jobs.all() if j.status == "queued"]
         if running:
-            j = running[0]
-            pct = int((j.progress or 0) * 100) if hasattr(j, "progress") else 0
+            st = self.studio.job_status(running[0].id)
             more = f" · {len(queued)} queued" if queued else ""
-            return f"{TITLE}\nrendering {j.step}/{j.total_steps or '?'} ({pct}%){more}"
+            return f"{TITLE}\nrendering · {st['summary']}{more}"
         if queued:
             return f"{TITLE}\n{len(queued)} queued"
         return f"{TITLE}\nidle"
@@ -203,6 +202,10 @@ class JsApi:
 
     def open_in_browser(self):
         return self._app.open_in_browser()
+
+    def close_decision(self, choice: str):
+        """The page's themed dialog answers the close question: tray | quit | cancel."""
+        return self._app.close_decision(choice)
 
 
 class App:
@@ -287,18 +290,23 @@ class App:
             self.save_state()
             return True
         if self.server.rendering():
-            keep = self.window.create_confirmation_dialog(
-                TITLE,
-                "A render is still running.\n\nKeep rendering in the background? The studio stays "
-                "in the tray; click its icon to come back. Choose No to stop the render and quit.",
-            )
-            if keep:
-                self.save_state()
-                self.hide_to_tray()
+            # ask in the page, in the studio's own style; the answer comes back via close_decision
+            try:
+                self.window.evaluate_js("window.askClose && window.askClose()")
                 return False
+            except Exception:
+                logging.getLogger("app").exception("close dialog in page failed; quitting")
         self.quitting = True
         self.save_state()
         self.stop_tray()
+        return True
+
+    def close_decision(self, choice: str) -> bool:
+        if choice == "tray":
+            self.save_state()
+            self.hide_to_tray()
+        elif choice == "quit":
+            self.quit()
         return True
 
     def hide_to_tray(self) -> None:

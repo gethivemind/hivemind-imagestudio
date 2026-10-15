@@ -32,6 +32,17 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+def human(seconds: float | None) -> str:
+    if seconds is None:
+        return "-"
+    s = round(seconds)
+    if s < 60:
+        return f"{s} s"
+    if s < 3600:
+        return f"{s // 60} min"
+    return f"{s // 3600} h {(s % 3600) // 60:02d} min"
+
+
 @dataclass
 class Job:
     id: str
@@ -103,10 +114,46 @@ class Job:
             remaining_steps = max(0, self.total_steps - self.step)
             # Decoding and saving take a small fraction of one step at most.
             return remaining_steps * self.seconds_per_step + self.seconds_per_step * 0.5
-        elapsed = 0.0
-        if self.started_at:
-            elapsed = (datetime.now(UTC) - datetime.fromisoformat(self.started_at)).total_seconds()
-        return max(0.0, self.estimate_seconds - elapsed)
+        # Before the first sampling step nothing has been measured. The estimate is a guess
+        # (and meaningless when the machine is swapping), so stop pretending once it runs out.
+        if self.over_budget:
+            return None
+        elapsed = self.elapsed_seconds()
+        remaining = self.estimate_seconds - elapsed
+        if self.estimate_seconds <= 0 or remaining < 0.1 * self.estimate_seconds:
+            return None
+        return remaining
+
+    def elapsed_seconds(self) -> float:
+        if not self.started_at:
+            return 0.0
+        return (datetime.now(UTC) - datetime.fromisoformat(self.started_at)).total_seconds()
+
+    def summary(self, queue_position: int | None = None, eta: float | None = None) -> str:
+        """One honest line for every surface (capsule, queue card, tray, header chip)."""
+        if self.status == "queued":
+            pos = f"queued #{queue_position} · " if queue_position else "queued · "
+            return pos + (f"≈ {human(eta)}" if eta is not None else "estimate unknown")
+        if self.status == "done":
+            return f"done in {human(self.total_seconds or 0)}"
+        if self.status in ("failed", "cancelled"):
+            return self.status
+        if self.phase == "sampling" and self.total_steps:
+            left = f" · {human(eta)} left" if eta is not None else ""
+            return f"step {self.step}/{self.total_steps}{left}"
+        if self.phase in ("decoding", "saving"):
+            return "finishing the image"
+        el = self.elapsed_seconds()
+        label = "loading weights" if self.phase in ("loading", "queued") else self.phase
+        if eta is not None:
+            return f"{label} · ≈ {human(eta)} left"
+        slow = (
+            " · longer than estimated"
+            if self.estimate_seconds and el > 0.9 * self.estimate_seconds
+            else ""
+        )
+        swap = " · swapping" if self.over_budget else ""
+        return f"{label} · {human(el)} so far{slow}{swap} · measuring"
 
     def progress_fraction(self) -> float:
         """0-1. Before sampling reports steps, progress follows elapsed time against the
@@ -119,12 +166,12 @@ class Job:
             return 0.1 + 0.85 * (self.step / self.total_steps)
         if self.phase in ("decoding", "saving"):
             return 0.97
-        elapsed = 0.0
-        if self.started_at:
-            elapsed = (datetime.now(UTC) - datetime.fromisoformat(self.started_at)).total_seconds()
-        if self.estimate_seconds > 0:
-            return min(0.1, 0.1 * elapsed / (0.2 * self.estimate_seconds))
-        return 0.02
+        # Loading: the first tenth of the bar follows elapsed time against the expected load
+        # time, then eases towards (never reaching) the sampling mark so it keeps moving.
+        elapsed = self.elapsed_seconds()
+        expect = max(30.0, 0.2 * self.estimate_seconds) if self.estimate_seconds > 0 else 120.0
+        x = elapsed / expect
+        return 0.1 * (x if x <= 1 else 1 + (1 - 1 / (1 + (x - 1) * 0.5)) * 0.8)
 
     @property
     def preview_name(self) -> str:
@@ -163,6 +210,10 @@ class JobStore:
                     continue  # half-written by another process; next refresh gets it
                 self._jobs[job.id] = job
                 self._mtimes[job_id] = mtime
+
+    def exit_marker(self) -> Path:
+        """Another process asks the worker to stop between jobs (handover to a newer build)."""
+        return self.settings.jobs_dir / "worker.exit"
 
     def cancel_marker(self, job_id: str) -> Path:
         return self.settings.jobs_dir / f"{job_id}.cancel"
@@ -364,6 +415,10 @@ class Worker:
 
     def _run(self) -> None:
         while not self._stop.is_set():
+            if self.store.exit_marker().exists():
+                self.store.exit_marker().unlink(missing_ok=True)
+                self._stop.set()
+                break
             try:
                 job_id = self._q.get(timeout=self.poll_seconds)
             except queue.Empty:

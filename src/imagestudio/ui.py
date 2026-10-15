@@ -480,6 +480,20 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
             return JSONResponse({"error": str(e)}, status_code=400)
         return JSONResponse({"ok": True})
 
+    async def worker_handover(request: Request) -> JSONResponse:
+        if (deny := _owner_only(request)) is not None:
+            return deny
+        try:
+            res = studio.request_worker_handover()
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse(res)
+
+    async def worker_start(request: Request) -> JSONResponse:
+        if (deny := _owner_only(request)) is not None:
+            return deny
+        return JSONResponse({"worker_in_this_process": studio.try_start_worker()})
+
     async def loras(_: Request) -> JSONResponse:
         return JSONResponse({"loras": studio.loras(), "folder": str(studio.settings.loras_dir)})
 
@@ -626,6 +640,8 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
             Route("/api/custom-models", custom_models),
             Route("/api/custom-models", custom_model_add, methods=["POST"]),
             Route("/api/custom-models/remove", custom_model_remove, methods=["POST"]),
+            Route("/api/worker/handover", worker_handover, methods=["POST"]),
+            Route("/api/worker/start", worker_start, methods=["POST"]),
             Route("/api/loras", loras),
             Route("/api/loras/upload", lora_upload, methods=["POST"]),
             Route("/api/loras/remove", lora_remove, methods=["POST"]),
