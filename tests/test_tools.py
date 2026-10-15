@@ -469,3 +469,13 @@ def test_edit_model_routes_instruction_edits_and_auto_never_picks_it(settings: S
             wait(studio, j.id)
     finally:
         studio.close()
+
+
+def test_model_store_sees_downloads_made_by_another_process(settings: Settings):
+    from imagestudio.models import ModelStore
+    from imagestudio.registry import QWEN_IMAGE_EDIT
+
+    store = ModelStore(settings)  # a running studio
+    assert store.installed_variants(QWEN_IMAGE_EDIT) == []
+    fake_install(settings, QWEN_IMAGE_EDIT, QWEN_IMAGE_EDIT.variant("q3"))  # the CLI, elsewhere
+    assert [v.name for v in store.installed_variants(QWEN_IMAGE_EDIT)] == ["q3"]

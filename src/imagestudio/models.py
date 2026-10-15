@@ -6,6 +6,7 @@ size and the manifest records its hash as verified."""
 
 from __future__ import annotations
 
+import contextlib
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -44,6 +45,7 @@ class ModelStore:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._manifest: dict[str, str] = {}
+        self._mtime: int | None = None
         self._load()
 
     # -- manifest ------------------------------------------------------------------------
@@ -53,20 +55,37 @@ class ModelStore:
         if p.exists():
             try:
                 self._manifest = json.loads(p.read_text(encoding="utf-8"))
+                self._mtime = p.stat().st_mtime_ns
             except (OSError, ValueError):
                 self._manifest = {}
+        else:
+            self._mtime = None
+
+    def _refresh(self) -> None:
+        """Re-read the manifest when another process changed it (a download finished by the
+        CLI or by a second studio while this one was running). One stat per query."""
+        p = self.settings.manifest_file
+        try:
+            m = p.stat().st_mtime_ns if p.exists() else None
+        except OSError:
+            return
+        if m != self._mtime:
+            self._load()
 
     def _save(self) -> None:
         self.settings.models_dir.mkdir(parents=True, exist_ok=True)
         self.settings.manifest_file.write_text(
             json.dumps(self._manifest, indent=2, sort_keys=True), encoding="utf-8"
         )
+        with contextlib.suppress(OSError):
+            self._mtime = self.settings.manifest_file.stat().st_mtime_ns
 
     # -- queries -------------------------------------------------------------------------
 
     def file_installed(self, spec: FileSpec) -> bool:
         if spec.local_path:
             return Path(spec.local_path).is_file()
+        self._refresh()
         p = self.settings.models_dir / spec.filename
         return (
             p.exists()
