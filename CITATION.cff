@@ -8,8 +8,8 @@ authors:
     alias: royal-programmer
 repository-code: "https://github.com/gethivemind/hivemind-imagestudio"
 license: Apache-2.0
-version: 0.3.6
-date-released: 2026-10-14
+version: 0.3.7
+date-released: 2026-10-16
 abstract: >-
   A free, local image studio and MCP server: text-to-image, editing, sketch-to-image,
   upscaling, background removal and image-to-text with permissively licensed models on the

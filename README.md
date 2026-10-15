@@ -94,6 +94,12 @@ the download lets you verify it. `ImageStudio.exe --browser` uses your browser i
 `ImageStudio.exe cli doctor` reaches the command line. A Microsoft Store listing (signed by
 Microsoft, no SmartScreen warning, automatic updates) is in preparation; see `packaging/STORE.md`. Logs: `%LOCALAPPDATA%\hivemind-imagestudio\logs\app.log`.
 
+**macOS (Apple silicon):** `ImageStudio-<version>-macos-arm64.zip` from the same release;
+unzip and open "Image Studio.app" (right-click → Open the first time: not notarized yet). A
+native window, no tray. **Linux (x86_64, glibc 2.39+):** `ImageStudio-<version>-linux-x86_64.tar.gz`;
+unpack and run `ImageStudio`, which opens the studio in your browser. Details in
+`packaging/README-LINUX-MACOS.txt`. Both builds are new as of 0.3.7.
+
 **Everywhere else** (and for the MCP server and CLI), requires Python 3.11+.
 
 ```bash

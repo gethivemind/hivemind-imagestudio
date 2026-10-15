@@ -2,7 +2,10 @@ name: Release
 
 # ADR-056 (Hivemind): a tag `vX.Y.Z` builds the wheel and sdist, publishes them to PyPI
 # through Trusted Publishing (no long-lived token anywhere), and attaches them to a GitHub
-# release, together with the Windows app folder (PyInstaller, zipped, with its SHA-256).
+# release, together with the desktop app for Windows (installer, portable zip, Store MSIX),
+# macOS (arm64 .app, zipped) and Linux (x86_64 folder, tarball), each with its SHA-256. The
+# macOS and Linux builds are new and must not block a release: their job may fail without
+# failing the release, which then simply lacks those files.
 # The tag must match the version in pyproject.toml; the job refuses otherwise.
 on:
   push:
@@ -101,6 +104,67 @@ jobs:
             dist/*.cer
             dist/*-Setup.exe
 
+  posix-app:
+    name: ${{ matrix.label }} app
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+            artifact: macos-app
+          - os: ubuntu-latest
+            label: Linux
+            artifact: linux-app
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        shell: bash
+        env:
+          IMAGESTUDIO_VERSION: ${{ github.ref_name }}
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          export IMAGESTUDIO_VERSION="$ver"
+          uv venv --clear --python 3.12
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            uv pip install -e ".[app]" pyinstaller
+          else
+            uv pip install -e . pyinstaller
+          fi
+          uv run pyinstaller packaging/ImageStudio.spec --noconfirm --log-level WARN
+          cp LICENSE NOTICE TRADEMARK.md CHANGELOG.md packaging/README-LINUX-MACOS.txt dist/ImageStudio/
+          cd dist
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            cp ../LICENSE ../NOTICE ../TRADEMARK.md ../packaging/README-LINUX-MACOS.txt .
+            ditto -c -k --sequesterRsrc --keepParent "Image Studio.app" "ImageStudio-$ver-macos-arm64.zip"
+            zip -q -g "ImageStudio-$ver-macos-arm64.zip" LICENSE NOTICE TRADEMARK.md README-LINUX-MACOS.txt
+            shasum -a 256 "ImageStudio-$ver-macos-arm64.zip" > "ImageStudio-$ver-macos-arm64.zip.sha256"
+            cat "ImageStudio-$ver-macos-arm64.zip.sha256"
+          else
+            mv ImageStudio "ImageStudio-$ver"
+            tar -czf "ImageStudio-$ver-linux-x86_64.tar.gz" "ImageStudio-$ver"
+            mv "ImageStudio-$ver" ImageStudio
+            sha256sum "ImageStudio-$ver-linux-x86_64.tar.gz" > "ImageStudio-$ver-linux-x86_64.tar.gz.sha256"
+            cat "ImageStudio-$ver-linux-x86_64.tar.gz.sha256"
+          fi
+      - name: Smoke test
+        shell: bash
+        run: |
+          ./dist/ImageStudio/ImageStudio --version
+          ./dist/ImageStudio/ImageStudio cli doctor || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.sha256
+
   publish:
     name: publish to PyPI
     needs: build
@@ -117,7 +181,7 @@ jobs:
 
   github-release:
     name: GitHub release
-    needs: [publish, windows-app]
+    needs: [publish, windows-app, posix-app]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -128,7 +192,8 @@ jobs:
           path: dist/
       - uses: actions/download-artifact@v4
         with:
-          name: windows-app
+          pattern: "*-app"
+          merge-multiple: true
           path: dist/
       - uses: softprops/action-gh-release@v2
         with:

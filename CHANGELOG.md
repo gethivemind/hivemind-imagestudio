@@ -4,6 +4,30 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
+## 0.3.7 — 2026-10-16
+
+### Added
+- macOS (Apple silicon) build: `ImageStudio-<version>-macos-arm64.zip` with "Image Studio.app",
+  a native window (system WebKit). Linux (x86_64) build: `ImageStudio-<version>-linux-x86_64.tar.gz`,
+  opens the studio in the browser. Both unsigned, both with SHA-256 files; see
+  `packaging/README-LINUX-MACOS.txt`. These builds are new; if one fails, the release ships without it.
+- Pause switch for the queue (queue rail and tray menu): the running render finishes, nothing
+  new starts, across every process that submits jobs. Memory limit in Settings → Preferences
+  (GiB): every fit decision, estimate and refusal follows it.
+- Edit uses an installed edit model only when it fits this machine's memory (or over-budget
+  runs are unlocked); the viewer and model lists say which sets do not fit and why.
+- One shared job summary (status, step, elapsed, ETA) in the capsule, queue card and gallery
+  chip; the ETA says "measuring…" instead of guessing before sampling starts.
+
+### Changed
+- Closing the studio for real stops the running render; the tray is the way to keep it going.
+- A worker that hands over to the window releases its lock, so a studio started by an MCP
+  client no longer blocks the window from rendering.
+- Themed dialogs everywhere (no native confirm/prompt); the side rails collapse fully.
+
+### Fixed
+- Progress bar stuck during long model loads; queue card overflow; missing live preview.
+
 ## 0.3.6 — 2026-10-15
 
 ### Added

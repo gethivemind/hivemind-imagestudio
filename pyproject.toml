@@ -1,6 +1,6 @@
 [project]
 name = "hivemind-imagestudio"
-version = "0.3.6"
+version = "0.3.7"
 description = "Free, local, permissively licensed image MCP server. Quality is a setting, never a consequence."
 readme = "README.md"
 license = "Apache-2.0"

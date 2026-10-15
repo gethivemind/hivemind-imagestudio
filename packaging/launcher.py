@@ -1,9 +1,12 @@
-"""ImageStudio.exe: the studio as a Windows application.
+"""ImageStudio: the studio as a desktop application.
 
-The local server and its render worker run inside this process; the interface is shown in a
-native window (WebView2, which ships with Windows 10 and 11). Closing the window while a job
-renders offers to keep rendering in the background with a tray icon. A second launch focuses
-the existing window instead of starting another studio.
+The local server and its render worker run inside this process. On Windows the interface is
+shown in a native window (WebView2, which ships with Windows 10 and 11) and closing it while a
+job renders offers to keep rendering in the background with a tray icon. On macOS the window
+is the system WebKit view (no tray: closing during a render asks whether to stop). On Linux
+the studio opens in the default browser, since a native window would need GTK or Qt that the
+packaged build cannot carry. A second launch focuses the existing window instead of starting
+another studio.
 
 Options:  --browser  (use the default browser instead of a window)
           --no-browser (headless server only)
@@ -32,6 +35,13 @@ PORT = int(os.environ.get("IMAGESTUDIO_PORT", "8766"))
 CONTROL_PORT = PORT + 1  # single-instance handshake
 TITLE = "Image Studio by Hivemind"
 WEBVIEW2_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+# the tray icon needs a GUI loop of its own; on macOS that loop and the window's are the same
+# main thread, so the tray is Windows-only. Linux runs in the browser (see the docstring).
+TRAY_SUPPORTED = sys.platform == "win32"
+WINDOW_SUPPORTED = sys.platform in ("win32", "darwin")
+WINDOW_SUPPORTED = WINDOW_SUPPORTED or os.environ.get("IMAGESTUDIO_WINDOW") == "1"
+WINDOW_GUI = "edgechromium" if sys.platform == "win32" else None
+PLATFORM_LABEL = {"win32": "Windows app", "darwin": "macOS app"}.get(sys.platform, "Linux app")
 
 
 def port_open(port: int) -> bool:
@@ -245,7 +255,14 @@ class App:
         return list(res or [])
 
     def app_info(self):
-        return {"windowed": True, "log": str(self.log_path), "data_dir": str(self.data_dir)}
+        return {
+            "windowed": True,
+            "tray": TRAY_SUPPORTED,
+            "platform": sys.platform,
+            "label": PLATFORM_LABEL,
+            "log": str(self.log_path),
+            "data_dir": str(self.data_dir),
+        }
 
     def open_in_browser(self):
         webbrowser.open(f"http://{HOST}:{PORT}/")
@@ -313,6 +330,8 @@ class App:
         return True
 
     def close_decision(self, choice: str) -> bool:
+        if choice == "tray" and not TRAY_SUPPORTED:
+            choice = "cancel"
         if choice == "tray":
             self.save_state()
             self.hide_to_tray()
@@ -397,7 +416,7 @@ class App:
         self.window.events.shown += self.apply_icon
         storage = self.data_dir / "webview"
         storage.mkdir(parents=True, exist_ok=True)
-        webview.start(gui="edgechromium", private_mode=False, storage_path=str(storage))
+        webview.start(gui=WINDOW_GUI, private_mode=False, storage_path=str(storage))
 
 
 # ---------------------------------------------------------------- WebView2 presence (Windows)
@@ -494,7 +513,7 @@ def main() -> int:
         server.stop()
         return 0
 
-    use_browser = "--browser" in sys.argv
+    use_browser = "--browser" in sys.argv or not WINDOW_SUPPORTED
     if not use_browser and not webview2_available():
         if not ask_webview2():
             server.stop()
