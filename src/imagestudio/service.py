@@ -134,6 +134,7 @@ class Studio:
             self.models,
             self.calibration,
             allow_over_budget=self.settings.allow_over_budget,
+            cap_bytes=self._cap_bytes(),
         )
         self.custom_model_problems = register_custom_models(
             list(self.settings.config().get("custom_models") or [])
@@ -578,11 +579,43 @@ class Studio:
         self.worker.submit(job)
         return job
 
+    def _cap_bytes(self) -> int | None:
+        gib = self.settings.max_memory_gib
+        return int(gib * GIB) if gib else None
+
     def edit_model(self) -> ModelSpec | None:
-        """The strongest installed edit model (Qwen-Image-Edit), or None → image-to-image."""
+        """The strongest installed edit model that fits this machine (or any installed one
+        when over-budget runs are unlocked); None → image-to-image. A 20B editor that only runs
+        while swapping is not offered as the default path: measured at an hour per step."""
         for m in edit_models():
-            if self.models.installed_variants(m):
+            installed = self.models.installed_variants(m)
+            if not installed:
+                continue
+            if self.planner.allow_over_budget:
                 return m
+            fits = fit_variants(m, self.hardware, 512, 512, self.planner.cap_bytes)
+            names = {v.name for v in installed}
+            if any(f.fits and f.variant.name in names for f in fits):
+                return m
+        return None
+
+    def edit_model_note(self) -> str | None:
+        """Why Edit uses image-to-image on this machine, if an edit model is installed but
+        does not fit."""
+        for m in edit_models():
+            installed = self.models.installed_variants(m)
+            if not installed or self.edit_model() is m:
+                continue
+            fits = fit_variants(m, self.hardware, 512, 512, self.planner.cap_bytes)
+            smallest = min(
+                f.required_bytes for f in fits if f.variant.name in {v.name for v in installed}
+            )
+            return (
+                f"{m.display_name} is installed but needs about {smallest / GIB:.1f} GiB even at "
+                f"512 px; this machine's budget is {fits[0].budget_bytes / GIB:.1f} GiB. Edit uses "
+                "image-to-image here. Measured on a 16 GB laptop: about an hour per step while "
+                "swapping."
+            )
         return None
 
     def variations(self, image: str, strength: float = 0.4, prompt: str = "", **kw) -> Job:
@@ -1219,7 +1252,7 @@ class Studio:
         self.jobs.exit_marker().write_text("exit", encoding="utf-8")
         return {
             "ok": True,
-            "message": "asked the other worker to stop; this studio takes over within a few seconds",
+            "message": "asked the other worker to stop; this studio takes over in a few seconds",
         }
 
     def set_engine_backend(self, flavor: str) -> None:
@@ -1448,7 +1481,7 @@ class Studio:
             "seconds_per_step": job.seconds_per_step,
             "eta_seconds": None if eta is None else round(eta),
             "elapsed_seconds": round(job.elapsed_seconds()) if job.status == "running" else None,
-            "summary": job.summary(queue_position=position, eta=eta),
+            "summary": job.summary(queue_position=position, eta=eta, paused=self.jobs.is_paused()),
             "eta_human": None if eta is None else human_duration(eta),
             "estimate_basis": job.estimate_basis,
             "queue_position": position,
@@ -1639,6 +1672,12 @@ class Studio:
             "auto_caption_ready": self.auto_caption_ready(),
             "pinned_prompts": list(cfg.get("pinned_prompts") or []),
             "remote_enabled": self.settings.remote_enabled,
+            "paused": self.jobs.is_paused(),
+            "max_memory_gib": self.settings.max_memory_gib,
+            "memory_budget_gib": round(
+                memory_budget_bytes(self.hardware, self.planner.cap_bytes) / GIB, 1
+            ),
+            "memory_budget_auto_gib": round(memory_budget_bytes(self.hardware) / GIB, 1),
             "engine_backend": getattr(self.engine, "flavor", "cpu"),
             "engine_backend_from_env": bool(os.environ.get(ENV_SD_FLAVOR)),
             "engine_backends": self.engine_backends()
@@ -1659,6 +1698,18 @@ class Studio:
             cfg["auto_caption"] = bool(changes["auto_caption"])
         if "remote_enabled" in changes:
             cfg["remote_enabled"] = bool(changes["remote_enabled"])
+        if "paused" in changes:
+            self.jobs.set_paused(bool(changes["paused"]))
+        if "max_memory_gib" in changes:
+            v = changes["max_memory_gib"]
+            try:
+                gib = float(v) if v not in (None, "", 0, "0") else None
+            except (TypeError, ValueError) as e:
+                raise StudioError("memory limit must be a number of GiB, or empty") from e
+            if gib is not None and not 2 <= gib <= 1024:
+                raise StudioError("memory limit must be between 2 and 1024 GiB")
+            cfg["max_memory_gib"] = gib
+            self.planner.cap_bytes = int(gib * GIB) if gib else None
         if "engine_backend" in changes:
             self.set_engine_backend(str(changes["engine_backend"]))
             cfg = self.settings.config()
@@ -1838,7 +1889,7 @@ class Studio:
     # -- capabilities ---------------------------------------------------------------------
 
     def model_report(self, model: ModelSpec) -> dict[str, Any]:
-        fits = fit_variants(model, self.hardware, 1024, 1024)
+        fits = fit_variants(model, self.hardware, 1024, 1024, self.planner.cap_bytes)
         installed = {v.name for v in self.models.installed_variants(model)}
         return {
             "name": model.name,
@@ -1851,6 +1902,13 @@ class Studio:
             "description": model.description,
             "homepage": model.homepage,
             "installed_variants": sorted(installed),
+            "fits_any": any(f.fits for f in fits),
+            "fit_note": None
+            if any(f.fits for f in fits)
+            else (
+                f"needs at least {fits[-1].required_bytes / GIB:.1f} GiB at 1024 px for its "
+                f"smallest set; this machine's budget is {fits[0].budget_bytes / GIB:.1f} GiB"
+            ),
             "variants": [
                 {
                     "name": f.variant.name,
@@ -1898,6 +1956,7 @@ class Studio:
             "loras": self.loras(),
             "loras_dir": str(self.settings.loras_dir),
             "edit_model": getattr(self.edit_model(), "name", None),
+            "edit_model_note": self.edit_model_note(),
             "custom_families": self.custom_families(),
             "custom_model_problems": self.custom_model_problems,
             "vision_engine": {
@@ -1924,6 +1983,7 @@ class Studio:
                 "running": running.id if (running := self.jobs.running()) else None,
                 "queued": len(self.jobs.queued()),
                 "worker_in_this_process": self.worker_active,
+                "paused": self.jobs.is_paused(),
                 "worker_pid": self.worker_owner_pid,
                 "worker_version": (self.worker.lock.info() or {}).get("version"),
                 "worker_started_at": (self.worker.lock.info() or {}).get("started_at"),

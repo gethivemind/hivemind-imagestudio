@@ -456,3 +456,50 @@ def test_worker_lock_records_version_and_flags_outdated(settings: Settings):
     settings.worker_lock_file.write_text(str(__import__("os").getpid()))
     third = Studio(settings=settings, engine=FakeEngine(), hardware=laptop(), start_worker=False)
     assert third.capabilities()["queue"]["worker_outdated"] is True
+
+
+def test_pause_holds_new_jobs_and_stop_cancels_the_running_one(settings: Settings):
+    from conftest import FLUX_SCHNELL, fake_install
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(settings=settings, engine=FakeEngine(step_delay=0.3), hardware=laptop())
+    try:
+        studio.set_config({"paused": True})
+        assert studio.get_config()["paused"] is True
+        job = studio.generate("held", preset="fast")
+        time.sleep(1.5)
+        st = studio.job_status(job.id)
+        assert st["status"] == "queued" and st["summary"] == "queued · paused"
+        studio.set_config({"paused": False})
+        for _ in range(100):
+            if studio.job_status(job.id)["status"] == "running":
+                break
+            time.sleep(0.05)
+        assert studio.job_status(job.id)["status"] == "running"
+        # quitting the studio stops the render instead of leaving it behind (on a loaded
+        # machine the short fake render may already have finished: never left "running")
+        studio.close()
+        assert studio.jobs.get(job.id).status != "running"
+        assert not studio.worker.active
+    finally:
+        studio.close()
+
+
+def test_worker_handover_releases_the_lock_to_a_second_studio(settings: Settings):
+    from conftest import FLUX_SCHNELL, fake_install
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    first = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    second = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        assert first.worker_active and not second.worker_active
+        res = second.request_worker_handover()
+        assert res["ok"]
+        for _ in range(100):
+            if second.try_start_worker():
+                break
+            time.sleep(0.1)
+        assert second.worker_active and not first.worker_active
+    finally:
+        first.close()
+        second.close()

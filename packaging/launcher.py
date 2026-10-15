@@ -77,6 +77,17 @@ class Server:
         from imagestudio.ui import build_app
 
         self.studio = Studio(start_worker=True)
+        if not self.studio.worker_active:
+            # another studio process holds the worker (usually one left behind). Ask it to
+            # stop once idle and take over; a render in progress is left alone.
+            try:
+                self.studio.request_worker_handover()
+                for _ in range(10):
+                    time.sleep(0.5)
+                    if self.studio.try_start_worker():
+                        break
+            except Exception:
+                logging.getLogger("app").info("another studio is rendering; submitting to it")
         self.app = build_app(self.studio, on_remote_change=self.rebind)
         self._listen()
 
@@ -331,6 +342,14 @@ class App:
             menu = pystray.Menu(
                 pystray.MenuItem("Open Image Studio", lambda: self.focus(), default=True),
                 pystray.MenuItem("Open in browser", lambda: self.open_in_browser()),
+                pystray.MenuItem(
+                    lambda item: (
+                        "Resume queue" if self.server.studio.jobs.is_paused() else "Pause queue"
+                    ),
+                    lambda: self.server.studio.set_config(
+                        {"paused": not self.server.studio.jobs.is_paused()}
+                    ),
+                ),
                 pystray.MenuItem("Quit", lambda: self.quit()),
             )
             self.tray = pystray.Icon("imagestudio", image, self.server.progress_text(), menu)

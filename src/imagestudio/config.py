@@ -93,6 +93,15 @@ class Settings:
         return v or "cpu"
 
     @property
+    def max_memory_gib(self) -> float | None:
+        """Optional hard cap on the memory budget (Settings → Preferences). None = automatic."""
+        v = self.config().get("max_memory_gib")
+        try:
+            return float(v) if v not in (None, "", 0) else None
+        except (TypeError, ValueError):
+            return None
+
+    @property
     def allow_over_budget(self) -> bool:
         """The unlock: run settings the memory budget says will not fit. Off by default;
         enabled only by the environment variable or an explicit config.json entry."""

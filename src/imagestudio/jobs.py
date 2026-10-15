@@ -129,9 +129,13 @@ class Job:
             return 0.0
         return (datetime.now(UTC) - datetime.fromisoformat(self.started_at)).total_seconds()
 
-    def summary(self, queue_position: int | None = None, eta: float | None = None) -> str:
+    def summary(
+        self, queue_position: int | None = None, eta: float | None = None, paused: bool = False
+    ) -> str:
         """One honest line for every surface (capsule, queue card, tray, header chip)."""
         if self.status == "queued":
+            if paused:
+                return "queued · paused"
             pos = f"queued #{queue_position} · " if queue_position else "queued · "
             return pos + (f"≈ {human(eta)}" if eta is not None else "estimate unknown")
         if self.status == "done":
@@ -210,6 +214,19 @@ class JobStore:
                     continue  # half-written by another process; next refresh gets it
                 self._jobs[job.id] = job
                 self._mtimes[job_id] = mtime
+
+    def pause_marker(self) -> Path:
+        """Queue paused by the owner: the worker finishes the running job and takes no new one."""
+        return self.settings.jobs_dir / "queue.paused"
+
+    def is_paused(self) -> bool:
+        return self.pause_marker().exists()
+
+    def set_paused(self, paused: bool) -> None:
+        if paused:
+            self.pause_marker().write_text("paused", encoding="utf-8")
+        else:
+            self.pause_marker().unlink(missing_ok=True)
 
     def exit_marker(self) -> Path:
         """Another process asks the worker to stop between jobs (handover to a newer build)."""
@@ -369,7 +386,13 @@ class Worker:
             self._q.put(job_id)
 
     def stop(self, timeout: float = 5.0) -> None:
+        """Stop the worker. A running render is cancelled: quitting the studio must not leave
+        an engine process behind (the tray mode keeps the studio alive instead)."""
         self._stop.set()
+        if self._current:
+            cancel = getattr(self.engine, "cancel", None)
+            if cancel:
+                cancel()
         self._q.put("")  # wake
         if self._thread.is_alive():
             self._thread.join(timeout)
@@ -418,7 +441,11 @@ class Worker:
             if self.store.exit_marker().exists():
                 self.store.exit_marker().unlink(missing_ok=True)
                 self._stop.set()
+                self.lock.release()  # hand the worker role over; stop() tolerates a second release
                 break
+            if self.store.is_paused():
+                time.sleep(min(1.0, self.poll_seconds))
+                continue
             try:
                 job_id = self._q.get(timeout=self.poll_seconds)
             except queue.Empty:
@@ -426,6 +453,10 @@ class Worker:
                     self._enqueue(job.id)
                 continue
             if not job_id or self._stop.is_set():
+                continue
+            if self.store.is_paused():
+                self._seen.discard(job_id)  # pick it up again after resume
+                time.sleep(min(1.0, self.poll_seconds))
                 continue
             job = self.store.get(job_id)
             if job is None or job.status != "queued":

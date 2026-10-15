@@ -429,7 +429,8 @@
     </main>
 
     <aside class="qrail"><div class="in">
-      <h3>Queue <span class="muted" id="qcount"></span></h3>
+      <h3>Queue <span class="muted" id="qcount"></span><button class="btn sm ghost" id="pauseBtn" title="Finish the current render, then hold the queue">Pause</button></h3>
+      <div class="muted small" id="pausedNote" style="display:none;margin:-4px 0 8px">Queue paused: nothing new starts until you resume. A running render finishes.</div>
       <div id="queue"><div class="qempty">Nothing queued. Finished work is in the gallery.</div></div>
     </div></aside>
   </div>
@@ -500,6 +501,7 @@
     <div class="sw" id="workerRow" style="display:none"><div>Rendering worker<div class="d" id="workerNote"></div></div><button class="btn sm" id="workerTake">Take over rendering</button></div>
     <div class="sw"><div>Getting-started guide<div class="d">The checklist on Home. It hides itself once the basics are done.</div></div><button class="btn sm" id="cfgGuide">Show again</button></div>
     <div class="sw"><div>Allow over-budget runs<div class="d">Start jobs that need more memory than this machine has. They may swap for hours or fail; each is marked.</div></div><input type="checkbox" id="cfgOver"></div>
+    <div class="sw"><div>Memory limit<div class="d" id="memLimitNote">Hard cap on the memory budget in GiB. Empty = automatic (RAM minus 2 GiB, plus discrete VRAM). Lower it to keep the machine usable while rendering; jobs above it are refused unless over-budget runs are unlocked.</div></div><input type="number" id="cfgMem" min="2" max="1024" step="0.5" style="width:84px;height:30px" placeholder="auto"></div>
     <div class="sw"><div>Default threads<div class="d">Empty = all physical cores.</div></div><input type="number" id="cfgThreads" style="width:84px;height:30px" placeholder="cores"></div>
     <p class="muted mono small" id="cfgPath" style="margin:10px 0 0"></p>
     <h2 style="margin-top:16px">Activity</h2><div id="tasksPanel" class="muted small">Nothing running.</div>
@@ -722,7 +724,7 @@
     if (S.workerOutdated) $("hwchip").title = "The rendering worker runs an older build (" + (c.queue.worker_version || "unknown") + "). Restart it to get live previews and cancel.";
     { const sel = $("threadsN"); const cur = sel.value; sel.innerHTML = `<option value="">all cores (${hw.physical_cores})</option>`; const opts = [...new Set([hw.physical_cores - 2, Math.round(hw.physical_cores / 2), 4, 2, 1].filter(n => n >= 1 && n < hw.physical_cores))].sort((a, b) => b - a); for (const n of opts) { const o = document.createElement("option"); o.value = n; o.textContent = `${n} thread${n > 1 ? "s" : ""}${n <= 2 ? " · laptop stays responsive" : ""}`; sel.appendChild(o); } sel.value = cur; }
     const sel = $("model"); sel.innerHTML = '<option value="auto">auto model</option>';
-    for (const m of c.models) { if (m.role === "edit") continue; const o = document.createElement("option"); o.value = m.name; o.textContent = m.display_name + (m.tier === "custom" ? " · your own" : "") + (m.installed_variants.length ? "" : " · not downloaded"); sel.appendChild(o); }
+    for (const m of c.models) { if (m.role === "edit") continue; const o = document.createElement("option"); o.value = m.name; o.textContent = m.display_name + (m.tier === "custom" ? " · your own" : "") + (m.installed_variants.length ? "" : " · not downloaded") + (m.fits_any === false ? " · does not fit this machine" : ""); if (m.fit_note) o.title = m.fit_note; sel.appendChild(o); }
     if (!$("style").options.length) for (const [v, n] of STYLES) { const o = document.createElement("option"); o.value = v; o.textContent = n; $("style").appendChild(o); }
     if (!$("sampler").options.length) for (const s of SAMPLERS) { const o = document.createElement("option"); o.value = s === "euler" ? "" : s; o.textContent = s === "euler" ? "euler · default" : s; $("sampler").appendChild(o); }
     S.cfg = await api("/api/config"); setLp();
@@ -779,7 +781,7 @@
   $("go").onclick = generate;
 
   async function refreshJobs() {
-    const d = await api("/api/jobs"); const jobs = d.jobs || []; notifyTransitions(S.jobs, jobs); S.jobs = jobs;
+    const d = await api("/api/jobs"); const jobs = d.jobs || []; notifyTransitions(S.jobs, jobs); S.jobs = jobs; if (d.paused === undefined && S.caps) d.paused = S.caps.queue && S.caps.queue.paused;
     const active = jobs.filter(j => j.status === "queued" || j.status === "running");
     const recent = jobs.filter(j => ["done", "failed", "cancelled"].includes(j.status) && j.finished_at && (Date.now() - new Date(j.finished_at)) < 3600e3).slice(0, 5);
     const box = $("queue"); box.innerHTML = ""; $("qcount").textContent = active.length ? `${active.length} active` : "";
@@ -799,7 +801,9 @@
     renderCanvas(jobs.find(j => j.id === S.sel) || active[0]);
     if (S.tab === "gallery") renderGallery(false);
     $("hwdot").className = "dot" + (active.some(j => j.status === "running") ? " busy" : ""); renderTasks();
+    const paused = !!(d.paused); $("pauseBtn").textContent = paused ? "Resume" : "Pause"; $("pauseBtn").classList.toggle("primary", paused); $("pausedNote").style.display = paused ? "" : "none";
   }
+  $("pauseBtn").onclick = async () => { const r = await post("/api/config", { paused: $("pauseBtn").textContent === "Pause" }); if (r.error) { toast(r.error, 6000); return; } toast(r.paused ? "Queue paused. The running render finishes; nothing new starts." : "Queue resumed."); refreshJobs(); };
   function renderCanvas(j) {
     const c = $("canvas"); c.querySelectorAll(":scope > img").forEach(n => n.remove()); $("stwrap").innerHTML = "";
     const emptyEl = $("empty");
@@ -872,7 +876,7 @@
     const vmOk = S.caps.vision_engine?.available && (S.caps.vision_models || []).some(v => v.installed);
     $("descNote").textContent = vmOk ? "" : "Needs the vision engine and a vision model (Machine tab)."; $("descOut").style.display = j.caption ? "" : "none"; $("descOut").textContent = j.caption || ""; $("descActs").style.display = j.caption ? "" : "none"; S.descText = j.caption || ""; $("descQ").value = "";
     $("lbReuse").style.display = j.reproducible_prompt ? "" : "none";
-    const em = (S.caps.models || []).find(m => m.name === S.caps.edit_model); $("edStr").style.display = em ? "none" : ""; $("edV").style.display = em ? "none" : ""; $("edBtn").textContent = em ? `Edit with ${em.display_name.split(" ")[0]}` : "Edit"; $("edNote").textContent = em ? `${em.display_name} edits by instruction and keeps what you do not mention. Painting a mask switches to image-to-image on the base model.` : "No edit model installed: edits are image-to-image on the base model at the chosen strength. Install Qwen-Image-Edit on Settings for true instruction editing.";
+    const em = (S.caps.models || []).find(m => m.name === S.caps.edit_model); $("edStr").style.display = em ? "none" : ""; $("edV").style.display = em ? "none" : ""; $("edBtn").textContent = em ? `Edit with ${em.display_name.split(" ")[0]}` : "Edit"; $("edNote").textContent = em ? `${em.display_name} edits by instruction and keeps what you do not mention. Painting a mask switches to image-to-image on the base model.` : S.caps.edit_model_note ? S.caps.edit_model_note : "No edit model installed: edits are image-to-image on the base model at the chosen strength. Qwen-Image-Edit needs about 15 GiB of memory even in its smallest set; on machines where it fits, install it from Settings.";
     if (j.tool !== "generate") $("lbSub").textContent = `${j.tool.replace("_", " ")} · ${j.tool_model} · ${j.width}×${j.height} · ${fmtDur(j.total_seconds)}${j.source_job ? " · from " + (S.jobs.find(x => x.id === j.source_job)?.title || j.source_job) : ""}`;
   }
   function fillTools(j) {
@@ -934,12 +938,12 @@
     $("modelsPanel").innerHTML = `<div class="muted small" style="margin-bottom:8px">${gib(installedBytes)} on disk in ${esc(c.paths.data_dir)}</div><table class="t"><tr><th>Component</th><th>Type</th><th class="r">On disk</th><th></th></tr>${trs}</table>`;
     $("aboutPanel").querySelectorAll("[data-applog]").forEach(a => a.onclick = async () => { const r = await post("/api/reveal", { path: appInfo.log }); if (r.error) toast(r.error); });
     $("aboutPanel").querySelectorAll("[data-appbrowser]").forEach(a => a.onclick = () => window.pywebview.api.open_in_browser());
-    $("modelsPanel").querySelectorAll("[data-inst]").forEach(b => b.onclick = () => { const [kind, name] = b.dataset.inst.split("|"); if (kind === "model") { const [m, v] = name.split(":"); openDownload(m, v); } else if (kind === "tool") openToolDownload(name); else if (kind === "vision") openVisionDownload(name); else openEngineDownload(name); });
+    $("modelsPanel").querySelectorAll("[data-inst]").forEach(b => b.onclick = () => { const [kind, name] = b.dataset.inst.split("|"); if (kind === "model") { const [m, v] = name.split(":"); const mr = c.models.find(x => x.name === m); const vr = mr && mr.variants.find(x => x.name === v); if (vr && !vr.fits_this_machine) { uiConfirm(`${esc(mr.display_name)} [${esc(v)}] needs about ${vr.needs_gib_at_1024} GiB at 1024 px; this machine's budget is ${mr.memory_budget_gib} GiB. It will only run with over-budget runs unlocked, and then it swaps: measured at about an hour per step on a 16 GB laptop. Download ${vr.download_gib} GiB anyway?`, { title: "This model does not fit", ok: "Download anyway" }).then(ok => { if (ok) openDownload(m, v); }); } else openDownload(m, v); } else if (kind === "tool") openToolDownload(name); else if (kind === "vision") openVisionDownload(name); else openEngineDownload(name); });
     $("modelsPanel").querySelectorAll("[data-use]").forEach(b => b.onclick = async () => { b.disabled = true; const r = await post("/api/config", { engine_backend: b.dataset.use }); if (r.error) { toast(r.error, 7000); b.disabled = false; return; } S.cfg = r; toast(`Engine backend: ${b.dataset.use}. New jobs use it; run the benchmark again to recalibrate the estimates.`, 7000); await loadCaps(); renderMachine(); });
     $("modelsPanel").querySelectorAll("[data-show]").forEach(b => b.onclick = async () => { const r = await post("/api/reveal", { path: b.dataset.show }); if (r.error) toast(r.error); });
     $("modelsPanel").querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { const [kind, name] = b.dataset.rm.split("|"); if (!(await uiConfirm(`Remove ${esc(name)} from this machine? You can install it again later.`, { title: "Remove component", ok: "Remove", danger: true }))) return; const r = await post("/api/components/remove", { kind, name }); if (r.error) { toast(r.error, 7000); return; } toast(`Removed · ${gib(r.freed_bytes)} freed`); await loadCaps(); renderMachine(); plan(); });
     renderLoraPanel(); renderCustomPanel(); renderRemotePanel(); renderWorkerRow(c);
-    const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgCaption").checked = !!cfg.auto_caption; $("cfgNotify").checked = notifyOn(); $("cfgCaptionNote").textContent = cfg.auto_caption_ready ? "" : "Needs llama.cpp and a vision model (Models and engines above)."; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
+    const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgCaption").checked = !!cfg.auto_caption; $("cfgNotify").checked = notifyOn(); $("cfgCaptionNote").textContent = cfg.auto_caption_ready ? "" : "Needs llama.cpp and a vision model (Models and engines above)."; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgMem").value = cfg.max_memory_gib ?? ""; $("memLimitNote").textContent = `Hard cap on the memory budget in GiB. Automatic budget on this machine: ${cfg.memory_budget_auto_gib} GiB${cfg.max_memory_gib ? ` · currently capped to ${cfg.memory_budget_gib} GiB` : ""}. Lower it to keep the machine usable while rendering; jobs above it are refused unless over-budget runs are unlocked.`; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
     if (c.profile) renderProfile(c.profile);
     let appInfo = null; if (inApp()) { try { appInfo = await window.pywebview.api.app_info(); } catch (e) {} }
     $("aboutPanel").innerHTML = (appInfo ? `<div style="margin-bottom:8px">Windows app · <a data-applog style="color:var(--accent);cursor:pointer">show log file</a> · <a data-appbrowser style="color:var(--accent);cursor:pointer">open in browser</a></div>` : "") + `<b>Image Studio by Hivemind</b> ${esc(c.studio_version)} · Apache-2.0 · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener" style="color:var(--accent)">Ratul Roy (royal-programmer)</a><br>${esc(c.policy.quality)}<br><span class="muted">"Hivemind" and "Image Studio by Hivemind" are trademarks; the code is free under Apache-2.0, the name is not. See <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADEMARK.md" target="_blank" rel="noopener" style="color:var(--accent)">TRADEMARK.md</a>.</span><br><br>` + (c.licences || []).map(l => `${esc(l.component)}: ${esc(l.licence)}`).join("<br>") + `<br><br>Excluded by policy: ${(c.excluded_by_policy || []).map(e => esc(e.model)).join(", ")}.`;
@@ -989,6 +993,7 @@
   function renderWorkerRow(c) { const q = c.queue || {}; const row = $("workerRow"); if (q.worker_in_this_process) { row.style.display = "none"; return; } row.style.display = ""; $("workerNote").textContent = q.worker_pid ? `Renders run in another studio process (pid ${q.worker_pid}${q.worker_version ? ", build " + q.worker_version : ""}). Take over when it is idle to render here with this build.` : "No worker is running."; $("workerTake").textContent = q.worker_pid ? "Take over rendering" : "Start rendering here"; }
   $("workerTake").onclick = async () => { let r = await post("/api/worker/handover", {}); if (r.error) { toast(r.error, 7000); return; } toast(r.message || "Requested."); for (let i = 0; i < 10; i++) { await new Promise(res => setTimeout(res, 1000)); const s2 = await post("/api/worker/start", {}); if (s2.worker_in_this_process) { toast("This studio renders now."); await loadCaps(); renderMachine(); return; } } toast("The other worker has not stopped yet; try again in a moment.", 6000); };
   $("cfgGuide").onclick = () => { try { localStorage.removeItem("guideHidden"); } catch (e) {} showTab("home"); };
+  $("cfgMem").onchange = async () => { const r = await post("/api/config", { max_memory_gib: $("cfgMem").value.trim() === "" ? null : +$("cfgMem").value }); if (r.error) { toast(r.error, 6000); return; } S.cfg = r; toast(r.max_memory_gib ? `Memory budget capped to ${r.memory_budget_gib} GiB. Model fit and estimates follow.` : "Memory budget back to automatic."); await loadCaps(); plan(); renderMachine(); };
   $("cfgPreview").onchange = async () => { S.cfg = await post("/api/config", { live_preview: $("cfgPreview").checked }); setLp(); toast("Saved."); };
   $("cfgThreads").onchange = async () => { await post("/api/config", { default_threads: num("cfgThreads") }); toast("Saved."); };
   async function openDownload(model, variant) {

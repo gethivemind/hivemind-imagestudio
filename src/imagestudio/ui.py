@@ -245,7 +245,13 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
         for j in studio.jobs.all():
             rows.append(studio.job_status(j.id))
         rows.reverse()
-        return JSONResponse({"jobs": rows, "worker_in_this_process": studio.worker_active})
+        return JSONResponse(
+            {
+                "jobs": rows,
+                "worker_in_this_process": studio.worker_active,
+                "paused": studio.jobs.is_paused(),
+            }
+        )
 
     async def job(request: Request) -> JSONResponse:
         try:

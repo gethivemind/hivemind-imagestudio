@@ -479,3 +479,33 @@ def test_model_store_sees_downloads_made_by_another_process(settings: Settings):
     assert store.installed_variants(QWEN_IMAGE_EDIT) == []
     fake_install(settings, QWEN_IMAGE_EDIT, QWEN_IMAGE_EDIT.variant("q3"))  # the CLI, elsewhere
     assert [v.name for v in store.installed_variants(QWEN_IMAGE_EDIT)] == ["q3"]
+
+
+def test_memory_limit_lowers_the_budget_and_edit_model_needs_a_fit(settings: Settings):
+    from imagestudio.registry import QWEN_IMAGE_EDIT
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    fake_install(settings, QWEN_IMAGE_EDIT, QWEN_IMAGE_EDIT.variant("q3"))
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        cfg = studio.get_config()
+        auto = cfg["memory_budget_auto_gib"]
+        assert cfg["max_memory_gib"] is None and cfg["memory_budget_gib"] == auto
+        # the installed edit model does not fit a 16 GB laptop → Edit stays image-to-image
+        assert studio.edit_model() is None
+        assert "image-to-image" in (studio.edit_model_note() or "")
+        rep = studio.model_report(QWEN_IMAGE_EDIT)
+        assert rep["fits_any"] is False and "needs at least" in rep["fit_note"]
+        # a lower cap shrinks the FLUX budget too and can make q5 stop fitting
+        cfg = studio.set_config({"max_memory_gib": 6})
+        assert cfg["memory_budget_gib"] == 6.0
+        assert studio.model_report(FLUX_SCHNELL)["fits_any"] is False
+        with pytest.raises(StudioError):
+            studio.set_config({"max_memory_gib": 1})
+        cfg = studio.set_config({"max_memory_gib": None})
+        assert cfg["memory_budget_gib"] == auto
+        # the unlock makes the installed edit model eligible again (explicit consent)
+        studio.set_config({"allow_over_budget": True})
+        assert studio.edit_model() is QWEN_IMAGE_EDIT
+    finally:
+        studio.close()

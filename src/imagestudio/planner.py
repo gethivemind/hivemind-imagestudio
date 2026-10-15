@@ -144,16 +144,19 @@ class Plan:
         }
 
 
-def memory_budget(hw: Hardware) -> int:
+def memory_budget(hw: Hardware, cap_bytes: int | None = None) -> int:
     """Bytes available for weights plus working memory.
 
     A discrete GPU with known VRAM adds its VRAM (sd.cpp can keep weights in RAM and stream
-    them). Integrated graphics share system RAM, so it adds nothing.
+    them). Integrated graphics share system RAM, so it adds nothing. ``cap_bytes`` is the
+    user's own limit (Settings → Preferences → Memory limit) and only ever lowers the budget.
     """
     budget = hw.ram_total_bytes - HEADROOM_BYTES
     gpu = hw.usable_gpu
     if gpu and gpu.vram_bytes:
         budget += gpu.vram_bytes
+    if cap_bytes:
+        budget = min(budget, cap_bytes)
     return max(0, budget)
 
 
@@ -162,13 +165,17 @@ def required_bytes(variant: Variant, width: int, height: int) -> int:
     return variant.download_bytes + int(WORKING_BYTES_PER_MEGAPIXEL * max(mp, 0.25))
 
 
-def fit_variants(model: ModelSpec, hw: Hardware, width: int, height: int) -> list[Fit]:
-    budget = memory_budget(hw)
+def fit_variants(
+    model: ModelSpec, hw: Hardware, width: int, height: int, cap_bytes: int | None = None
+) -> list[Fit]:
+    budget = memory_budget(hw, cap_bytes)
     return [Fit(v, required_bytes(v, width, height), budget) for v in model.ranked_variants]
 
 
-def best_fitting_variant(model: ModelSpec, hw: Hardware, width: int, height: int) -> Fit | None:
-    for f in fit_variants(model, hw, width, height):
+def best_fitting_variant(
+    model: ModelSpec, hw: Hardware, width: int, height: int, cap_bytes: int | None = None
+) -> Fit | None:
+    for f in fit_variants(model, hw, width, height, cap_bytes):
         if f.fits:
             return f
     return None
@@ -187,8 +194,10 @@ class Planner:
         store: ModelStore,
         calibration: Calibration,
         allow_over_budget: bool = False,
+        cap_bytes: int | None = None,
     ) -> None:
         self.allow_over_budget = allow_over_budget
+        self.cap_bytes = cap_bytes
         self.hw = hw
         self.store = store
         self.calibration = calibration
@@ -204,13 +213,16 @@ class Planner:
             (m for m in MODELS.values() if m.role == "generate"), key=lambda m: m.quality_rank
         )
         for m in ranked:
-            if self.store.installed_variants(m) and best_fitting_variant(m, self.hw, width, height):
+            if self.store.installed_variants(m) and best_fitting_variant(
+                m, self.hw, width, height, self.cap_bytes
+            ):
                 return m
         for m in ranked:
             if self.store.installed_variants(m):
                 return m
         return next(
-            (m for m in ranked if best_fitting_variant(m, self.hw, width, height)), ranked[-1]
+            (m for m in ranked if best_fitting_variant(m, self.hw, width, height, self.cap_bytes)),
+            ranked[-1],
         )
 
     def plan(
@@ -250,7 +262,11 @@ class Planner:
 
         if variant_name:
             variant = model.variant(variant_name)
-            fit = next(f for f in fit_variants(model, self.hw, w, h) if f.variant is variant)
+            fit = next(
+                f
+                for f in fit_variants(model, self.hw, w, h, self.cap_bytes)
+                if f.variant is variant
+            )
             if not fit.fits:
                 msg = (
                     f"{model.display_name} [{variant.name}] at {w}x{h} needs about "
@@ -262,7 +278,7 @@ class Planner:
                 over_budget = True
                 warnings.append(f"{msg} Running over budget because allow_over_budget is set.")
         else:
-            fits = fit_variants(model, self.hw, w, h)
+            fits = fit_variants(model, self.hw, w, h, self.cap_bytes)
             top = fits[0]
             chosen = next((f for f in fits if f.fits), None)
             if self.allow_over_budget:
@@ -340,7 +356,7 @@ class Planner:
             )
         load = Load(
             required_bytes=required_bytes(variant, w, h),
-            budget_bytes=memory_budget(self.hw),
+            budget_bytes=memory_budget(self.hw, self.cap_bytes),
             available_bytes=self.hw.ram_available_bytes
             + ((self.hw.usable_gpu.vram_bytes or 0) if self.hw.usable_gpu else 0),
         )
