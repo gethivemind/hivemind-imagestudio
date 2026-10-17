@@ -103,6 +103,8 @@ class Job:
     project: str | None = None  # id in projects.json; None = not filed in a project
     regions: list[list[int]] = field(default_factory=list)  # fix_faces: [x, y, w, h] per face
     render_size: int | None = None  # fix_faces: each face crop is rendered at this square size
+    style: str = ""  # name of the style whose wording was appended to the prompt, if any
+    style_text: str = ""  # that wording, so a PNG can carry the style to another studio
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

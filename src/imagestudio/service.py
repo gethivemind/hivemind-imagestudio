@@ -249,6 +249,8 @@ class Studio:
             "job": job.id,
             "tool": job.tool,
             "project": project["name"] if project else "",
+            "style": job.style,
+            "style_text": job.style_text,
             "prompt": job.prompt,
             "negative_prompt": job.negative_prompt,
             "reproducible_prompt": reproducible(job) if generated else "",
@@ -388,6 +390,8 @@ class Studio:
         threads: int | None = None,
         vae_tiling: bool = False,
         loras: list | None = None,
+        style: str = "",
+        style_text: str = "",
         _defer: bool = False,
     ) -> Job:
         if not prompt or not prompt.strip():
@@ -482,6 +486,8 @@ class Studio:
             id=self.jobs.new_id(),
             project=self.current_project(),
             tool="generate",
+            style=(style or "").strip()[:80],
+            style_text=(style_text or "").strip()[:500],
             prompt=prompt.strip(),
             negative_prompt=negative_prompt or "",
             model=plan.model.name,
@@ -1032,6 +1038,136 @@ class Studio:
                 n += 1
         return n
 
+    # -- styles: saved prompt wording ---------------------------------------------------------
+    #
+    # styles.json in the data dir: [{id, name, text, negative, created_at}]. The page appends a
+    # style's text to the prompt; the job and its PNG record the name and the text, so an image
+    # from another studio can offer its style for saving here.
+
+    def styles(self) -> list[dict[str, Any]]:
+        samples: dict[str, str] = {}
+        for j in self.jobs.all():
+            if j.style and j.status == "done" and j.style not in samples:
+                samples[j.style] = j.id
+        return [{**s, "sample_job": samples.get(s["name"])} for s in self._read_styles()]
+
+    def add_style(self, name: str, text: str, negative: str = "") -> dict[str, Any]:
+        name = " ".join((name or "").split())[:80]
+        text = " ".join((text or "").split())[:500]
+        if not name:
+            raise StudioError("a style needs a name")
+        if not text:
+            raise StudioError("a style needs its wording (what gets added to the prompt)")
+        items = self._read_styles()
+        if any(s["name"].lower() == name.lower() for s in items):
+            raise StudioError(f"a style called {name!r} already exists")
+        entry = {
+            "id": "sty_" + secrets.token_hex(4),
+            "name": name,
+            "text": text,
+            "negative": " ".join((negative or "").split())[:300],
+            "created_at": now_iso(),
+        }
+        items.append(entry)
+        self._write_styles(items)
+        return {**entry, "sample_job": None}
+
+    def update_style(
+        self,
+        style_id: str,
+        name: str | None = None,
+        text: str | None = None,
+        negative: str | None = None,
+    ) -> dict[str, Any]:
+        items = self._read_styles()
+        entry = next((s for s in items if s["id"] == style_id), None)
+        if entry is None:
+            raise StudioError(f"no such style {style_id!r}")
+        if name is not None:
+            name = " ".join(name.split())[:80]
+            if not name:
+                raise StudioError("a style needs a name")
+            if any(s["name"].lower() == name.lower() and s is not entry for s in items):
+                raise StudioError(f"a style called {name!r} already exists")
+            entry["name"] = name
+        if text is not None:
+            text = " ".join(text.split())[:500]
+            if not text:
+                raise StudioError("a style needs its wording")
+            entry["text"] = text
+        if negative is not None:
+            entry["negative"] = " ".join(negative.split())[:300]
+        self._write_styles(items)
+        return entry
+
+    def remove_style(self, style_id: str) -> dict[str, Any]:
+        items = self._read_styles()
+        if not any(s["id"] == style_id for s in items):
+            raise StudioError(f"no such style {style_id!r}")
+        self._write_styles([s for s in items if s["id"] != style_id])
+        return {"removed": style_id}
+
+    def export_styles(self) -> dict[str, Any]:
+        return {
+            "app": f"Hivemind Image Studio {__version__}",
+            "kind": "imagestudio-styles",
+            "styles": [
+                {"name": s["name"], "text": s["text"], "negative": s.get("negative", "")}
+                for s in self._read_styles()
+            ],
+        }
+
+    def import_styles(self, data: Any) -> dict[str, Any]:
+        """Merge a styles export (or a bare list) into the library; names already present
+        are kept as they are. Returns how many were added and skipped."""
+        rows = data.get("styles") if isinstance(data, dict) else data
+        if not isinstance(rows, list):
+            raise StudioError('expected a styles export: {"styles": [{name, text}, ...]}')
+        items = self._read_styles()
+        have = {s["name"].lower() for s in items}
+        added = skipped = 0
+        for row in rows:
+            if not isinstance(row, dict):
+                skipped += 1
+                continue
+            name = " ".join(str(row.get("name") or "").split())[:80]
+            text = " ".join(str(row.get("text") or "").split())[:500]
+            if not name or not text or name.lower() in have:
+                skipped += 1
+                continue
+            items.append(
+                {
+                    "id": "sty_" + secrets.token_hex(4),
+                    "name": name,
+                    "text": text,
+                    "negative": " ".join(str(row.get("negative") or "").split())[:300],
+                    "created_at": now_iso(),
+                }
+            )
+            have.add(name.lower())
+            added += 1
+        if added:
+            self._write_styles(items)
+        return {"added": added, "skipped": skipped, "total": len(items)}
+
+    def _read_styles(self) -> list[dict[str, Any]]:
+        try:
+            data = json.loads((self.settings.data_dir / "styles.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        return [
+            s
+            for s in data
+            if isinstance(s, dict) and s.get("id") and s.get("name") and s.get("text")
+        ]
+
+    def _write_styles(self, items: list[dict[str, Any]]) -> None:
+        self.settings.data_dir.mkdir(parents=True, exist_ok=True)
+        path = self.settings.data_dir / "styles.json"
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(items, indent=2), encoding="utf-8")
+        tmp.replace(path)
+
     # -- projects: named series of images ----------------------------------------------------
     #
     # projects.json in the data dir: [{id, name, description, created_at}]. A job carries the
@@ -1236,6 +1372,8 @@ class Studio:
         if meta.get("prompt"):
             job.prompt = str(meta["prompt"])
             job.negative_prompt = str(meta.get("negative_prompt") or "")
+            job.style = str(meta.get("style") or "")[:80]
+            job.style_text = str(meta.get("style_text") or "")[:500]
             if meta.get("caption"):
                 job.caption = str(meta["caption"])
             for k in ("model", "variant", "preset", "sampler"):
@@ -1888,6 +2026,8 @@ class Studio:
             "favorite": job.favorite,
             "project": job.project,
             "regions": job.regions,
+            "style": job.style,
+            "style_text": job.style_text,
             "deleted_at": job.deleted_at,
             "prompt": job.prompt,
             "reproducible_prompt": reproducible(job)

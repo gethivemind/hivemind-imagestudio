@@ -7,6 +7,8 @@ package on PyPI.
 ## Unreleased
 
 ### Added
+- Styles library: saved prompt wording next to the built-in styles, recorded by name and text
+  in every PNG, saveable from any image that carries one, exportable and importable as JSON.
 - Fix faces: UltraFace (MIT) detection plus a per-face image-to-image pass at 768 px, blended
   back; viewer button, `imagestudio fix-faces`, MCP `fix_faces`.
 - Projects: named series with a header chip, gallery filter, project name in PNG metadata,

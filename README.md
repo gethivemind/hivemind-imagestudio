@@ -80,6 +80,12 @@ even at 4-bit and does not fit a 16 GB machine; the studio reports that instead 
 Estimates start from a heuristic (labelled `uncalibrated`) and are replaced by timings from
 real runs on your machine, kept per model variant in `calibration.json`.
 
+**Styles library.** The style list on Create has the built-ins (Photograph, Cinematic, Oil
+painting, …) and your own: pick "Save a style…" or add one under Settings → Styles. A style is
+wording appended to the prompt; every PNG made with one records the style's name and wording,
+so an image from another studio offers "Save this style" in the viewer. Export writes a JSON
+file to share, Import merges one.
+
 **Fix faces.** Faces are the usual reason a render gets thrown away: at 1024 px a face is a
 few dozen pixels. Tools → Fix faces in the viewer (or `imagestudio fix-faces <job>`, MCP
 `fix_faces`) detects every face with UltraFace (MIT, 1.5 MB), cuts a square around each, scales

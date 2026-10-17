@@ -4,8 +4,27 @@
     {
       "name": "imagestudio-ui",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "imagestudio", "ui", "--port", "8766"],
+      "runtimeArgs": [
+        "-m",
+        "imagestudio",
+        "ui",
+        "--port",
+        "8766"
+      ],
       "port": 8766
+    },
+    {
+      "name": "imagestudio-ui-viewer",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "imagestudio",
+        "ui",
+        "--port",
+        "8767",
+        "--no-worker"
+      ],
+      "port": 8767
     }
   ]
 }

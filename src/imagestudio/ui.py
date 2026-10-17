@@ -5,6 +5,7 @@ the MCP tools use. Settings panel with a live load meter, the queue, and a galle
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -283,6 +284,8 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
                 threads=body.get("threads") or None,
                 vae_tiling=bool(body.get("vae_tiling", False)),
                 loras=body.get("loras") or None,
+                style=str(body.get("style") or ""),
+                style_text=str(body.get("style_text") or ""),
             )
         except (StudioError, ValueError, TypeError) as e:
             return JSONResponse({"error": str(e)}, status_code=400)
@@ -482,6 +485,60 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
 
     async def empty_trash(_: Request) -> JSONResponse:
         return JSONResponse({"removed": studio.empty_trash(0)})
+
+    async def styles(_: Request) -> JSONResponse:
+        return JSONResponse({"styles": studio.styles()})
+
+    async def style_add(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(
+                studio.add_style(
+                    str(body.get("name") or ""),
+                    str(body.get("text") or ""),
+                    str(body.get("negative") or ""),
+                )
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def style_update(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(
+                studio.update_style(
+                    str(body.get("id") or ""),
+                    _str(body.get("name")),
+                    _str(body.get("text")),
+                    _str(body.get("negative")),
+                )
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def style_remove(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(studio.remove_style(str(body.get("id") or "")))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def styles_export(_: Request) -> Response:
+        return Response(
+            json.dumps(studio.export_styles(), indent=2),
+            media_type="application/json",
+            headers={"content-disposition": 'attachment; filename="imagestudio-styles.json"'},
+        )
+
+    async def styles_import(request: Request) -> JSONResponse:
+        try:
+            data = await request.json()
+        except ValueError:
+            return JSONResponse({"error": "not a JSON file"}, status_code=400)
+        try:
+            return JSONResponse(studio.import_styles(data))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
 
     async def projects(_: Request) -> JSONResponse:
         return JSONResponse({"projects": studio.projects(), "current": studio.current_project()})
@@ -794,6 +851,12 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
             Route("/api/jobs/{job_id}/restore", restore_job, methods=["POST"]),
             Route("/api/jobs/{job_id}/favorite", favorite, methods=["POST"]),
             Route("/api/jobs/{job_id}/project", job_project, methods=["POST"]),
+            Route("/api/styles", styles),
+            Route("/api/styles", style_add, methods=["POST"]),
+            Route("/api/styles/update", style_update, methods=["POST"]),
+            Route("/api/styles/remove", style_remove, methods=["POST"]),
+            Route("/api/styles/export", styles_export),
+            Route("/api/styles/import", styles_import, methods=["POST"]),
             Route("/api/projects", projects),
             Route("/api/projects", project_add, methods=["POST"]),
             Route("/api/projects/update", project_update, methods=["POST"]),

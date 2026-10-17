@@ -214,3 +214,32 @@ def test_ui_projects_routes(studio: Studio):
     assert c.post("/api/projects/current", json={"id": None}).json()["current_project"] is None
     assert c.post("/api/projects/remove", json={"id": p["id"]}).json()["removed"] == p["id"]
     assert c.get("/api/projects").json()["projects"] == []
+
+
+def test_ui_styles_routes(studio: Studio):
+    c = TestClient(build_app(studio))
+    assert c.get("/api/styles").json() == {"styles": []}
+    s = c.post("/api/styles", json={"name": "Ink", "text": "ink wash, rice paper"}).json()
+    assert s["id"].startswith("sty_")
+    assert c.post("/api/styles", json={"name": "Ink", "text": "x"}).status_code == 400
+    j = c.post(
+        "/api/generate",
+        json={
+            "prompt": "a crane, ink wash, rice paper",
+            "preset": "fast",
+            "style": "Ink",
+            "style_text": "ink wash, rice paper",
+        },
+    ).json()
+    assert c.get(f"/api/jobs/{j['id']}").json()["style"] == "Ink"
+    e = c.get("/api/styles/export")
+    assert e.status_code == 200 and e.json()["styles"][0]["name"] == "Ink"
+    r = c.post(
+        "/api/styles/import", json={"styles": [{"name": "Chalk", "text": "chalk on slate"}]}
+    ).json()
+    assert r["added"] == 1 and len(c.get("/api/styles").json()["styles"]) == 2
+    assert (
+        c.post("/api/styles/update", json={"id": s["id"], "name": "Ink wash"}).json()["name"]
+        == "Ink wash"
+    )
+    assert c.post("/api/styles/remove", json={"id": s["id"]}).json()["removed"] == s["id"]

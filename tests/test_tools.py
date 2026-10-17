@@ -24,6 +24,19 @@ def fake_tool(settings: Settings, name: str) -> None:
     m.write_text(json.dumps(d))
 
 
+def metadata_of(studio: Studio, job_id: str, key: str, timeout: float = 5.0) -> dict:
+    """The PNG's imagestudio chunk once the worker has written it (it lands just after the
+    job turns done)."""
+    path = Path(studio.job_status(job_id)["output_path"])
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        meta = Studio.read_metadata(path)
+        if key in meta:
+            return meta
+        time.sleep(0.05)
+    raise AssertionError(f"metadata key {key!r} never appeared")
+
+
 def wait(studio: Studio, job_id: str, timeout: float = 10.0) -> dict:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -249,6 +262,49 @@ def test_describe_returns_text_and_captions_the_source_job(settings: Settings):
         studio.close()
 
 
+def test_styles_library_records_into_jobs_and_round_trips(settings: Settings):
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        assert studio.styles() == []
+        s = studio.add_style("Gouache", "gouache painting, matte paper, flat colour", "glossy")
+        assert s["id"].startswith("sty_") and s["sample_job"] is None
+        with pytest.raises(StudioError, match="already exists"):
+            studio.add_style("gouache", "x")
+        with pytest.raises(StudioError, match="wording"):
+            studio.add_style("Empty", "")
+        job = studio.generate(
+            "a harbour, gouache painting, matte paper, flat colour",
+            preset="fast",
+            style="Gouache",
+            style_text="gouache painting, matte paper, flat colour",
+        )
+        wait(studio, job.id)
+        st = studio.job_status(job.id)
+        assert st["style"] == "Gouache" and st["style_text"].startswith("gouache painting")
+        assert studio.styles()[0]["sample_job"] == job.id
+        meta = metadata_of(studio, job.id, "style")
+        assert meta["style"] == "Gouache" and meta["style_text"].startswith("gouache")
+        # an exported PNG imported elsewhere carries the style along
+        imported = studio.import_image(Path(st["output_path"]).read_bytes(), "shared.png")
+        assert imported.style == "Gouache" and imported.style_text.startswith("gouache")
+        # export / import merge: existing names are kept, new ones added
+        exp = studio.export_styles()
+        assert exp["kind"] == "imagestudio-styles" and exp["styles"][0]["name"] == "Gouache"
+        exp["styles"].append({"name": "Linocut", "text": "linocut print, bold black lines"})
+        exp["styles"].append({"name": "", "text": "nameless"})
+        r = studio.import_styles(exp)
+        assert r == {"added": 1, "skipped": 2, "total": 2}
+        with pytest.raises(StudioError, match="expected a styles export"):
+            studio.import_styles({"nope": 1})
+        studio.update_style(s["id"], name="Gouache paint", negative="")
+        assert studio.styles()[0]["name"] == "Gouache paint"
+        studio.remove_style(s["id"])
+        assert [x["name"] for x in studio.styles()] == ["Linocut"]
+    finally:
+        studio.close()
+
+
 def test_projects_file_new_work_and_export_as_zip(settings: Settings):
     import io
     import zipfile
@@ -271,8 +327,7 @@ def test_projects_file_new_work_and_export_as_zip(settings: Settings):
         assert studio.job_status(loose.id)["project"] is None
         assert studio.projects()[0]["count"] == 2
         # the PNG remembers the project by name
-        out = Path(studio.job_status(a.id)["output_path"])
-        assert Studio.read_metadata(out)["project"] == "Lighthouse series"
+        assert metadata_of(studio, a.id, "project")["project"] == "Lighthouse series"
         # file the loose one in, then export
         studio.set_job_project(loose.id, p["id"])
         name, data = studio.export_project(p["id"])
