@@ -318,6 +318,43 @@ def test_semantic_search_indexes_finished_images_and_finds_duplicates(settings: 
         studio.close()
 
 
+def test_transforms_apply_a_tuned_look_and_record_it(settings: Settings):
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        ids = [t["id"] for t in studio.transforms()]
+        assert (
+            "sketch" in ids
+            and "pixel" in ids
+            and all(t["kind"] == "built-in" for t in studio.transforms())
+        )
+        src = studio.generate("a red fox on a log --seed 7", preset="fast")
+        wait(studio, src.id)
+        job = studio.transform(src.id, "sketch", preset="fast")
+        assert job.tool == "variations" and job.strength == 0.55
+        assert job.prompt.startswith("a red fox on a log, pencil sketch")
+        assert "--seed" not in job.prompt and job.negative_prompt.startswith("colour")
+        assert job.style == "Pencil sketch" and job.style_text.startswith("pencil sketch")
+        wait(studio, job.id)
+        # a look on a look replaces the earlier wording instead of stacking it
+        job2 = studio.transform(job.id, "pixel", strength=0.4)
+        assert (
+            job2.prompt.startswith("a red fox on a log, pixel art") and "pencil" not in job2.prompt
+        )
+        assert job2.strength == 0.4
+        # saved styles are transforms too
+        s = studio.add_style("Gouache", "gouache painting, matte paper")
+        assert any(
+            t["id"] == "style:" + s["id"] and t["kind"] == "style" for t in studio.transforms()
+        )
+        job3 = studio.transform(src.id, "style:" + s["id"])
+        assert job3.style == "Gouache" and job3.prompt.endswith("gouache painting, matte paper")
+        with pytest.raises(StudioError, match="unknown transform"):
+            studio.transform(src.id, "hologram")
+    finally:
+        studio.close()
+
+
 def test_engine_suggestion_points_at_vulkan_only_when_it_applies(settings: Settings):
     import platform
     import sys

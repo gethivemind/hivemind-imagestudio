@@ -663,6 +663,70 @@ class Studio:
         composition is kept, from about 0.5 it is re-invented from the prompt (measured)."""
         return self._img2img("variations", image, prompt, strength, None, **kw)
 
+    def transforms(self) -> list[dict[str, Any]]:
+        """Built-in looks plus the user's saved styles, for "Turn this into…"."""
+        from imagestudio.transforms import as_dicts
+
+        out = as_dicts()
+        for s in self._read_styles():
+            out.append(
+                {
+                    "id": "style:" + s["id"],
+                    "name": s["name"],
+                    "text": s["text"],
+                    "negative": s.get("negative", ""),
+                    "strength": 0.5,
+                    "note": "Your saved style.",
+                    "kind": "style",
+                }
+            )
+        return out
+
+    def transform(
+        self,
+        image: str,
+        transform: str,
+        strength: float | None = None,
+        preset: str = "best",
+        seed: int | None = None,
+        model: str | None = None,
+    ) -> Job:
+        """One-click look: image-to-image with the source's own prompt plus the transform's
+        wording, at the transform's tuned strength (override with ``strength``). The job
+        records the look as its style, so the PNG says what was done."""
+        t = next((x for x in self.transforms() if x["id"] == transform), None)
+        if t is None:
+            names = ", ".join(x["id"] for x in self.transforms())
+            raise StudioError(f"unknown transform {transform!r}; one of {names}")
+        src, source_job = self._resolve_input(image)
+        base = ""
+        if source_job:
+            j = self.jobs.get(source_job)
+            if j is not None:
+                base = (j.prompt if j.tool != "import" else j.caption or "") or ""
+        base = without_batch_and_seed(base).strip() if base else ""
+        # drop wording an earlier transform added, so looks do not pile up
+        for x in self.transforms():
+            if x["text"] and x["text"] in base:
+                base = base.replace(x["text"], "").strip(" ,")
+        prompt = f"{base}, {t['text']}" if base else t["text"]
+        st = float(strength) if strength is not None else float(t["strength"])
+        job = self._img2img(
+            "variations",
+            str(src),
+            prompt,
+            st,
+            None,
+            preset=preset,
+            seed=seed,
+            negative_prompt=t.get("negative", ""),
+            model=model,
+        )
+        job.style = t["name"]
+        job.style_text = t["text"]
+        self.jobs.put(job)
+        return job
+
     def edit(
         self, image: str, prompt: str, strength: float = 0.45, mask: str | None = None, **kw
     ) -> Job:
@@ -2769,6 +2833,7 @@ class Studio:
             "tools": self.tools_report(),
             "vision_models": self.vision_report(),
             "search": self.search_report(),
+            "transforms": self.transforms(),
             "loras": self.loras(),
             "loras_dir": str(self.settings.loras_dir),
             "edit_model": getattr(self.edit_model(), "name", None),

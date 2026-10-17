@@ -4,6 +4,13 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
+## Unreleased
+
+### Added
+- "Turn this into…": fourteen one-click looks plus your saved styles, on one image or a
+  selection, each at a strength tuned for the model's measured cliff; the PNG records the
+  look. `imagestudio transform`, MCP `transform_image`.
+
 ## 0.3.8 — 2026-10-17
 
 ### Added

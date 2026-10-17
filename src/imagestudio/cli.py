@@ -400,6 +400,24 @@ def cmd_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_transform(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    try:
+        if args.list or not args.transform:
+            for t in studio.transforms():
+                print(f"{t['id']:<16} {t['name']:<16} strength {t['strength']:.2f}  {t['note']}")
+            return 0
+        job = studio.transform(args.image, args.transform, args.strength, preset=args.preset)
+    except StudioError as e:
+        print(f"error: {e}")
+        return 1
+    print(
+        f"queued {job.id}: {job.style} at strength {job.strength:g}, about "
+        f"{human_duration(job.estimate_seconds)}. `imagestudio jobs` to follow."
+    )
+    return 0
+
+
 def cmd_fix_faces(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
     try:
@@ -537,6 +555,16 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--target-minutes", type=float, default=15.0)
     b.add_argument("--json", action="store_true")
     b.set_defaults(fn=cmd_benchmark)
+
+    tr = sub.add_parser(
+        "transform", help="turn an image into a look: sketch, watercolour, pixel art…"
+    )
+    tr.add_argument("image", nargs="?", help="a job id or an image path")
+    tr.add_argument("transform", nargs="?", help="a transform id (see --list)")
+    tr.add_argument("--strength", type=float, help="override the look's tuned strength")
+    tr.add_argument("--preset", default="best", choices=list(PRESET_NAMES))
+    tr.add_argument("--list", action="store_true", help="list the looks and exit")
+    tr.set_defaults(fn=cmd_transform)
 
     se = sub.add_parser("search", help="find gallery images by meaning (CLIP, local)")
     se.add_argument("query", nargs="*", help="a few words: what the image shows")

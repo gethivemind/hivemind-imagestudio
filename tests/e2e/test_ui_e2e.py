@@ -60,6 +60,9 @@ def page(site):
             pg.on("pageerror", lambda err: errors.append(str(err)))
             pg.goto(url)
             pg.wait_for_selector("#presetSeg button", state="attached")
+            # the boot chain ends by switching to Home when the gallery is empty; click
+            # Create only after that, or the switch races the click under load
+            pg.wait_for_selector("body[data-booted]", state="attached")
             pg.click('#tabs button[data-tab="create"]')
             pg.wait_for_selector("#prompt", state="visible")
             pg.errors = errors  # type: ignore[attr-defined]

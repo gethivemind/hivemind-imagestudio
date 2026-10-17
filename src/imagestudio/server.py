@@ -355,6 +355,37 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             return _err(e)
 
     @mcp.tool(
+        name="transform_image",
+        annotations=_hints(),
+        description=(
+            "Queue a one-click look on a finished image and return a job id: pencil sketch, "
+            "watercolour, oil painting, anime, pixel art, line art, claymation, vintage photo, "
+            "film noir, cyberpunk, isometric, storybook, product shot, 3D render, or one of the "
+            "user's saved styles (ids in capabilities().transforms). It is image-to-image with "
+            "the picture's own prompt plus the look's wording at a strength tuned for the "
+            "model's measured cliff; pass strength to override (0.4 keeps more, 0.6 redraws). "
+            "Use it when the user says 'make this look like …'. Poll job_status, then "
+            "job_result."
+        ),
+    )
+    def transform_image(
+        image: str, transform: str, strength: float | None = None, preset: str = "best"
+    ) -> dict[str, Any]:
+        try:
+            job = studio.transform(image, transform, strength, preset=preset)
+        except StudioError as e:
+            return _err(e)
+        st = studio.job_status(job.id)
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "transform": job.style,
+            "strength": job.strength,
+            "estimate_seconds": round(job.estimate_seconds),
+            "estimate_human": st["eta_human"],
+        }
+
+    @mcp.tool(
         name="fix_faces",
         annotations=_hints(),
         description=(

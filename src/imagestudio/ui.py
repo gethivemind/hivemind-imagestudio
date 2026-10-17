@@ -371,6 +371,15 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
                 )
             elif tool == "remove_background":
                 job = studio.remove_background(body.get("image", ""), _str(body.get("model")))
+            elif tool == "transform":
+                job = studio.transform(
+                    body.get("image", ""),
+                    str(body.get("transform") or ""),
+                    float(body["strength"]) if body.get("strength") not in (None, "") else None,
+                    preset=body.get("preset", "best"),
+                    seed=body.get("seed") or None,
+                    model=_str(body.get("model")),
+                )
             elif tool == "fix_faces":
                 job = studio.fix_faces(
                     body.get("image", ""),
