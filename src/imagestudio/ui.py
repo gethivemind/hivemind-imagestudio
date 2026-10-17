@@ -486,6 +486,33 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
     async def empty_trash(_: Request) -> JSONResponse:
         return JSONResponse({"removed": studio.empty_trash(0)})
 
+    async def search(request: Request) -> JSONResponse:
+        q = request.query_params.get("q", "")
+        try:
+            limit = int(request.query_params.get("limit", "60"))
+        except ValueError:
+            limit = 60
+        try:
+            return JSONResponse(await run_in_threadpool(studio.search, q, limit))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def duplicates(request: Request) -> JSONResponse:
+        try:
+            threshold = float(request.query_params.get("threshold", "0.96"))
+        except ValueError:
+            threshold = 0.96
+        try:
+            return JSONResponse(await run_in_threadpool(studio.duplicates, threshold))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def search_reindex(_: Request) -> JSONResponse:
+        try:
+            return JSONResponse(studio.reindex().to_dict())
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     async def styles(_: Request) -> JSONResponse:
         return JSONResponse({"styles": studio.styles()})
 
@@ -580,6 +607,23 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
     async def project_export(request: Request) -> Response:
         try:
             name, data = studio.export_project(request.path_params["project_id"])
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return Response(
+            data,
+            media_type="application/zip",
+            headers={"content-disposition": f'attachment; filename="{name}"'},
+        )
+
+    async def export_images(request: Request) -> Response:
+        body = await request.json()
+        ids = body.get("ids") or []
+        if not isinstance(ids, list) or len(ids) > 500:
+            return JSONResponse({"error": "ids: a list of up to 500 job ids"}, status_code=400)
+        try:
+            name, data = studio.export_images(
+                [str(i) for i in ids], str(body.get("title") or "selection")
+            )
         except StudioError as e:
             return JSONResponse({"error": str(e)}, status_code=400)
         return Response(
@@ -851,6 +895,9 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
             Route("/api/jobs/{job_id}/restore", restore_job, methods=["POST"]),
             Route("/api/jobs/{job_id}/favorite", favorite, methods=["POST"]),
             Route("/api/jobs/{job_id}/project", job_project, methods=["POST"]),
+            Route("/api/search", search),
+            Route("/api/duplicates", duplicates),
+            Route("/api/search/reindex", search_reindex, methods=["POST"]),
             Route("/api/styles", styles),
             Route("/api/styles", style_add, methods=["POST"]),
             Route("/api/styles/update", style_update, methods=["POST"]),
@@ -863,6 +910,7 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
             Route("/api/projects/remove", project_remove, methods=["POST"]),
             Route("/api/projects/current", project_current, methods=["POST"]),
             Route("/api/projects/{project_id}/export", project_export),
+            Route("/api/export", export_images, methods=["POST"]),
             Route("/api/jobs/{job_id}/lineage", lineage),
             Route("/api/trash", trash),
             Route("/api/trash/empty", empty_trash, methods=["POST"]),

@@ -262,6 +262,84 @@ def test_describe_returns_text_and_captions_the_source_job(settings: Settings):
         studio.close()
 
 
+def fake_search(settings: Settings) -> None:
+    from imagestudio.registry import default_search_model
+
+    sm = default_search_model()
+    m = settings.manifest_file
+    d = json.loads(m.read_text()) if m.exists() else {}
+    for fl in sm.files:
+        (settings.models_dir / fl.filename).write_bytes(b"stub")
+        d[fl.filename] = fl.sha256
+    m.write_text(json.dumps(d))
+
+
+def test_semantic_search_indexes_finished_images_and_finds_duplicates(settings: Settings):
+    from imagestudio.engine.fake import FakeClipEngine
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(
+        settings=settings, engine=FakeEngine(), hardware=laptop(), search_engine=FakeClipEngine()
+    )
+    try:
+        with pytest.raises(StudioError, match="needs CLIP"):
+            studio.search("a cat")
+        assert studio.search_report()["installed"] is False
+        fake_search(settings)
+        assert studio.search_ready() and studio.search_report()["installed"] is True
+        from imagestudio.engine.fake import tiny_png
+
+        a = studio.generate("a cat", preset="fast", width=512, height=512)
+        b = studio.generate("a cat again", preset="fast", width=512, height=512)
+        for j in (a, b):
+            wait(studio, j.id)
+        # an import is finished on arrival and is indexed too; different pixels, no duplicate
+        c = studio.import_image(tiny_png(8, 8, (200, 10, 10)), "red.png")
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and studio.search_report()["indexed"] < 3:
+            time.sleep(0.05)
+        assert studio.search_report()["indexed"] == 3
+        r = studio.search("a lighthouse", limit=10)
+        assert r["total"] == 3 and r["pending"] == 0 and len(r["results"]) == 3
+        assert all(-1.0 <= x["score"] <= 1.0 for x in r["results"])
+        # the fake engine paints identical pixels for a and b: one duplicate group, c outside it
+        d = studio.duplicates()
+        assert len(d["groups"]) == 1 and sorted(d["groups"][0]) == sorted([a.id, b.id])
+        assert c.id not in d["groups"][0]
+        studio.delete_job(b.id)
+        assert studio.search_report()["indexed"] == 2 and studio.duplicates()["groups"] == []
+        with pytest.raises(StudioError, match="needs a few words"):
+            studio.search("   ")
+        # removing the search model also drops the index
+        studio.remove_component("search", "clip-vit-b32")
+        assert studio.search_report()["installed"] is False
+        assert not (settings.data_dir / "search-index.npz").exists()
+    finally:
+        studio.close()
+
+
+def test_export_images_zips_a_selection(settings: Settings):
+    import io
+    import zipfile
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        a = studio.generate("one", preset="fast")
+        b = studio.generate("two", preset="fast")
+        for j in (a, b):
+            wait(studio, j.id)
+        name, data = studio.export_images([a.id, "job_nope", b.id], "3 images")
+        assert name == "3-images.zip"
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            assert sum(n.endswith(".png") for n in z.namelist()) == 2
+            assert "one" in z.read("prompts.txt").decode("utf-8")
+        with pytest.raises(StudioError, match="none of the chosen"):
+            studio.export_images(["job_nope"])
+    finally:
+        studio.close()
+
+
 def test_styles_library_records_into_jobs_and_round_trips(settings: Settings):
     fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
     studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())

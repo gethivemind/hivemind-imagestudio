@@ -27,6 +27,7 @@ EXPECTED_TOOLS = {
     "describe",
     "write_prompt",
     "fix_faces",
+    "search_images",
 }
 
 

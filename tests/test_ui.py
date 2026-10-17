@@ -243,3 +243,30 @@ def test_ui_styles_routes(studio: Studio):
         == "Ink wash"
     )
     assert c.post("/api/styles/remove", json={"id": s["id"]}).json()["removed"] == s["id"]
+
+
+def test_ui_search_routes(studio: Studio):
+    c = TestClient(build_app(studio))
+    r = c.get("/api/search", params={"q": "a cat"})
+    assert r.status_code == 400 and "needs CLIP" in r.json()["error"]
+    assert c.get("/api/duplicates").status_code == 400
+    assert c.post("/api/search/reindex").status_code == 400
+    caps = c.get("/api/capabilities").json()
+    assert caps["search"]["model"] == "clip-vit-b32" and caps["search"]["installed"] is False
+    comps = c.get("/api/components").json()
+    rows = comps if isinstance(comps, list) else comps.get("components", [])
+    assert any(k["kind"] == "search" for k in rows)
+
+
+def test_ui_export_selection(studio: Studio):
+    c = TestClient(build_app(studio))
+    j = c.post("/api/generate", json={"prompt": "x", "preset": "fast"}).json()
+    for _ in range(200):
+        if c.get(f"/api/jobs/{j['id']}").json()["status"] == "done":
+            break
+        time.sleep(0.05)
+    r = c.post("/api/export", json={"ids": [j["id"]], "title": "picked"})
+    assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
+    assert "picked.zip" in r.headers["content-disposition"]
+    assert c.post("/api/export", json={"ids": "nope"}).status_code == 400
+    assert c.post("/api/export", json={"ids": ["job_nope"]}).status_code == 400

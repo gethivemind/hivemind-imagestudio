@@ -336,6 +336,25 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             return _err(e)
 
     @mcp.tool(
+        name="search_images",
+        annotations=_hints(read_only=True, idempotent=True),
+        description=(
+            "Find finished images in the studio's gallery by meaning: a few words in, job ids "
+            "ranked by CLIP similarity out (scores around 0.25-0.35 are good matches, below "
+            "0.2 is noise). Use it to pick an existing image for edit/variations/upscale instead "
+            "of listing everything with jobs(). Needs the search model (download_model("
+            "'clip-vit-b32', consent=true), 150 MB, MIT); images are indexed in the background "
+            "and the reply says how many are still pending. Returns {results: [{id, score}], "
+            "indexed, total, pending}."
+        ),
+    )
+    def search_images(query: str, limit: int = 20) -> dict[str, Any]:
+        try:
+            return studio.search(query, limit)
+        except StudioError as e:
+            return _err(e)
+
+    @mcp.tool(
         name="fix_faces",
         annotations=_hints(),
         description=(

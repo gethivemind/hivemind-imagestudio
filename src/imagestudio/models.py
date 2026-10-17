@@ -176,7 +176,8 @@ class ModelStore:
         self._save()
         return True
 
-    def vision_installed(self, vm: VisionModel) -> bool:
+    def vision_installed(self, vm) -> bool:
+        """All files of a multi-file model (vision-language or search) are present."""
         return all(self.file_installed(f) for f in vm.files)
 
     def installed_vision(self) -> list[str]:

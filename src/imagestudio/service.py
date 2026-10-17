@@ -6,6 +6,7 @@ Both the MCP server and the CLI talk to this one object."""
 from __future__ import annotations
 
 import base64
+import contextlib
 import io
 import json
 import os
@@ -47,6 +48,7 @@ from imagestudio.registry import (
     LICENCES,
     MODELS,
     SDCPP_TAG,
+    SEARCH_MODELS,
     TOOL_MODELS,
     VISION_MODELS,
     ModelSpec,
@@ -136,6 +138,7 @@ class Studio:
         background_engine=None,
         describe_engine=None,
         face_detector=None,
+        search_engine=None,
     ) -> None:
         self.settings = settings or Settings.load()
         self.settings.ensure_dirs()
@@ -168,6 +171,13 @@ class Studio:
 
             face_detector = FaceDetector()
         self.face_detector = face_detector
+        if search_engine is None:
+            from imagestudio.engine.clip import ClipEngine
+
+            search_engine = ClipEngine()
+        self.search_engine = search_engine
+        self._search_index = None
+        self._index_lock = threading.Lock()
         self.jobs = JobStore(self.settings)
         self.worker = Worker(
             self.jobs,
@@ -200,6 +210,7 @@ class Studio:
         if job.status == "done":
             self._write_metadata(job)
             self._maybe_auto_caption(job)
+            self._index_later(job)
         if job.status != "done" or job.sampling_seconds is None or job.sampling_seconds <= 0:
             return
         if job.tool != "generate":
@@ -846,6 +857,20 @@ class Studio:
                     "folder": str(self.settings.models_dir),
                 }
             )
+        for sm in SEARCH_MODELS.values():
+            files = [self.models.file_info(f) for f in sm.files]
+            out.append(
+                {
+                    "kind": "search",
+                    "name": sm.name,
+                    "display_name": sm.display_name,
+                    "licence": sm.licence,
+                    "installed": all(f["installed"] for f in files),
+                    "bytes": sum(f["bytes"] for f in files),
+                    "files": files,
+                    "folder": str(self.settings.models_dir),
+                }
+            )
         for vm in VISION_MODELS.values():
             files = [self.models.file_info(f) for f in vm.files]
             out.append(
@@ -949,6 +974,14 @@ class Studio:
             if vm is None:
                 raise StudioError(f"unknown vision model {name!r}")
             freed = self.models.remove_files(vm.files)
+        elif kind == "search":
+            sm = SEARCH_MODELS.get(name)
+            if sm is None:
+                raise StudioError(f"unknown search model {name!r}")
+            freed = self.models.remove_files(sm.files)
+            with contextlib.suppress(OSError):
+                (self.settings.data_dir / "search-index.npz").unlink()
+            self._search_index = None
         elif kind == "engine":
             eng = self._engine_for(name)
             if (
@@ -1009,6 +1042,8 @@ class Studio:
 
         job.deleted_at = datetime.now(UTC).isoformat(timespec="seconds")
         self.jobs.put(job)
+        with contextlib.suppress(Exception):
+            self.unindex_job(job_id)
         return {"deleted": job_id, "trash": str(trash)}
 
     def restore_job(self, job_id: str) -> dict[str, Any]:
@@ -1037,6 +1072,170 @@ class Studio:
                     self.jobs._jobs.pop(j.id, None)
                 n += 1
         return n
+
+    # -- semantic search: CLIP embeddings of every finished image ---------------------------
+
+    def search_model(self):
+        from imagestudio.registry import default_search_model
+
+        return default_search_model()
+
+    def search_ready(self) -> bool:
+        return self.search_engine.available() and self.models.vision_installed(self.search_model())
+
+    def search_report(self) -> dict[str, Any]:
+        sm = self.search_model()
+        idx = self._index() if self.search_ready() else None
+        done = [j for j in self.jobs.all() if j.status == "done" and j.output_path]
+        return {
+            "model": sm.name,
+            "display_name": sm.display_name,
+            "licence": sm.licence,
+            "size_mb": round(sm.download_bytes / 1e6),
+            "note": sm.note,
+            "installed": self.models.vision_installed(sm),
+            "engine_available": self.search_engine.available(),
+            "ready": self.search_ready(),
+            "indexed": sum(1 for j in done if idx is not None and j.id in idx),
+            "total": len(done),
+            "indexing": any(
+                t.kind == "index" and t.status == "running" for t in self.tasks.values()
+            ),
+        }
+
+    def _index(self):
+        if self._search_index is None:
+            from imagestudio.engine.clip import EmbeddingIndex
+
+            self._search_index = EmbeddingIndex(self.settings.data_dir / "search-index.npz")
+        return self._search_index
+
+    def _paths(self, sm) -> dict[str, Path]:
+        return {
+            k: self.models.path_for(getattr(sm, k)) for k in ("vision", "text", "vocab", "merges")
+        }
+
+    def index_job(self, job: Job) -> bool:
+        """Embed one finished image into the search index (no-op when not ready or done)."""
+        if not self.search_ready() or job.status != "done" or not job.output_path:
+            return False
+        path = Path(job.output_path)
+        if not path.exists():
+            return False
+        sm = self.search_model()
+        with self._index_lock:
+            idx = self._index()
+            if job.id in idx:
+                return False
+            vec = self.search_engine.embed_image(path, self._paths(sm)["vision"])
+            idx.add(job.id, vec)
+            idx.save()
+        return True
+
+    def _index_later(self, job: Job) -> None:
+        if not self.search_ready():
+            return
+
+        def run() -> None:
+            with contextlib.suppress(Exception):  # never disturb the job that finished
+                self.index_job(job)
+
+        threading.Thread(target=run, name=f"index-{job.id}", daemon=True).start()
+
+    def unindex_job(self, job_id: str) -> None:
+        if (
+            self._search_index is None
+            and not (self.settings.data_dir / "search-index.npz").exists()
+        ):
+            return
+        with self._index_lock:
+            idx = self._index()
+            if job_id in idx:
+                idx.remove(job_id)
+                idx.save()
+
+    def reindex(self) -> BackgroundTask:
+        """Embed every finished image that is not in the index yet, in the background."""
+        if not self.search_ready():
+            raise StudioError(self._search_missing())
+        key = "index"
+        existing = self.tasks.get(key)
+        if existing and existing.status == "running":
+            return existing
+        task = BackgroundTask("index", "Indexing the gallery for search")
+        self.tasks[key] = task
+
+        def run() -> None:
+            try:
+                idx = self._index()
+                todo = [
+                    j
+                    for j in self.jobs.all()
+                    if j.status == "done" and j.output_path and j.id not in idx
+                ]
+                task.total_bytes = len(todo)
+                for n, j in enumerate(todo, 1):
+                    self.index_job(j)
+                    task.done_bytes = n
+                    task.message = f"{n} of {len(todo)} images"
+                task.status, task.message = "done", f"{len(todo)} images indexed"
+            except Exception as e:
+                task.status, task.error = "failed", str(e)
+            task.finished_at = time.time()
+
+        threading.Thread(target=run, name="search-index", daemon=True).start()
+        return task
+
+    def _search_missing(self) -> str:
+        sm = self.search_model()
+        if not self.search_engine.available():
+            return "semantic search needs onnxruntime: pip install 'hivemind-imagestudio[bg]'"
+        return (
+            f"semantic search needs {sm.display_name} ({sm.download_bytes / 1e6:.0f} MB, "
+            f"{sm.licence}); install it from Settings → Models and engines or "
+            f"`imagestudio download-model {sm.name}`"
+        )
+
+    def search(self, query: str, limit: int = 60) -> dict[str, Any]:
+        """Rank the gallery by how well each image matches ``query``. Images not indexed yet
+        are being indexed in the background; the reply says how many are still pending."""
+        query = " ".join((query or "").split())
+        if not query:
+            raise StudioError("search needs a few words")
+        if not self.search_ready():
+            raise StudioError(self._search_missing())
+        sm = self.search_model()
+        paths = self._paths(sm)
+        idx = self._index()
+        done = [j for j in self.jobs.all() if j.status == "done" and j.output_path]
+        pending = sum(1 for j in done if j.id not in idx)
+        if pending:
+            with contextlib.suppress(StudioError):
+                self.reindex()
+        vec = self.search_engine.embed_text(query, paths["text"], paths["vocab"], paths["merges"])
+        live = {j.id for j in done}
+        results = [
+            {"id": jid, "score": round(score, 4)}
+            for jid, score in idx.search(vec, limit=max(limit, 1) + pending)
+            if jid in live
+        ][:limit]
+        return {
+            "query": query,
+            "results": results,
+            "indexed": len(done) - pending,
+            "total": len(done),
+            "pending": pending,
+        }
+
+    def duplicates(self, threshold: float = 0.96) -> dict[str, Any]:
+        """Groups of near-identical finished images, by embedding similarity."""
+        if not self.search_ready():
+            raise StudioError(self._search_missing())
+        idx = self._index()
+        live = {j.id for j in self.jobs.all() if j.status == "done" and j.output_path}
+        groups = [[i for i in g if i in live] for g in idx.duplicates(threshold)]
+        groups = [g for g in groups if len(g) > 1]
+        return {"groups": groups, "threshold": threshold, "indexed": len(idx)}
 
     # -- styles: saved prompt wording ---------------------------------------------------------
     #
@@ -1269,9 +1468,6 @@ class Studio:
     def export_project(self, project_id: str) -> tuple[str, bytes]:
         """One zip: the finished images, prompts.txt with every image's reproducible prompt,
         and project.json. The file name is the project's name."""
-        import re
-        import zipfile
-
         entry = self.project(project_id)
         if entry is None:
             raise StudioError(f"no such project {project_id!r}")
@@ -1282,12 +1478,31 @@ class Studio:
         ]
         if not jobs:
             raise StudioError("this project has no finished images yet")
-        slug = re.sub(r"[^A-Za-z0-9._-]+", "-", entry["name"]).strip("-") or "project"
+        return self._zip_of(jobs, entry["name"], entry.get("description") or "", entry)
+
+    def export_images(self, job_ids: list[str], title: str = "selection") -> tuple[str, bytes]:
+        """A zip of chosen finished images with prompts.txt, for a gallery selection."""
+        jobs = []
+        for jid in job_ids:
+            j = self.jobs.get(str(jid))
+            if j is not None and j.status == "done" and j.output_path:
+                jobs.append(j)
+        if not jobs:
+            raise StudioError("none of the chosen images is finished")
+        return self._zip_of(jobs, title, "", {"name": title})
+
+    def _zip_of(
+        self, jobs: list[Job], title: str, description: str, entry: dict[str, Any]
+    ) -> tuple[str, bytes]:
+        import re
+        import zipfile
+
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "-", title).strip("-") or "images"
         buf = io.BytesIO()
-        lines = [f"# {entry['name']}", entry.get("description") or "", ""]
+        lines = [f"# {title}", description, ""]
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             for n, j in enumerate(jobs, 1):
-                src = Path(j.output_path)
+                src = Path(j.output_path or "")
                 if not src.exists():
                     continue
                 name = f"{n:03d}-{j.id}{src.suffix.lower() or '.png'}"
@@ -1392,6 +1607,7 @@ class Studio:
         job.finished_at = job.started_at = datetime.now(UTC).isoformat(timespec="seconds")
         job.total_seconds = 0.0
         self.jobs.put(job)
+        self._index_later(job)
         self._maybe_auto_caption(job)
         return job
 
@@ -1647,9 +1863,9 @@ class Studio:
         ]
 
     def start_vision_download(self, name: str) -> BackgroundTask:
-        vm = VISION_MODELS.get(name)
+        vm = VISION_MODELS.get(name) or SEARCH_MODELS.get(name)
         if vm is None:
-            raise StudioError(f"unknown vision model {name!r}")
+            raise StudioError(f"unknown vision or search model {name!r}")
         key = f"download:{name}"
         existing = self.tasks.get(key)
         if existing and existing.status == "running":
@@ -2515,6 +2731,7 @@ class Studio:
             "models": [self.model_report(m) for m in MODELS.values()],
             "tools": self.tools_report(),
             "vision_models": self.vision_report(),
+            "search": self.search_report(),
             "loras": self.loras(),
             "loras_dir": str(self.settings.loras_dir),
             "edit_model": getattr(self.edit_model(), "name", None),

@@ -7,6 +7,11 @@ package on PyPI.
 ## Unreleased
 
 ### Added
+- Batch tools: select several gallery images and upscale, cut out, fix faces, file in a
+  project, zip or trash them together.
+- Search by meaning: CLIP ViT-B/32 (MIT, 150 MB) embeds every finished image in the
+  background; the gallery search ranks by meaning and a Duplicates filter groups
+  near-identical images. `imagestudio search`, MCP `search_images`.
 - Styles library: saved prompt wording next to the built-in styles, recorded by name and text
   in every PNG, saveable from any image that carries one, exportable and importable as JSON.
 - Fix faces: UltraFace (MIT) detection plus a per-face image-to-image pass at 768 px, blended

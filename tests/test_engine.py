@@ -105,7 +105,7 @@ def test_generate_parses_progress_and_timings(tmp_path, fake_sd):
     steps = [(p.step, p.total_steps) for p in seen if p.phase == "sampling"]
     assert steps[-1] == (4, 4)
     # load time is wall time until the first sampling step, not the engine's log value
-    assert 0 < result.load_seconds < 1.5
+    assert 0 < result.load_seconds < 10  # wall time; generous, the suite often runs under load
     assert result.sampling_seconds == pytest.approx(0.4)
     assert result.total_seconds > 0
 

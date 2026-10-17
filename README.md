@@ -80,6 +80,16 @@ even at 4-bit and does not fit a 16 GB machine; the studio reports that instead 
 Estimates start from a heuristic (labelled `uncalibrated`) and are replaced by timings from
 real runs on your machine, kept per model variant in `calibration.json`.
 
+**Batch tools.** Select in the gallery, pick several images, and upscale, cut out or fix
+faces on all of them (one queued job each, with the summed estimate), file them in a project,
+download them as one zip with their prompts, or move them to the trash together.
+
+**Search by meaning.** With CLIP ViT-B/32 installed (MIT, about 150 MB, Settings → Models
+and engines or the link next to the gallery search box), every finished image is embedded once
+in the background and the gallery search ranks by meaning: "the lighthouse one" finds it
+without the word in the prompt. The Duplicates filter groups near-identical images. CLI:
+`imagestudio search "a lighthouse"`, `imagestudio search --duplicates`; MCP: `search_images`.
+
 **Styles library.** The style list on Create has the built-ins (Photograph, Cinematic, Oil
 painting, …) and your own: pick "Save a style…" or add one under Settings → Styles. A style is
 wording appended to the prompt; every PNG made with one records the style's name and wording,
@@ -302,6 +312,7 @@ pinned, hash-checked catalogue.
 | `upscale(image, model?, repeats=1)` | 4× (or 16×) with Real-ESRGAN. |
 | `remove_background(image, model?)` | Transparent PNG with IS-Net or U²-Net. |
 | `describe(image, task="describe", question?, model?)` | Image to text with llama.cpp and Qwen2.5-VL: description, prompt, alt text, tags, or your own question. Synchronous. |
+| `search_images(query, limit=20)` | Gallery images ranked by CLIP similarity to a few words; needs the search model. |
 | `fix_faces(image, strength=0.35, prompt?, model?)` | Detect every face, re-render each at 768 px with image-to-image and blend it back. One render per face. |
 | `write_prompt(brief, current_prompt?, model?)` | A plain-words brief becomes a prompt (and negative prompt) tuned to the model that will paint it; with `current_prompt`, a change request to that prompt. Synchronous, a minute or more on a CPU. |
 | `plan(...)` | Dry run of generate(): expected time and the load meter. |

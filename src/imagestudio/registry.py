@@ -844,6 +844,82 @@ class VisionModel:
         return self.model.size + self.mmproj.size
 
 
+@dataclass(frozen=True)
+class SearchModel:
+    """CLIP for semantic gallery search: image and text towers as ONNX plus the tokenizer."""
+
+    name: str
+    display_name: str
+    licence: str
+    vision: FileSpec
+    text: FileSpec
+    vocab: FileSpec
+    merges: FileSpec
+    note: str
+    default: bool = False
+
+    @property
+    def files(self) -> tuple[FileSpec, ...]:
+        return (self.vision, self.text, self.vocab, self.merges)
+
+    @property
+    def download_bytes(self) -> int:
+        return sum(f.size for f in self.files)
+
+
+_HF_CLIP = "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/{path}"
+
+SEARCH_MODELS: dict[str, SearchModel] = {
+    s.name: s
+    for s in (
+        SearchModel(
+            "clip-vit-b32",
+            "CLIP ViT-B/32",
+            "MIT",
+            FileSpec(
+                "clip-vit-b32-vision-q8.onnx",
+                _HF_CLIP.format(path="onnx/vision_model_quantized.onnx"),
+                "583fd1110a514667812fee7d684952aaf82a99b959760c8d7dca7e0ab9839299",
+                89117001,
+                "MIT",
+                "OpenAI CLIP (MIT), ONNX export by Xenova",
+            ),
+            FileSpec(
+                "clip-vit-b32-text-q8.onnx",
+                _HF_CLIP.format(path="onnx/text_model_quantized.onnx"),
+                "73baab855d406190da9faa498cfedf65f15cf309f4cc7385b7b032e6d08e5c3a",
+                64504507,
+                "MIT",
+                "OpenAI CLIP (MIT), ONNX export by Xenova",
+            ),
+            FileSpec(
+                "clip-vocab.json",
+                _HF_CLIP.format(path="vocab.json"),
+                "5047b556ce86ccaf6aa22b3ffccfc52d391ea4accdab9c2f2407da5b742d4363",
+                862328,
+                "MIT",
+                "OpenAI CLIP tokenizer vocabulary",
+            ),
+            FileSpec(
+                "clip-merges.txt",
+                _HF_CLIP.format(path="merges.txt"),
+                "9fd691f7c8039210e0fced15865466c65820d09b63988b0174bfe25de299051a",
+                524619,
+                "MIT",
+                "OpenAI CLIP tokenizer merges",
+            ),
+            'Find images by meaning ("the lighthouse one") and spot near-duplicates. '
+            "About 150 MB; a second per image to index on a CPU.",
+            default=True,
+        ),
+    )
+}
+
+
+def default_search_model() -> SearchModel:
+    return next(s for s in SEARCH_MODELS.values() if s.default)
+
+
 VISION_MODELS: dict[str, VisionModel] = {
     v.name: v
     for v in (

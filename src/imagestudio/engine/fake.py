@@ -128,6 +128,40 @@ class FakeDescribeEngine:
         return DescribeResult(text=text, seconds=0.01, model="fake")
 
 
+class FakeClipEngine:
+    """Deterministic unit vectors: images by file bytes, text by its words (so identical
+    images are duplicates and a query that repeats a prompt's words ranks that image first)."""
+
+    name = "fake-clip"
+
+    def __init__(self) -> None:
+        self.calls: list = []
+
+    def available(self) -> bool:
+        return True
+
+    @staticmethod
+    def _vec(seed: bytes):
+        import hashlib
+
+        import numpy as np
+
+        rng = np.random.default_rng(int.from_bytes(hashlib.sha256(seed).digest()[:8], "big"))
+        v = rng.standard_normal(512).astype(np.float32)
+        return v / np.linalg.norm(v)
+
+    def embed_image(self, image, vision_model):
+        from PIL import Image
+
+        self.calls.append(("image", str(image)))
+        with Image.open(image) as im:  # pixels, not bytes: PNG text chunks differ per job
+            return self._vec(im.convert("RGB").tobytes())
+
+    def embed_text(self, text, text_model, vocab, merges):
+        self.calls.append(("text", text))
+        return self._vec(text.lower().encode("utf-8"))
+
+
 class FakeFaceDetector:
     """Finds one face in the middle of any image (or none, when ``faces`` is empty)."""
 

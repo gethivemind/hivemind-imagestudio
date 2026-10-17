@@ -163,9 +163,14 @@ def cmd_install_engine(args: argparse.Namespace) -> int:
 
 def cmd_download_model(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
-    from imagestudio.registry import TOOL_MODELS, VISION_MODELS
+    from imagestudio.registry import SEARCH_MODELS, TOOL_MODELS, VISION_MODELS
 
     bar = _Bar()
+    if args.name in SEARCH_MODELS:
+        s = SEARCH_MODELS[args.name]
+        ok = studio.models.install_vision(s, _consent_prompt(args.yes), progress=bar)
+        print(f"{s.display_name} {'installed.' if ok else 'not downloaded.'}")
+        return 0 if ok else 1
     if args.name in TOOL_MODELS:
         t = TOOL_MODELS[args.name]
         ok = studio.models.install_tool(t, _consent_prompt(args.yes), progress=bar)
@@ -369,6 +374,32 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_search(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    try:
+        if args.duplicates:
+            r = studio.duplicates()
+            if not r["groups"]:
+                print(f"no near-duplicates among {r['indexed']} indexed images")
+                return 0
+            for n, g in enumerate(r["groups"], 1):
+                print(f"group {n}: " + ", ".join(g))
+            return 0
+        r = studio.search(" ".join(args.query), limit=args.limit)
+    except StudioError as e:
+        print(f"error: {e}")
+        return 1
+    for row in r["results"]:
+        j = studio.jobs.get(row["id"])
+        print(f"{row['score']:.3f}  {row['id']}  {(j.prompt if j else '')[:70]}")
+    if r["pending"]:
+        print(
+            f"-- {r['pending']} of {r['total']} images not indexed yet; indexing in the background",
+            file=sys.stderr,
+        )
+    return 0
+
+
 def cmd_fix_faces(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
     try:
@@ -506,6 +537,12 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--target-minutes", type=float, default=15.0)
     b.add_argument("--json", action="store_true")
     b.set_defaults(fn=cmd_benchmark)
+
+    se = sub.add_parser("search", help="find gallery images by meaning (CLIP, local)")
+    se.add_argument("query", nargs="*", help="a few words: what the image shows")
+    se.add_argument("--limit", type=int, default=20)
+    se.add_argument("--duplicates", action="store_true", help="list near-duplicate groups instead")
+    se.set_defaults(fn=cmd_search)
 
     ff = sub.add_parser(
         "fix-faces", help="re-render every face in an image sharply and blend it back"
