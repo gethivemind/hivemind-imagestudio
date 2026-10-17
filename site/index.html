@@ -145,8 +145,8 @@
     <h2>Install</h2>
     <p class="sub">A Windows, macOS or Linux app, or Python 3.11 or newer on any OS. Everything else is downloaded by the studio itself, with your consent, hash-verified.</p>
     <div class="install">
-      <div class="card"><h3>Windows app</h3><pre>ImageStudio-x.y.z-Setup.exe
-→ Next, Next, done</pre><p class="note">From the <a href="https://github.com/gethivemind/hivemind-imagestudio/releases/latest" target="_blank" rel="noopener">latest release</a>. Installs like any app: Start menu, search, Pin to Start, uninstall from Settings. A portable zip is there too. Not code-signed yet: SmartScreen asks once per download ("More info" → "Run anyway"). The SHA-256 is next to the download.</p></div>
+      <div class="card"><h3>Windows app</h3><p style="margin:0 0 10px"><a href="https://apps.microsoft.com/detail/9NJ8PVHV74KZ?mode=direct" target="_blank" rel="noopener"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" height="72" alt="Get it from Microsoft" style="display:block"></a></p><p class="note">Signed by Microsoft, no SmartScreen warning, updates arrive by themselves. Also: <code>winget install 9NJ8PVHV74KZ -s msstore</code>.</p><pre>ImageStudio-x.y.z-Setup.exe
+→ Next, Next, done</pre><p class="note">Without the Store: from the <a href="https://github.com/gethivemind/hivemind-imagestudio/releases/latest" target="_blank" rel="noopener">latest release</a>. Installs like any app: Start menu, search, Pin to Start, uninstall from Settings. A portable zip is there too. Not code-signed yet: SmartScreen asks once per download ("More info" → "Run anyway"). The SHA-256 is next to the download.</p></div>
       <div class="card"><h3>macOS and Linux</h3><pre>ImageStudio-x.y.z-macos-arm64.zip
 ImageStudio-x.y.z-linux-x86_64.tar.gz</pre><p class="note">Apple silicon: unzip, right-click "Image Studio.app" → Open the first time (not notarized yet). Linux x86_64: unpack, run <code>ImageStudio</code>; it opens in your browser. New in 0.3.7; the SHA-256 is next to each download.</p></div>
       <div class="card"><h3>With pipx or pip</h3><pre>pipx install hivemind-imagestudio

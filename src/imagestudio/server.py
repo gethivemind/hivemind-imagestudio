@@ -15,6 +15,20 @@ try:  # mcp >= 2: FastMCP was renamed MCPServer
     from mcp.server.mcpserver import MCPServer as FastMCP
 except ImportError:  # pragma: no cover - mcp 1.x
     from mcp.server.fastmcp import FastMCP  # type: ignore[no-redef]
+from mcp.types import ToolAnnotations
+
+
+def _hints(
+    *, read_only: bool = False, destructive: bool = False, idempotent: bool = False
+) -> ToolAnnotations:
+    """Tool annotations for clients that gate on them. Nothing here reaches the open
+    internet except download_model, which fetches pinned, hash-verified files."""
+    return ToolAnnotations(
+        readOnlyHint=read_only,
+        destructiveHint=destructive,
+        idempotentHint=idempotent,
+        openWorldHint=False,
+    )
 
 
 INSTRUCTIONS = """Hivemind Image Studio: free, local, offline image generation.
@@ -44,6 +58,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="generate",
+        annotations=_hints(),
         description=(
             "Queue a text-to-image job and return its job id immediately. Use this to make a "
             "new image from a prompt. The default preset 'best' renders at full resolution and "
@@ -136,6 +151,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="plan",
+        annotations=_hints(read_only=True, idempotent=True),
         description=(
             "Dry run of generate(): same parameters, nothing is queued. Returns the resolved "
             "plan {model, variant, preset, width, height, steps, cfg_scale, sampler, estimate "
@@ -166,6 +182,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="job_status",
+        annotations=_hints(read_only=True, idempotent=True),
         description=(
             "Report progress of a job started by generate(). Use it to decide whether to wait "
             "longer; poll every 10-15 seconds, not continuously. Returns {id, status "
@@ -184,6 +201,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="job_result",
+        annotations=_hints(read_only=True, idempotent=True),
         description=(
             "Fetch the finished image of a job. Call it when job_status reports status 'done'. "
             "Returns {ready: true, path (PNG on this machine's disk, kept permanently under the "
@@ -201,6 +219,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="variations",
+        annotations=_hints(),
         description=(
             "Queue variations of an existing image (image-to-image) and return a job id. image is "
             "a job id or a local image path; prompt defaults to the source job's prompt; strength "
@@ -234,6 +253,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="edit",
+        annotations=_hints(),
         description=(
             "Queue an edit of an existing image by instruction and return a job id. image is a job "
             "id or a local image path; prompt describes the wanted result ('the same scene at "
@@ -271,6 +291,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="describe",
+        annotations=_hints(),
         description=(
             "Image to text, locally, with llama.cpp and Qwen2.5-VL (Apache-2.0). Returns {text, "
             "seconds, model} synchronously (a few seconds on a CPU with the 3B model). image is a "
@@ -292,6 +313,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="upscale",
+        annotations=_hints(),
         description=(
             "Queue a 4x upscale of a finished image with Real-ESRGAN (BSD licence) and return a "
             "job "
@@ -321,6 +343,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="remove_background",
+        annotations=_hints(),
         description=(
             "Queue background removal for an image and return a job id; the result is a PNG with a "
             "transparent background (alpha matte). image is a job id or a path to a PNG/JPEG/WebP. "
@@ -344,6 +367,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="jobs",
+        annotations=_hints(read_only=True, idempotent=True),
         description=(
             "List all jobs known to the studio, newest first, with id, status, preset, model, "
             "the first 80 characters of the prompt and the output path when done. Use it to "
@@ -355,6 +379,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="cancel_job",
+        annotations=_hints(destructive=True, idempotent=True),
         description=(
             "Cancel a queued or running job. Returns {cancelled: bool}. A running job stops "
             "within seconds; its partial work is discarded."
@@ -365,6 +390,7 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="capabilities",
+        annotations=_hints(read_only=True, idempotent=True),
         description=(
             "Describe this studio: the hardware found (CPU cores, RAM, GPU and VRAM if any), "
             "the engine and whether it is installed, every catalogue model with its licence, "
@@ -439,6 +465,9 @@ def build_server(studio: Studio | None = None) -> FastMCP:
 
     @mcp.tool(
         name="download_model",
+        annotations=ToolAnnotations(
+            readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=True
+        ),
         description=(
             "Download a catalogue model's weights into the studio's models folder so generate() "
             "can use it offline afterwards. This is the only tool that uses the network and it "

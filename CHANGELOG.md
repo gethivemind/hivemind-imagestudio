@@ -4,6 +4,17 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
+## Unreleased
+
+### Added
+- Microsoft Store listing (ID 9NJ8PVHV74KZ) linked from the website and README; raster
+  home-screen icons and an "Add to Home Screen" hint for phones after pairing.
+- MCP tools carry annotations (read-only, destructive, idempotent, open-world hints) so
+  clients that gate on them can classify the server correctly.
+
+### Changed
+- Website links open in a new tab.
+
 ## 0.3.7 — 2026-10-16
 
 ### Added

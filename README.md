@@ -82,7 +82,9 @@ real runs on your machine, kept per model variant in `calibration.json`.
 
 ## Install
 
-**Windows app:** download `ImageStudio-<version>-Setup.exe` from the
+**Windows app:** easiest from the [Microsoft Store](https://apps.microsoft.com/detail/9NJ8PVHV74KZ)
+(signed by Microsoft, no SmartScreen warning, automatic updates; `winget install 9NJ8PVHV74KZ -s msstore`
+works too). Or download `ImageStudio-<version>-Setup.exe` from the
 [latest release](https://github.com/gethivemind/hivemind-imagestudio/releases/latest) and run it:
 Start menu entry, search, Pin to Start, uninstall from Settings → Apps, optional desktop
 shortcut and start-at-sign-in. No administrator rights needed. Prefer portable? The
@@ -91,8 +93,8 @@ and 11). Closing it during a render offers to keep rendering in the background w
 icon; a second launch focuses the running window. The build is not code-signed yet, so
 SmartScreen asks once per download ("More info" → "Run anyway"); the `.sha256` file next to
 the download lets you verify it. `ImageStudio.exe --browser` uses your browser instead, and
-`ImageStudio.exe cli doctor` reaches the command line. A Microsoft Store listing (signed by
-Microsoft, no SmartScreen warning, automatic updates) is in preparation; see `packaging/STORE.md`. Logs: `%LOCALAPPDATA%\hivemind-imagestudio\logs\app.log`.
+`ImageStudio.exe cli doctor` reaches the command line. How the Store package is built:
+`packaging/STORE.md`. Logs: `%LOCALAPPDATA%\hivemind-imagestudio\logs\app.log`.
 
 **macOS (Apple silicon):** `ImageStudio-<version>-macos-arm64.zip` from the same release;
 unzip and open "Image Studio.app" (right-click → Open the first time: not notarized yet). A

@@ -20,6 +20,11 @@ shows a fee, stop and re-check, the official blog says there is none. `winget in
 possible through the Store as well. The app keeps running fully offline; the Store only
 delivers the package.
 
+## Status
+
+Listed since 2026-10-16: Store ID **9NJ8PVHV74KZ**, https://apps.microsoft.com/detail/9NJ8PVHV74KZ,
+`winget install 9NJ8PVHV74KZ -s msstore`. First certified submission: 0.3.6.
+
 ## Steps, once
 
 1. Register at https://developer.microsoft.com/microsoft-store/register (individual account; free). Developer name: **Hivemind** (or your own name with
