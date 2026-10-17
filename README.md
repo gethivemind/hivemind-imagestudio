@@ -323,7 +323,10 @@ pinned, hash-checked catalogue.
 | `download_model(name, consent=false, variant?)` | Report size and licence; download after consent. Accepts generation and tool models. |
 
 Tool descriptions are written for an AI caller: what the tool does, when to use it, what
-comes back, and how often to poll.
+comes back, and how often to poll. Ready-made client configs (Claude Desktop, Claude Code,
+Cursor, VS Code) and a typical agent flow: [`examples/mcp`](examples/mcp/README.md) and the
+[For agents](https://gethivemind.github.io/hivemind-imagestudio/mcp.html) page. The Windows
+app is the same server: `ImageStudio.exe cli serve` (Settings → About shows the exact path).
 
 ### `generate` parameters
 

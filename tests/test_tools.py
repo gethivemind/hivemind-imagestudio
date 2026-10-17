@@ -318,6 +318,43 @@ def test_semantic_search_indexes_finished_images_and_finds_duplicates(settings: 
         studio.close()
 
 
+def test_engine_suggestion_points_at_vulkan_only_when_it_applies(settings: Settings):
+    import platform
+    import sys
+
+    from conftest import workstation
+    from imagestudio.registry import find_engine_asset
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    vulkan_here = find_engine_asset(sys.platform, platform.machine(), "vulkan") is not None
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        sg = studio.engine_suggestion()
+        if not vulkan_here:
+            assert sg is None
+        else:
+            assert sg["flavor"] == "vulkan" and sg["action"] in ("install", "use")
+            assert "integrated" in sg["reason"] and "2.4" in sg["strength"]
+        assert studio.capabilities()["engine"]["suggestion"] == sg
+    finally:
+        studio.close()
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=workstation())
+    try:
+        sg = studio.engine_suggestion()
+        if vulkan_here:
+            assert sg["strength"] == "likely large" and "RTX 4090" in sg["reason"]
+    finally:
+        studio.close()
+    # an active non-CPU backend means nothing to suggest
+    engine = FakeEngine()
+    engine.flavor = "vulkan"
+    studio = Studio(settings=settings, engine=engine, hardware=laptop())
+    try:
+        assert studio.engine_suggestion() is None
+    finally:
+        studio.close()
+
+
 def test_export_images_zips_a_selection(settings: Settings):
     import io
     import zipfile

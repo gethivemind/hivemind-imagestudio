@@ -7,6 +7,11 @@ package on PyPI.
 ## Unreleased
 
 ### Added
+- GPU suggestion: when the Vulkan build would likely render faster on this machine's GPU,
+  Create shows it with the measured number and an Install or Use button; never switched
+  automatically. Home guide step for it.
+- For agents: client configs for Claude Desktop, Claude Code, Cursor and VS Code under
+  `examples/mcp`, a website page, and the MCP command (with the installed exe path) in About.
 - Batch tools: select several gallery images and upscale, cut out, fix faces, file in a
   project, zip or trash them together.
 - Search by meaning: CLIP ViT-B/32 (MIT, 150 MB) embeds every finished image in the

@@ -1927,6 +1927,42 @@ class Studio:
             )
         return out
 
+    def engine_suggestion(self) -> dict[str, Any] | None:
+        """A backend this machine would likely render faster with, or None. Never applied by
+        itself: the user presses Use (quality is unchanged either way; only time differs)."""
+        active = getattr(self.engine, "flavor", "cpu")
+        if active != "cpu":
+            return None
+        backends = {b["flavor"]: b for b in self.engine_backends()}
+        vk = backends.get("vulkan")
+        if not vk or not vk["supported"] or not self.hardware.gpus:
+            return None
+        gpu = self.hardware.usable_gpu
+        if gpu is not None:
+            reason = (
+                f"This machine has a discrete GPU ({gpu.name}). The Vulkan build renders on it; "
+                "measured 2.4× faster than the CPU build even on an integrated GPU, and "
+                "discrete GPUs gain more. Same model, same quality, only the time changes."
+            )
+            strength = "likely large"
+        else:
+            g = self.hardware.gpus[0]
+            reason = (
+                f"The Vulkan build can render on this machine's integrated GPU ({g.name}). "
+                "Measured on a 16 GB laptop with Intel UHD graphics: 762 s instead of 1805 s "
+                "for the same image, 2.4× faster. Same model, same quality, only the time "
+                "changes; run the benchmark afterwards to recalibrate the estimates."
+            )
+            strength = "measured 2.4×"
+        return {
+            "flavor": "vulkan",
+            "installed": bool(vk["installed"]),
+            "action": "use" if vk["installed"] else "install",
+            "reason": reason,
+            "strength": strength,
+            "bytes": vk["bytes"],
+        }
+
     def try_start_worker(self) -> bool:
         """Start rendering in this process if the lock became free (after a handover)."""
         if self.worker_active:
@@ -2727,6 +2763,7 @@ class Studio:
                 "pinned_release": SDCPP_TAG,
                 "binary": str(getattr(self.engine, "binary", lambda: None)() or ""),
                 "backend": getattr(self.engine, "flavor", "cpu"),
+                "suggestion": self.engine_suggestion(),
             },
             "models": [self.model_report(m) for m in MODELS.values()],
             "tools": self.tools_report(),

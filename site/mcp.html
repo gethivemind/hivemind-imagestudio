@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>For agents · Image Studio by Hivemind</title>
+<meta name="description" content="Image Studio by Hivemind is an MCP server: Claude, Cursor, VS Code and any MCP client can make, edit and search images on your own machine, offline.">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<style>
+  :root { --bg: #0f1012; --surface: #17181b; --line: #2a2b31; --ink: #f2f2f0; --ink2: #c9c9c4; --muted: #8f9096; --accent: #7aa6ff; --honey: #f0b429; }
+  @media (prefers-color-scheme: light) { :root { --bg: #f7f6f2; --surface: #fff; --line: #e2e1da; --ink: #1b1b19; --ink2: #3a3a37; --muted: #6b6b68; --accent: #2f6fed; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 40px 20px 60px; }
+  h1 { font-size: 30px; letter-spacing: -.5px; margin: 0 0 6px; } h2 { font-size: 19px; margin: 30px 0 8px; } h3 { font-size: 16px; margin: 18px 0 6px; }
+  p, li { color: var(--ink2); } .muted { color: var(--muted); font-size: 14px; } a { color: var(--accent); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 18px 0; }
+  pre { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow: auto; font: 13px/1.5 ui-monospace, Consolas, monospace; color: var(--ink); }
+  code { font: 13.5px ui-monospace, Consolas, monospace; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; } th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; } th { color: var(--muted); font-weight: 600; }
+  ol li { margin: 6px 0; }
+</style>
+</head>
+<body><div class="wrap">
+  <p class="muted"><a href="./">← Image Studio by Hivemind</a></p>
+  <h1>Image Studio for agents</h1>
+  <p>Image Studio is an <b>MCP server</b> as well as an app. Claude, Cursor, VS Code and any other Model Context Protocol client can make, edit, repair, upscale and search images on your own machine, offline, with the same rules as the window: quality is a setting, never a consequence; every estimate is measured; nothing is uploaded.</p>
+
+  <div class="card"><b>Install once:</b> <code>pipx install hivemind-imagestudio</code>, then point your client at the command <code>imagestudio serve</code>. The Windows app from the Store or the installer is the same server: <code>ImageStudio.exe cli serve</code> (the exact path is shown under Settings → About in the app).</div>
+
+  <h2>Client configuration</h2>
+  <table>
+    <tr><th>Client</th><th>Where</th><th>Config</th></tr>
+    <tr><td>Claude Desktop</td><td><code>claude_desktop_config.json</code> (Windows: <code>%APPDATA%\Claude</code>, macOS: <code>~/Library/Application Support/Claude</code>)</td><td><pre>{ "mcpServers": { "imagestudio":
+    { "command": "imagestudio", "args": ["serve"] } } }</pre></td></tr>
+    <tr><td>Claude Code</td><td>in the project</td><td><pre>claude mcp add imagestudio -- imagestudio serve</pre></td></tr>
+    <tr><td>Cursor</td><td><code>.cursor/mcp.json</code></td><td><pre>{ "mcpServers": { "imagestudio":
+    { "command": "imagestudio", "args": ["serve"] } } }</pre></td></tr>
+    <tr><td>VS Code (agent mode)</td><td><code>.vscode/mcp.json</code></td><td><pre>{ "servers": { "imagestudio":
+    { "type": "stdio", "command": "imagestudio", "args": ["serve"] } } }</pre></td></tr>
+  </table>
+  <p class="muted">Ready-made files: <a href="https://github.com/gethivemind/hivemind-imagestudio/tree/main/examples/mcp" target="_blank" rel="noopener">examples/mcp</a> in the repository.</p>
+
+  <h2>Tools</h2>
+  <table>
+    <tr><th>Tool</th><th>What it does</th></tr>
+    <tr><td><code>capabilities()</code></td><td>Hardware, installed models and how they fit, expected minutes per preset (calibrated on this machine), tool models, licences, policy. Call it first.</td></tr>
+    <tr><td><code>write_prompt(brief, current_prompt?, model?)</code></td><td>A plain-words brief becomes a prompt tuned to the model that will paint it; the local language model writes it.</td></tr>
+    <tr><td><code>generate(prompt, preset="best", …)</code></td><td>Queues a render and returns a job id with an honest estimate at once. <code>best</code> is full quality and slow on CPUs by design; <code>balanced</code> and <code>fast</code> only when the user accepts the trade-off.</td></tr>
+    <tr><td><code>job_status(id)</code> · <code>job_result(id)</code></td><td>Poll every 10-15 s, then fetch the PNG path (or base64). Never block inside one call.</td></tr>
+    <tr><td><code>variations</code> · <code>edit</code></td><td>Re-roll keeping the composition (strength ≤ 0.45 on 4-step models), or change by instruction, optionally inside a mask.</td></tr>
+    <tr><td><code>fix_faces</code> · <code>upscale</code> · <code>remove_background</code></td><td>Repair faces (one render per face), 4× or 16× with Real-ESRGAN, transparent cutouts.</td></tr>
+    <tr><td><code>describe(image, task)</code></td><td>Captions, alt text, tags, a prompt that would recreate the image, or your own question, with a local vision model.</td></tr>
+    <tr><td><code>search_images(query)</code></td><td>Gallery images ranked by meaning (CLIP), so an agent can find “the lighthouse one” without listing everything.</td></tr>
+    <tr><td><code>download_model(name, consent)</code></td><td>Reports size and licence first; downloads only with consent. The only tool that reaches the internet, and only for pinned, hash-verified files.</td></tr>
+  </table>
+  <p class="muted">Every tool declares MCP annotations (read-only, destructive, idempotent, open-world), so clients that gate on them classify the server correctly.</p>
+
+  <h2>A typical flow</h2>
+  <ol>
+    <li><code>capabilities()</code>. If no model is installed, tell the user the size and licence, then <code>download_model(…, consent=true)</code>.</li>
+    <li><code>write_prompt("my cat on a spaceship, movie-poster feel")</code> and show the user the prompt.</li>
+    <li><code>generate(prompt)</code>, quote the estimate, poll <code>job_status</code>, then <code>job_result</code>.</li>
+    <li>Refine: <code>fix_faces</code> if faces look wrong, <code>upscale</code> for print, <code>variations</code> for alternatives.</li>
+  </ol>
+
+  <h2>Who renders, and the window</h2>
+  <p>One process renders at a time. If the Image Studio window is open, it renders and the agent's jobs appear in its queue and gallery; if the agent's client starts <code>imagestudio serve</code> first, that server renders and the window shows the queue when opened later, taking over once the worker is idle. Pause in the window holds every submitter, agents included. Everything shares one gallery, one calibration, one set of models.</p>
+
+  <h2>What to tell users about time</h2>
+  <p>Quote <code>capabilities()</code>, which carries the calibrated numbers for the machine the server runs on. For scale: on a 16 GB laptop without a discrete GPU, FLUX.1-schnell q5 at 1024² took about 22 minutes on <code>fast</code> and just under two hours on <code>best</code> with the CPU build; the Vulkan build was 2.4× faster on the same integrated GPU. Describe takes seconds; the prompt assistant 20-40 s once warm.</p>
+
+  <p class="muted" style="margin-top:36px">Image Studio by Hivemind is free software (Apache-2.0), made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener">Ratul Roy (royal-programmer)</a>. "Hivemind" and "Image Studio by Hivemind" are trademarks; see <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADEMARK.md" target="_blank" rel="noopener">TRADEMARK.md</a>.</p>
+</div></body></html>

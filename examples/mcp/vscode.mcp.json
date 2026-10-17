@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "imagestudio": {
+      "type": "stdio",
+      "command": "imagestudio",
+      "args": ["serve"]
+    }
+  }
+}

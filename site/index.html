@@ -76,7 +76,7 @@
 <body>
 <header class="top"><div class="wrap">
   <a class="brand" href="#"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="#f0b429"/><circle cx="32" cy="32" r="13" fill="#1b1b19"/><circle cx="32" cy="32" r="6" fill="#f7f6f2"/></svg>Image Studio <small>by Hivemind</small></a>
-  <nav><a href="#features">Features</a><a href="#policy">Policy</a><a href="#numbers">Numbers</a><a href="#install">Install</a><a href="#licences">Licences</a><a href="https://github.com/gethivemind/hivemind-imagestudio" target="_blank" rel="noopener">GitHub</a></nav>
+  <nav><a href="#features">Features</a><a href="#policy">Policy</a><a href="#numbers">Numbers</a><a href="#install">Install</a><a href="#licences">Licences</a><a href="mcp.html">Agents</a><a href="https://github.com/gethivemind/hivemind-imagestudio" target="_blank" rel="noopener">GitHub</a></nav>
 </div></header>
 
 <main class="wrap">
@@ -155,7 +155,7 @@ imagestudio ui</pre><p class="note">Opens the studio in your browser. Everything
 imagestudio install-engine --yes
 imagestudio download-model flux-schnell --yes</pre><p class="note">Or do the same from Settings in the app: engine, models and tools each have an Install button and a getting-started checklist on Home.</p></div>
       <div class="card"><h3>As an MCP server</h3><pre>{ "mcpServers": { "imagestudio":
-    { "command": "imagestudio", "args": ["serve"] } } }</pre><p class="note">Tools: generate, plan, job_status, job_result, jobs, capabilities, download_model, variations, edit, upscale, remove_background, fix_faces, describe, write_prompt, search_images.</p></div>
+    { "command": "imagestudio", "args": ["serve"] } } }</pre><p class="note">Tools: generate, plan, job_status, job_result, jobs, capabilities, download_model, variations, edit, upscale, remove_background, fix_faces, describe, write_prompt, search_images. Client configs and a typical agent flow: <a href="mcp.html">For agents</a>.</p></div>
     </div>
     <p class="note">Official builds are the <a href="https://github.com/gethivemind/hivemind-imagestudio/releases" target="_blank" rel="noopener">GitHub Releases</a> of the repository and the <a href="https://pypi.org/project/hivemind-imagestudio/" target="_blank" rel="noopener">hivemind-imagestudio</a> package on PyPI. On corporate Windows machines, endpoint protection may ask you to allow the downloaded engine the first time it runs; it is the pinned stable-diffusion.cpp release and its hash is in the source.</p>
   </section>

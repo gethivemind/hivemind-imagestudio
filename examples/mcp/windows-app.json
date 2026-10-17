@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "imagestudio": {
+      "command": "C:\Program Files\WindowsApps\...\ImageStudio.exe",
+      "args": ["cli", "serve"],
+      "_comment": "Store and Setup installs: use the ImageStudio.exe path shown under Settings → About → 'MCP command'. The exe runs the same server with `cli serve`."
+    }
+  }
+}

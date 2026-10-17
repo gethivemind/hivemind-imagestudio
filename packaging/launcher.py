@@ -262,6 +262,7 @@ class App:
             "label": PLATFORM_LABEL,
             "log": str(self.log_path),
             "data_dir": str(self.data_dir),
+            "exe": sys.executable if getattr(sys, "frozen", False) else "",
         }
 
     def open_in_browser(self):
