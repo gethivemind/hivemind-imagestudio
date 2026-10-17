@@ -7,6 +7,8 @@ package on PyPI.
 ## Unreleased
 
 ### Added
+- Templates on Home and Create: eight starting points that turn a field or two into a full
+  prompt, negative prompt and size, with honest notes about text rendering per model.
 - "Turn this into…": fourteen one-click looks plus your saved styles, on one image or a
   selection, each at a strength tuned for the model's measured cliff; the PNG records the
   look. `imagestudio transform`, MCP `transform_image`.

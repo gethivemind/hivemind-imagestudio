@@ -80,6 +80,12 @@ even at 4-bit and does not fit a 16 GB machine; the studio reports that instead 
 Estimates start from a heuristic (labelled `uncalibrated`) and are replaced by timings from
 real runs on your machine, kept per model variant in `calibration.json`.
 
+**Templates.** On Home (and the ▦ button on Create): product shot, social post with text,
+portrait, logo concept, wallpaper at your screen's size, video thumbnail, poster, seamless
+pattern. Fill a field or two; the studio writes the prompt and negative prompt, sets the size
+and, for templates that put words in the image, picks Qwen-Image when it is installed
+(FLUX.1-schnell often misspells text, and the template says so).
+
 **Turn this into….** Under Reimagine in the viewer, one click gives a finished image a look:
 pencil sketch, watercolour, oil painting, anime, pixel art, line art, claymation, vintage
 photo, film noir, cyberpunk, isometric, storybook, product shot, 3D render, or any of your

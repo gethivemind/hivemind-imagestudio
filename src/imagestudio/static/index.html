@@ -150,6 +150,8 @@
   .hero p { margin: 0; color: var(--muted); max-width: 720px; font-size: 14px; }
   .credit { margin: 18px auto 10px; padding: 0 24px; max-width: 1100px; width: 100%; font-size: 12px; color: var(--muted); } .credit a { color: var(--muted); text-decoration: underline; } .credit a:hover { color: var(--accent); }
   .cards { padding: 14px 24px 40px; max-width: 1100px; margin: 0 auto; width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .tplwrap { padding: 8px 24px 0; max-width: 1100px; margin: 0 auto; width: 100%; } .tplhead { display: flex; align-items: baseline; gap: 10px; font-size: 12px; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 8px; } .tplhead .small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .tpls { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; } .tpl { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; } .tpl:hover { border-color: var(--accent); } .tpl .ic { font-size: 20px; } .tpl b { font-size: 13.5px; } .tpl span { font-size: 12px; color: var(--muted); line-height: 1.35; }
   .tcard { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; cursor: pointer; transition: transform .15s, box-shadow .15s; display: flex; flex-direction: column; gap: 8px; min-height: 150px; }
   .tcard:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
   .tcard.off { cursor: default; opacity: .7; }
@@ -326,6 +328,7 @@
 <section class="view" id="home">
   <div class="hero"><h1>What do you want to make?</h1><p>Everything runs on this machine with permissively licensed models. Quality is a setting, never a consequence: the default is the best this machine can do, and the studio tells you how long it will take before you commit.</p></div>
   <div class="guide" id="guide"></div>
+  <div class="tplwrap"><div class="tplhead"><span>Start from a template</span><span class="muted small">fill a field or two, the studio writes the prompt and picks the size</span></div><div class="tpls" id="tpls"></div></div>
   <div class="cards" id="cards"></div>
   <div class="credit">Image Studio by Hivemind · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener">Ratul Roy (royal-programmer)</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio" target="_blank" rel="noopener">source</a> · Apache-2.0</div>
 </section>
@@ -430,6 +433,7 @@
             <input type="number" class="seed" id="seed" placeholder="seed: random" title="Same prompt, settings and seed reproduce the image; empty = random.">
             <select class="cnt" id="count" title="How many images of this prompt to queue, with consecutive seeds. Same as --n."><option value="1">×1</option><option value="2">×2</option><option value="4">×4</option><option value="8">×8</option></select>
             <button class="ib" id="histBtn" title="Prompt history and pinned prompts">☰</button>
+            <button class="ib" id="tplBtn" title="Templates: product shot, social post with text, portrait, logo concept, wallpaper at your screen size, thumbnail, poster, seamless pattern">▦</button>
             <button class="ib" id="assistBtn" title="Prompt assistant: describe what you want in plain words and the local language model writes the prompt. With a prompt already typed, it improves that one.">✦</button>
             <span class="eta" id="eta"><span class="meter"><i id="meterFill"></i></span><span id="etaText">…</span></span>
             <button class="btn primary go" id="go" disabled>Generate</button>
@@ -540,6 +544,13 @@
   <p class="muted" id="askText" style="margin:0 0 10px;font-size:13.5px;line-height:1.5"></p>
   <input type="text" id="askInput" style="display:none;width:100%;height:32px;margin-bottom:10px">
   <div class="acts" style="justify-content:flex-end"><button class="btn sm" id="askNo">Cancel</button><button class="btn sm" id="askAlt" style="display:none">Alt</button><button class="btn sm primary" id="askOk">OK</button></div>
+</div></dialog>
+<dialog class="dl" id="tplDlg"><div class="dlg">
+  <div class="head"><h3 id="tplTitle">Template</h3><button class="ib" id="tplX">✕</button></div>
+  <p class="muted" id="tplText" style="margin:0 0 10px;font-size:13px;line-height:1.5"></p>
+  <div id="tplFields"></div>
+  <div class="muted small" id="tplNote" style="margin-top:8px"></div>
+  <div class="acts" style="margin-top:12px;justify-content:flex-end"><button class="btn sm" id="tplCancel">Cancel</button><button class="btn sm primary" id="tplUse">Fill in Create</button></div>
 </div></dialog>
 <dialog class="dl" id="prjDlg"><div class="dlg">
   <div class="head"><h3 id="prjTitle">Projects</h3><button class="ib" id="prjX">✕</button></div>
@@ -653,7 +664,43 @@
     $("guideHide").onclick = () => { try { localStorage.setItem("guideHidden", "1"); } catch (e) {} g.innerHTML = ""; toast("Hidden. Settings → Preferences brings it back."); };
     g.querySelectorAll(".step").forEach(el => el.onclick = () => { const x = steps[+el.dataset.i]; if (!x.done) x.go(); });
   }
+  // ---- templates: a few fields in, a complete prompt, size and style out
+  const TEMPLATES = [
+    { id: "product", icon: "📦", title: "Product shot", text: "An object on a clean background with studio lighting.", fields: [["product", "What is the product?", "a matte black ceramic coffee mug"], ["bg", "Background", "white seamless"]], build: (f) => ({ prompt: `${f.product} on a ${f.bg} background, product photography, softbox lighting, sharp focus, subtle reflection, centred`, negative: "clutter, text, watermark, hands", ratio: "1:1" }) },
+    { id: "social", icon: "💬", title: "Social post with text", text: "A square post with a short headline rendered in the image.", fields: [["topic", "What is it about?", "a weekend farmers market"], ["headline", "Headline (3-6 words, shown in the image)", "Fresh this Saturday"], ["mood", "Mood or style", "bright, friendly, flat illustration"]], build: (f) => ({ prompt: `${f.mood} poster about ${f.topic}, with the text "${f.headline}" in large clean lettering, balanced composition, generous margins`, negative: "misspelled text, extra letters, clutter", ratio: "1:1", textNote: true }) },
+    { id: "portrait", icon: "🙂", title: "Portrait", text: "A person, a setting and a light.", fields: [["who", "Who?", "a woman in her thirties with short grey hair"], ["where", "Where?", "a sunlit kitchen"], ["light", "Light", "soft window light"]], build: (f) => ({ prompt: `portrait of ${f.who}, in ${f.where}, ${f.light}, shallow depth of field, natural skin texture, looking at the camera, 85 mm photograph`, negative: "deformed hands, extra fingers, blurry, text", ratio: "3:4" }) },
+    { id: "logo", icon: "◈", title: "Logo concept", text: "A mark to react to, not a final logo: flat, simple, centred.", fields: [["brand", "Brand name (shown in the image)", "Northwind"], ["what", "What does it do?", "a sailing school"], ["style", "Style", "minimal geometric, two colours"]], build: (f) => ({ prompt: `logo for ${f.brand}, ${f.what}, ${f.style}, flat vector style, centred on a plain background, the word "${f.brand}" in clean lettering below the mark`, negative: "photo, 3d, gradient mess, misspelled text", ratio: "1:1", textNote: true }) },
+    { id: "wallpaper", icon: "🖥", title: "Wallpaper", text: "At this screen's size, for the desktop behind your windows.", fields: [["theme", "Theme", "a calm mountain lake at dawn, mist, soft gradients"]], build: (f) => ({ prompt: `${f.theme}, wide composition with quiet areas for icons, cinematic, high detail`, negative: "text, watermark, busy, clutter", screen: true }) },
+    { id: "thumbnail", icon: "▶", title: "Video thumbnail", text: "16:9, one big subject, one big word.", fields: [["subject", "Subject", "a person holding a tiny cactus, surprised"], ["word", "Big word (shown in the image)", "WHY?"], ["mood", "Mood", "saturated, high contrast"]], build: (f) => ({ prompt: `${f.subject}, ${f.mood}, bold composition, the word "${f.word}" in huge bold letters, thumbnail style, plain background behind the text`, negative: "small text, clutter, blurry, misspelled text", size: [1280, 720], textNote: true }) },
+    { id: "poster", icon: "🎪", title: "Poster", text: "An event poster: headline, subject, style.", fields: [["event", "Event", "a jazz night in a small club"], ["headline", "Headline (shown in the image)", "Blue Note Thursdays"], ["style", "Style", "1960s screen print, three colours"]], build: (f) => ({ prompt: `${f.style} poster for ${f.event}, the title "${f.headline}" in large lettering, strong composition, textured paper`, negative: "misspelled text, photo, clutter", ratio: "3:4", textNote: true }) },
+    { id: "pattern", icon: "▦", title: "Seamless pattern", text: "A repeating motif for fabric, wrapping or a background.", fields: [["motif", "Motif", "lemons and leaves"], ["style", "Style", "hand-drawn, two-tone, cream background"]], build: (f) => ({ prompt: `seamless repeating pattern of ${f.motif}, ${f.style}, evenly spaced, flat, tileable, no border`, negative: "border, frame, text, perspective, shadow", ratio: "1:1" }) },
+  ];
+  function renderTemplates() { const box = $("tpls"); if (!box) return; box.innerHTML = TEMPLATES.map(t => `<div class="tpl" data-tpl="${t.id}"><div class="ic">${t.icon}</div><b>${esc(t.title)}</b><span>${esc(t.text)}</span></div>`).join(""); box.querySelectorAll("[data-tpl]").forEach(el => el.onclick = () => openTemplate(el.dataset.tpl)); }
+  function openTemplate(id) {
+    const t = TEMPLATES.find(x => x.id === id); if (!t) return; const d = $("tplDlg");
+    $("tplTitle").textContent = t.title; $("tplText").textContent = t.text;
+    $("tplFields").innerHTML = t.fields.map(([k, label, ph]) => `<div class="f" style="margin-bottom:8px"><label>${esc(label)}</label><input type="text" data-k="${k}" placeholder="${esc(ph)}" style="width:100%;height:32px"></div>`).join("");
+    const hasText = TEMPLATES.find(x => x.id === id).build(Object.fromEntries(t.fields.map(([k, , ph]) => [k, ph]))).textNote;
+    const qwen = (S.caps && S.caps.models || []).some(m => m.family === "qwen-image" && m.installed_variants.length);
+    $("tplNote").textContent = hasText ? (qwen ? "Text in the image renders best with Qwen-Image; the studio will pick it." : "This template puts words in the image. FLUX.1-schnell often misspells them; Qwen-Image (Settings → Models) renders text reliably.") : "";
+    $("tplUse").onclick = () => { const f = {}; $("tplFields").querySelectorAll("input").forEach(i => { f[i.dataset.k] = i.value.trim() || i.placeholder; }); const r = t.build(f); d.close(); applyTemplate(t, r); };
+    $("tplFields").querySelectorAll("input").forEach(i => i.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); $("tplUse").click(); } });
+    d.showModal(); const first = $("tplFields").querySelector("input"); if (first) first.focus();
+  }
+  function applyTemplate(t, r) {
+    showTab("create"); $("prompt").value = r.prompt; $("negative").value = r.negative || ""; $("style").value = ""; $("stytext").textContent = "";
+    const W = $("widthN"), Hh = $("heightN");
+    if (r.size) { SZ.ratio = "custom"; W.value = snap16(r.size[0]); Hh.value = snap16(r.size[1]); applySize(); }
+    else if (r.screen) { const dpr = Math.min(2, window.devicePixelRatio || 1); let w = screen.width * dpr, h = screen.height * dpr; const m = 2048 / Math.max(w, h); if (m < 1) { w *= m; h *= m; } SZ.ratio = "custom"; W.value = snap16(w); Hh.value = snap16(h); applySize(); }
+    else if (r.ratio) { W.value = ""; Hh.value = ""; SZ.ratio = r.ratio; applySize(); }
+    if (r.textNote) { const qm = (S.caps.models || []).find(m => m.family === "qwen-image" && m.installed_variants.length); if (qm) { $("model").value = qm.name; renderPresets(); } }
+    $("prompt").dispatchEvent(new Event("input")); plan(); $("prompt").focus();
+    toast(`${t.title}: prompt, size and settings filled in. Adjust anything, then Generate.`, 6000);
+  }
+  $("tplBtn").onclick = () => { const d = $("tplDlg"); $("tplTitle").textContent = "Templates"; $("tplText").textContent = "Pick one; a few fields in, a complete prompt and the right size out."; $("tplFields").innerHTML = `<div class="tpls">${TEMPLATES.map(t => `<div class="tpl" data-tpl="${t.id}"><div class="ic">${t.icon}</div><b>${esc(t.title)}</b><span>${esc(t.text)}</span></div>`).join("")}</div>`; $("tplNote").textContent = ""; $("tplUse").style.display = "none"; $("tplFields").querySelectorAll("[data-tpl]").forEach(el => el.onclick = () => { d.close(); $("tplUse").style.display = ""; openTemplate(el.dataset.tpl); }); d.showModal(); };
+  $("tplX").onclick = $("tplCancel").onclick = () => { $("tplDlg").close(); $("tplUse").style.display = ""; };
   function renderHome() {
+    renderTemplates();
     renderGuide(); const c = S.caps; const box = $("cards"); box.innerHTML = "";
     for (const t of TASKS) { const ok = !!(c && t.ready(c)); const el = document.createElement("div"); el.className = "tcard" + (t.go && ok ? "" : " off");
       el.innerHTML = `<div class="ic">${t.icon}</div><h3>${t.title}</h3><p>${t.text}</p><div class="st"><span class="dot ${ok ? "" : t.go ? "warn" : "off"}"></span>${ok ? "ready on this machine" : t.need}</div>`;
