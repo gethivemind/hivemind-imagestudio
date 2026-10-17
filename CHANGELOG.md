@@ -4,7 +4,7 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
-## Unreleased
+## 0.3.8 — 2026-10-17
 
 ### Added
 - GPU suggestion: when the Vulkan build would likely render faster on this machine's GPU,
