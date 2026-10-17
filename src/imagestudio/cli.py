@@ -369,6 +369,20 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_fix_faces(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    try:
+        job = studio.fix_faces(args.image, args.strength, args.prompt or "", args.model)
+    except StudioError as e:
+        print(f"error: {e}")
+        return 1
+    print(
+        f"queued {job.id}: {len(job.regions)} face(s), strength {job.strength:g}, "
+        f"about {human_duration(job.estimate_seconds)}. `imagestudio jobs` to follow."
+    )
+    return 0
+
+
 def cmd_assist(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
     try:
@@ -492,6 +506,15 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--target-minutes", type=float, default=15.0)
     b.add_argument("--json", action="store_true")
     b.set_defaults(fn=cmd_benchmark)
+
+    ff = sub.add_parser(
+        "fix-faces", help="re-render every face in an image sharply and blend it back"
+    )
+    ff.add_argument("image", help="a job id or an image path")
+    ff.add_argument("--strength", type=float, default=0.35, help="0.1-0.7; 0.35 keeps the likeness")
+    ff.add_argument("--prompt", help="defaults to the source image's prompt")
+    ff.add_argument("--model", help="which model repaints (default: the planner's choice)")
+    ff.set_defaults(fn=cmd_fix_faces)
 
     asst = sub.add_parser("assist", help="write or improve a prompt with the local language model")
     asst.add_argument("brief", nargs="+", help="what the image should show, in plain words")

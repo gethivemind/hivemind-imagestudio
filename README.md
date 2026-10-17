@@ -80,6 +80,13 @@ even at 4-bit and does not fit a 16 GB machine; the studio reports that instead 
 Estimates start from a heuristic (labelled `uncalibrated`) and are replaced by timings from
 real runs on your machine, kept per model variant in `calibration.json`.
 
+**Fix faces.** Faces are the usual reason a render gets thrown away: at 1024 px a face is a
+few dozen pixels. Tools → Fix faces in the viewer (or `imagestudio fix-faces <job>`, MCP
+`fix_faces`) detects every face with UltraFace (MIT, 1.5 MB), cuts a square around each, scales
+it to 768 px, runs image-to-image at a low strength with the source prompt plus face wording,
+and blends it back under a feathered mask. 0.35 keeps the likeness; 0.5 re-invents the face.
+One render per face, so the estimate grows with the face count.
+
 **Projects.** The ▣ chip in the header names the current project. New images are filed in
 it, the gallery shows only that project, every PNG carries the project name in its metadata,
 and "Export project" downloads the whole series as one zip: the images, `prompts.txt` with
@@ -289,6 +296,7 @@ pinned, hash-checked catalogue.
 | `upscale(image, model?, repeats=1)` | 4× (or 16×) with Real-ESRGAN. |
 | `remove_background(image, model?)` | Transparent PNG with IS-Net or U²-Net. |
 | `describe(image, task="describe", question?, model?)` | Image to text with llama.cpp and Qwen2.5-VL: description, prompt, alt text, tags, or your own question. Synchronous. |
+| `fix_faces(image, strength=0.35, prompt?, model?)` | Detect every face, re-render each at 768 px with image-to-image and blend it back. One render per face. |
 | `write_prompt(brief, current_prompt?, model?)` | A plain-words brief becomes a prompt (and negative prompt) tuned to the model that will paint it; with `current_prompt`, a change request to that prompt. Synchronous, a minute or more on a CPU. |
 | `plan(...)` | Dry run of generate(): expected time and the load meter. |
 | `job_status(job_id)` | Status, phase, progress, step, ETA, queue position. |

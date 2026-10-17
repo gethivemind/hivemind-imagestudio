@@ -714,10 +714,10 @@ def register_custom_models(entries: list[dict]) -> list[str]:
 
 @dataclass(frozen=True)
 class ToolModel:
-    """A small single-file model behind a task tool (upscale, remove_background)."""
+    """A small single-file model behind a task tool (upscale, remove_background, fix_faces)."""
 
     name: str
-    kind: str  # "upscaler" | "background"
+    kind: str  # "upscaler" | "background" | "face"
     display_name: str
     licence: str
     file: FileSpec
@@ -782,6 +782,23 @@ TOOL_MODELS: dict[str, ToolModel] = {
                 "danielgatis/rembg releases (IS-Net, Apache-2.0)",
             ),
             "Dichotomous image segmentation at 1024 px: clean edges on hair and thin structures.",
+            default=True,
+        ),
+        ToolModel(
+            "ultraface-rfb-640",
+            "face",
+            "UltraFace RFB-640",
+            "MIT",
+            FileSpec(
+                "version-RFB-640.onnx",
+                "https://github.com/onnx/models/raw/main/validated/vision/body_analysis/"
+                "ultraface/models/version-RFB-640.onnx",
+                "8f4c659275977e7a3bfbfa339a9c769ad793df50f9c0baa8c14b11baa1646430",
+                1588012,
+                "MIT",
+                "onnx/models (UltraFace, MIT)",
+            ),
+            "Finds faces (1.5 MB) so Fix faces can re-render each one sharply. Detection only.",
             default=True,
         ),
         ToolModel(

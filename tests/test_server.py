@@ -26,6 +26,7 @@ EXPECTED_TOOLS = {
     "edit",
     "describe",
     "write_prompt",
+    "fix_faces",
 }
 
 

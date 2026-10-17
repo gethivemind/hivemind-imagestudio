@@ -336,6 +336,37 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             return _err(e)
 
     @mcp.tool(
+        name="fix_faces",
+        annotations=_hints(),
+        description=(
+            "Queue a face repair pass on a finished image and return a job id: every face is "
+            "detected (UltraFace, MIT), cut out, re-rendered at 768 px with image-to-image at a "
+            "low strength, and blended back, so eyes and skin come out sharp where the full "
+            "render could not draw them. Use it when a render's faces look wrong. image is a job "
+            "id or a local path. strength 0.1-0.7 (default 0.35 keeps the likeness; 0.5 changes "
+            "the face). prompt defaults to the source image's prompt. One render per face, so the "
+            "estimate grows with the face count. Fails with 'no faces found' when the detector "
+            "sees none. Needs the detector tool model (download_model('ultraface-rfb-640'))."
+        ),
+    )
+    def fix_faces(
+        image: str, strength: float = 0.35, prompt: str = "", model: str | None = None
+    ) -> dict[str, Any]:
+        try:
+            job = studio.fix_faces(image, strength, prompt, model)
+        except StudioError as e:
+            return _err(e)
+        st = studio.job_status(job.id)
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "faces": len(job.regions),
+            "estimate_seconds": round(job.estimate_seconds),
+            "estimate_human": st["eta_human"],
+            "strength": job.strength,
+        }
+
+    @mcp.tool(
         name="upscale",
         annotations=_hints(),
         description=(

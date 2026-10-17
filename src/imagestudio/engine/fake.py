@@ -128,6 +128,23 @@ class FakeDescribeEngine:
         return DescribeResult(text=text, seconds=0.01, model="fake")
 
 
+class FakeFaceDetector:
+    """Finds one face in the middle of any image (or none, when ``faces`` is empty)."""
+
+    name = "fake-faces"
+
+    def __init__(self, faces=None) -> None:
+        self.faces = faces if faces is not None else [(4, 4, 6, 6)]
+        self.calls: list = []
+
+    def available(self) -> bool:
+        return True
+
+    def detect(self, image, model_path, threshold: float = 0.7):
+        self.calls.append((image, model_path))
+        return list(self.faces)
+
+
 class FakeBackgroundEngine:
     name = "fake-bg"
 

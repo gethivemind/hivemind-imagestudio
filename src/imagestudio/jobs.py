@@ -23,7 +23,14 @@ from typing import Any
 import psutil
 
 from imagestudio.config import Settings
-from imagestudio.engine.base import Engine, EngineError, GenerateSpec, Progress, UpscaleSpec
+from imagestudio.engine.base import (
+    Engine,
+    EngineError,
+    EngineResult,
+    GenerateSpec,
+    Progress,
+    UpscaleSpec,
+)
 
 STATUSES = ("queued", "running", "done", "failed", "cancelled")
 
@@ -94,6 +101,8 @@ class Job:
     strength: float = 0.6  # variations / edit: distance from the source image
     loras: list[list] = field(default_factory=list)  # [[name, weight], ...] from the loras folder
     project: str | None = None  # id in projects.json; None = not filed in a project
+    regions: list[list[int]] = field(default_factory=list)  # fix_faces: [x, y, w, h] per face
+    render_size: int | None = None  # fix_faces: each face crop is rendered at this square size
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -472,6 +481,9 @@ class Worker:
             return self.engine.generate(spec, on_progress)
         if not job.input_path or not Path(job.input_path).exists():
             raise EngineError(f"input image not found: {job.input_path}")
+        if job.tool == "fix_faces":
+            # detection already happened when the job was made; the regions are on the job
+            return self._fix_faces(job, spec, out, on_progress)
         model_path = self.tool_model_path(job.tool_model) if self.tool_model_path else None
         if model_path is None:
             raise EngineError(f"tool model {job.tool_model!r} is not installed")
@@ -496,6 +508,76 @@ class Worker:
                 on_progress,
             )
         raise EngineError(f"unknown tool {job.tool!r}")
+
+    def _fix_faces(self, job: Job, spec: GenerateSpec, out: Path, on_progress) -> EngineResult:
+        """Each detected face: crop a square around it, scale it up to the job's render size,
+        image-to-image at the job's strength, scale back and blend in. One engine run per
+        face; progress counts steps across all faces."""
+        from dataclasses import replace
+
+        from PIL import Image
+
+        from imagestudio.engine.base import Progress
+        from imagestudio.engine.faces import crop_for_render, paste_back
+
+        regions = [tuple(int(v) for v in r) for r in job.regions]
+        if not regions:
+            raise EngineError("no face regions on this job")
+        tmp = self.store.settings.out_dir / "tmp"
+        tmp.mkdir(parents=True, exist_ok=True)
+        total = spec.steps * len(regions)
+        load = sampling = wall = 0.0
+        peak = 0
+        with Image.open(spec.init_image or Path(job.input_path)) as src:
+            base = src.convert("RGB")
+        try:
+            for n, region in enumerate(regions):
+                crop_in = tmp / f"{job.id}-face{n}-in.png"
+                crop_out = tmp / f"{job.id}-face{n}-out.png"
+                crop_for_render(Path(job.input_path), region, spec.width, crop_in)
+
+                def face_progress(p: Progress, _n=n) -> None:
+                    if on_progress is None:
+                        return
+                    if p.phase == "sampling" and p.total_steps:
+                        on_progress(
+                            Progress(
+                                "sampling",
+                                _n * spec.steps + p.step,
+                                total,
+                                p.seconds_per_step,
+                                f"face {_n + 1} of {len(regions)}",
+                            )
+                        )
+                    else:
+                        on_progress(replace(p, message=f"face {_n + 1} of {len(regions)}"))
+
+                res = self.engine.generate(
+                    replace(
+                        spec,
+                        init_image=crop_in,
+                        mask_image=None,
+                        output=crop_out,
+                        seed=spec.seed + n,
+                    ),
+                    face_progress,
+                )
+                load += res.load_seconds
+                sampling += res.sampling_seconds
+                wall += res.total_seconds
+                peak = max(peak, res.peak_rss_bytes or 0)
+                paste_back(base, crop_out, region)
+                crop_in.unlink(missing_ok=True)
+                crop_out.unlink(missing_ok=True)
+        except Exception:
+            for p in tmp.glob(f"{job.id}-face*"):
+                p.unlink(missing_ok=True)
+            raise
+        out.parent.mkdir(parents=True, exist_ok=True)
+        base.save(out, "PNG")
+        if on_progress:
+            on_progress(Progress("saving", total, total))
+        return EngineResult(out, load, sampling, wall, [], peak)
 
     def _execute(self, job: Job) -> None:
         self.store.owned.add(job.id)
@@ -543,8 +625,8 @@ class Worker:
         spec = GenerateSpec(
             prompt=prompt,
             negative_prompt=job.negative_prompt,
-            width=job.width,
-            height=job.height,
+            width=job.render_size or job.width,
+            height=job.render_size or job.height,
             steps=job.steps,
             cfg_scale=job.cfg_scale,
             seed=job.seed,

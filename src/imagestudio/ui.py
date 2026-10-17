@@ -368,6 +368,16 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
                 )
             elif tool == "remove_background":
                 job = studio.remove_background(body.get("image", ""), _str(body.get("model")))
+            elif tool == "fix_faces":
+                job = studio.fix_faces(
+                    body.get("image", ""),
+                    float(body.get("strength", 0.35)),
+                    body.get("prompt", ""),
+                    _str(body.get("model")),
+                    preset=body.get("preset", "best"),
+                    seed=body.get("seed") or None,
+                    detector=_str(body.get("detector")),
+                )
             else:
                 return JSONResponse({"error": f"unknown tool {tool}"}, status_code=404)
         except (StudioError, ValueError, TypeError) as e:

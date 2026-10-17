@@ -135,6 +135,7 @@ class Studio:
         start_worker: bool = True,
         background_engine=None,
         describe_engine=None,
+        face_detector=None,
     ) -> None:
         self.settings = settings or Settings.load()
         self.settings.ensure_dirs()
@@ -162,6 +163,11 @@ class Studio:
 
             describe_engine = DescribeEngine(self.settings)
         self.describe_engine = describe_engine
+        if face_detector is None:
+            from imagestudio.engine.faces import FaceDetector
+
+            face_detector = FaceDetector()
+        self.face_detector = face_detector
         self.jobs = JobStore(self.settings)
         self.worker = Worker(
             self.jobs,
@@ -1730,6 +1736,83 @@ class Studio:
         self.worker.submit(job)
         return job
 
+    def fix_faces(
+        self,
+        image: str,
+        strength: float = 0.35,
+        prompt: str = "",
+        model: str | None = None,
+        preset: str = "best",
+        seed: int | None = None,
+        detector: str | None = None,
+        max_faces: int = 4,
+    ) -> Job:
+        """Re-render every face in a finished image at a higher resolution and blend it back.
+        Faces are the most common reason a render is thrown away: at 1024 px a face is a few
+        dozen pixels and the model cannot draw eyes there. Each face crop is scaled to the
+        render size (768 px), passed through image-to-image at a low strength (0.35 keeps the
+        likeness; 0.5 re-invents the face) with the source prompt plus face wording, then
+        pasted back under a feathered mask. One engine run per face, so the estimate scales
+        with the face count. The detector (UltraFace, MIT, 1.5 MB) is a tool model."""
+        if not 0.1 <= strength <= 0.7:
+            raise StudioError("strength must be between 0.1 and 0.7 (0.35 keeps the likeness)")
+        kind = "face"
+        tm = TOOL_MODELS.get(detector) if detector else default_tool_model(kind)
+        if tm is None or tm.kind != kind:
+            options = ", ".join(t.name for t in TOOL_MODELS.values() if t.kind == kind)
+            raise StudioError(f"unknown face detector {detector!r}; one of {options}")
+        if not self.models.tool_installed(tm):
+            raise StudioError(
+                f"{tm.display_name} is not downloaded ({tm.file.size / 1e6:.1f} MB). Call "
+                f"download_model(name={tm.name!r}, consent=true) or "
+                f"`imagestudio download-model {tm.name}`."
+            )
+        if not self.face_detector.available():
+            raise StudioError(
+                "face detection needs onnxruntime: pip install 'hivemind-imagestudio[bg]'"
+            )
+        if not self.engine.available():
+            raise StudioError("the image engine (stable-diffusion.cpp) is not installed")
+        src, source_job = self._resolve_input(image)
+        from imagestudio.engine.base import EngineError
+        from imagestudio.engine.faces import expand_box
+
+        try:
+            faces = self.face_detector.detect(src, self.models.path_for(tm.file))
+        except EngineError as e:
+            raise StudioError(str(e)) from e
+        if not faces:
+            raise StudioError("no faces found in this image")
+        faces = faces[: max(1, min(max_faces, 8))]
+        from PIL import Image
+
+        with Image.open(src) as im:
+            w, h = im.size
+        regions = [list(expand_box(f, w, h)) for f in faces]
+        if source_job and not prompt.strip():
+            prompt = self.jobs.get(source_job).prompt  # type: ignore[union-attr]
+        base_prompt = prompt.strip() or "a portrait"
+        prompt = f"{base_prompt}, detailed face, sharp clear eyes, natural skin texture"
+        if model and getattr(MODELS.get(model), "role", "") == "edit":
+            raise StudioError(f"{MODELS[model].display_name} is an edit model; use edit()")
+        size = 768 if preset == "best" else 512
+        job = self.generate(
+            prompt, preset=preset, width=size, height=size, seed=seed, model=model, _defer=True
+        )
+        job.tool = "fix_faces"
+        job.input_path = str(src)
+        job.source_job = source_job
+        job.strength = strength
+        job.regions = regions
+        job.tool_model = tm.name
+        job.live_preview = False
+        job.render_size = size
+        job.width, job.height = w, h  # the result keeps the source size
+        job.estimate_seconds *= len(regions) * max(0.15, strength) * (size * size) / (1024 * 1024)
+        job.estimate_basis += f"; {len(regions)} face(s) at {size} px, strength {strength:g}"
+        self.worker.submit(job)
+        return job
+
     def upscale(self, image: str, model: str | None = None, repeats: int = 1) -> Job:
         if not 1 <= repeats <= 2:
             raise StudioError("repeats must be 1 (4x) or 2 (16x)")
@@ -1804,6 +1887,7 @@ class Studio:
             "caption": job.caption,
             "favorite": job.favorite,
             "project": job.project,
+            "regions": job.regions,
             "deleted_at": job.deleted_at,
             "prompt": job.prompt,
             "reproducible_prompt": reproducible(job)

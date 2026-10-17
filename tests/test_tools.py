@@ -91,6 +91,42 @@ def test_remove_background(tools_studio: Studio):
     assert spec.model_name == "isnet-general-use"
 
 
+def test_fix_faces_renders_each_face_and_keeps_the_source_size(settings: Settings):
+    from imagestudio.engine.fake import FakeFaceDetector, tiny_png
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    fake_tool(settings, "ultraface-rfb-640")
+    det = FakeFaceDetector(faces=[(10, 10, 20, 20), (40, 8, 12, 12)])
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop(), face_detector=det)
+    try:
+        src = settings.data_dir / "portrait.png"
+        src.write_bytes(tiny_png(64, 48))
+        with pytest.raises(StudioError, match="strength"):
+            studio.fix_faces(str(src), strength=0.9)
+        job = studio.fix_faces(str(src), prompt="a sailor")
+        assert job.tool == "fix_faces" and job.tool_model == "ultraface-rfb-640"
+        assert (job.width, job.height) == (64, 48) and len(job.regions) == 2
+        assert all(r[2] == r[3] and r[0] >= 0 and r[1] >= 0 for r in job.regions)
+        assert job.prompt.startswith("a sailor, detailed face")
+        assert "2 face(s)" in job.estimate_basis
+        st = wait(studio, job.id)
+        assert st["status"] == "done", st["error"]
+        calls = [c for c in studio.engine.calls if c.init_image is not None]
+        assert len(calls) == 2 and all(c.width == c.height == 768 for c in calls)
+        assert calls[0].strength == 0.35 and calls[1].seed == calls[0].seed + 1
+        from PIL import Image
+
+        with Image.open(st["output_path"]) as im:
+            assert im.size == (64, 48)
+        assert studio.job_status(job.id)["regions"] == job.regions
+        # a detector that sees nothing is an honest error, not an empty job
+        studio.face_detector.faces = []
+        with pytest.raises(StudioError, match="no faces found"):
+            studio.fix_faces(str(src))
+    finally:
+        studio.close()
+
+
 def test_missing_tool_model_is_explained(settings: Settings):
     fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
     studio = Studio(

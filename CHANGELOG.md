@@ -7,6 +7,8 @@ package on PyPI.
 ## Unreleased
 
 ### Added
+- Fix faces: UltraFace (MIT) detection plus a per-face image-to-image pass at 768 px, blended
+  back; viewer button, `imagestudio fix-faces`, MCP `fix_faces`.
 - Projects: named series with a header chip, gallery filter, project name in PNG metadata,
   file-from-viewer, and a one-zip export with every image's reproducible prompt.
 - Prompt assistant (✦ next to the prompt, `imagestudio assist`, MCP `write_prompt`): the local

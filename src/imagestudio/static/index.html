@@ -466,6 +466,7 @@
     <div class="export" id="toolsBox"><div class="lab">Tools</div>
       <div class="row" style="margin-top:0"><label>Upscale</label><select id="upModel" style="flex:1;height:30px"></select><select id="upRepeats" style="width:92px;height:30px"><option value="1">4×</option><option value="2">16×</option></select><button class="btn sm primary" id="upBtn">Run</button></div>
       <div class="row"><label>Background</label><select id="bgModel" style="flex:1;height:30px"></select><button class="btn sm primary" id="bgBtn">Remove</button></div>
+      <div class="row"><label>Faces</label><select id="faceStrength" style="flex:1;height:30px" title="How far the face may change. 0.35 keeps the likeness and fixes eyes and skin; 0.5 re-invents the face."><option value="0.3">gentle · 0.30</option><option value="0.35" selected>keep likeness · 0.35</option><option value="0.45">stronger · 0.45</option><option value="0.55">re-invent · 0.55</option></select><button class="btn sm primary" id="faceBtn" title="Detect every face, re-render each at 768 px and blend it back. One render per face.">Fix faces</button></div>
       <div class="muted small" id="toolsNote" style="margin-top:8px"></div>
     </div>
     <div class="export" id="descBox"><div class="lab">Describe <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400"> · image to text, local</span></div>
@@ -625,6 +626,7 @@
     { id: "sketch", icon: "✐", title: "Sketch to image", text: "Draw a rough layout, describe it, and let the model paint it.", ready: (c) => c.models.some(m => m.installed_variants.length) && c.engine.available, need: "needs the engine and a downloaded model", go: () => showTab("sketch") },
     { id: "upscale", icon: "⤢", title: "Upscale", text: "4× or 16× with Real-ESRGAN (BSD). Seconds per megapixel.", ready: (c) => c.engine.available && (c.tools || []).some(t => t.kind === "upscaler" && t.installed), need: "download an upscaler on the Machine tab", go: () => { showTab("gallery"); toast("Open an image, then use Tools → Upscale."); } },
     { id: "bg", icon: "◩", title: "Remove background", text: "Transparent PNG with IS-Net or U²-Net (Apache-2.0). A few seconds.", ready: (c) => c.background_engine && c.background_engine.available && (c.tools || []).some(t => t.kind === "background" && t.installed), need: "download a background model on the Machine tab", go: () => { showTab("gallery"); toast("Open an image, then use Tools → Remove background."); } },
+    { id: "faces", icon: "☺", title: "Fix faces", text: "Every face re-rendered sharply at 768 px and blended back; the likeness stays. One render per face.", ready: (c) => c.engine.available && c.background_engine && c.background_engine.available && (c.tools || []).some(t => t.kind === "face" && t.installed) && c.models.some(m => m.installed_variants.length), need: "download the face detector (1.5 MB) on the Machine tab", go: () => { showTab("gallery"); toast("Open an image, then use Tools → Fix faces."); } },
     { id: "describe", icon: "❝", title: "Describe", text: "Image to text: captions, alt text and prompts from a picture, with a local vision model (Qwen2.5-VL).", ready: (c) => !!(c.vision_engine && c.vision_engine.available && (c.vision_models || []).some(v => v.installed)), need: "install llama.cpp and a vision model on the Machine tab", go: () => { showTab("gallery"); toast("Open an image, then use Describe."); } },
   ];
   function renderGuide() {
@@ -882,7 +884,7 @@
 
   $("gmode").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.gmode = b.dataset.m; document.querySelectorAll("#gmode button").forEach(x => x.classList.toggle("active", x === b)); renderGallery(true); };
   $("search").addEventListener("input", () => renderGallery(true));
-  const TAG = { generate: "generated", variations: "variation", edit: "edit", upscale: "upscaled", remove_background: "cutout", import: "imported" };
+  const TAG = { generate: "generated", variations: "variation", edit: "edit", upscale: "upscaled", remove_background: "cutout", fix_faces: "faces fixed", import: "imported" };
   function galleryItems() { const cur = S.cfg && S.cfg.current_project; const done = S.jobs.filter(j => j.status === "done" && (!cur || j.project === cur)); let items = done;
     if (S.gmode === "compare") { const by = {}; for (const j of done.filter(x => x.tool === "generate")) if (!by[j.preset]) by[j.preset] = j; items = ["best", "balanced", "fast"].map(p => by[p]).filter(Boolean); }
     else if (S.gmode === "fav") items = done.filter(j => j.favorite);
@@ -950,11 +952,12 @@
   }
   async function runTool(tool, body) {
     const r = await post(`/api/tools/${tool}`, body);
-    if (r.error) { if (/not downloaded/.test(r.error)) { const name = body.model || (S.caps.tools.find(t => t.kind === (tool === "upscale" ? "upscaler" : "background") && t.default) || {}).name; openToolDownload(name); } else toast(r.error, 7000); return; }
+    if (r.error) { if (/not downloaded/.test(r.error)) { const kind = tool === "upscale" ? "upscaler" : tool === "fix_faces" ? "face" : "background"; const name = (tool === "fix_faces" ? body.detector : body.model) || (S.caps.tools.find(t => t.kind === kind && t.default) || {}).name; openToolDownload(name); } else toast(r.error, 7000); return; }
     toast(`Queued ${tool.replace("_", " ")} · ≈ ${fmtEta(r.eta_seconds)}`); S.sel = r.id; if ($("lb").open) $("lb").close(); painterOn(false); showTab("create"); refreshJobs();
   }
   $("upBtn").onclick = () => runTool("upscale", { image: S.lbJob.id, model: $("upModel").value, repeats: +$("upRepeats").value });
   $("bgBtn").onclick = () => runTool("remove_background", { image: S.lbJob.id, model: $("bgModel").value });
+  $("faceBtn").onclick = () => runTool("fix_faces", { image: S.lbJob.id, strength: +$("faceStrength").value, preset: S.preset });
   async function openToolDownload(name) {
     const t = (S.caps.tools || []).find(x => x.name === name); if (!t) return;
     $("dlTitle").textContent = `${t.display_name} · ${t.size_gib} GiB · ${t.licence}`;
