@@ -7,6 +7,8 @@ package on PyPI.
 ## Unreleased
 
 ### Added
+- Projects: named series with a header chip, gallery filter, project name in PNG metadata,
+  file-from-viewer, and a one-zip export with every image's reproducible prompt.
 - Prompt assistant (✦ next to the prompt, `imagestudio assist`, MCP `write_prompt`): the local
   vision-language model runs text-only and turns a plain-words brief into a prompt and
   negative prompt tuned to the model that will paint it, or improves the prompt already typed.

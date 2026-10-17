@@ -80,6 +80,12 @@ even at 4-bit and does not fit a 16 GB machine; the studio reports that instead 
 Estimates start from a heuristic (labelled `uncalibrated`) and are replaced by timings from
 real runs on your machine, kept per model variant in `calibration.json`.
 
+**Projects.** The ▣ chip in the header names the current project. New images are filed in
+it, the gallery shows only that project, every PNG carries the project name in its metadata,
+and "Export project" downloads the whole series as one zip: the images, `prompts.txt` with
+each image's reproducible prompt, and `project.json`. Any image can be filed later from the
+viewer. Forgetting a project keeps its images, unfiled.
+
 **Prompt assistant.** Press ✦ next to the prompt (or `imagestudio assist "my cat on a
 spaceship, movie poster"`, or the MCP tool `write_prompt`) and the local vision-language model,
 running text-only, writes a complete prompt tuned to the model that will paint it: FLUX gets

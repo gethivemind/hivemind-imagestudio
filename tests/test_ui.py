@@ -186,3 +186,31 @@ def test_import_from_local_paths(studio: Studio, tmp_path):
     r = client.post("/api/loras/import-path", json={"path": str(lora)}).json()
     assert r["name"] == "ink"
     assert client.get("/api/loras").json()["loras"][0]["filename"] == "ink.safetensors"
+
+
+def test_ui_projects_routes(studio: Studio):
+    c = TestClient(build_app(studio))
+    assert c.get("/api/projects").json() == {"projects": [], "current": None}
+    p = c.post("/api/projects", json={"name": "Series A"}).json()
+    assert p["id"].startswith("prj_") and c.get("/api/config").json()["current_project"] == p["id"]
+    assert c.post("/api/projects", json={"name": ""}).status_code == 400
+    j = c.post("/api/generate", json={"prompt": "x", "preset": "fast"}).json()
+    jid = j.get("id") or j["jobs"][0]["id"]
+    for _ in range(100):
+        st = c.get(f"/api/jobs/{jid}").json()
+        if st["status"] in ("done", "failed"):
+            break
+        time.sleep(0.1)
+    assert st["project"] == p["id"]
+    z = c.get(f"/api/projects/{p['id']}/export")
+    assert z.status_code == 200 and z.headers["content-type"] == "application/zip"
+    assert "Series-A.zip" in z.headers["content-disposition"]
+    assert c.post(f"/api/jobs/{jid}/project", json={"project": None}).json()["project"] is None
+    assert c.get(f"/api/projects/{p['id']}/export").status_code == 400  # nothing left in it
+    assert (
+        c.post("/api/projects/update", json={"id": p["id"], "name": "Series B"}).json()["name"]
+        == "Series B"
+    )
+    assert c.post("/api/projects/current", json={"id": None}).json()["current_project"] is None
+    assert c.post("/api/projects/remove", json={"id": p["id"]}).json()["removed"] == p["id"]
+    assert c.get("/api/projects").json()["projects"] == []

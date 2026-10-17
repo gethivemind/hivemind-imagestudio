@@ -237,10 +237,12 @@ class Studio:
             params = (
                 f"Tool: {job.tool}, Model: {job.tool_model or '-'}, Size: {job.width}x{job.height}"
             )
+        project = self.project(job.project) if job.project else None
         info = {
             "app": f"Hivemind Image Studio {__version__}",
             "job": job.id,
             "tool": job.tool,
+            "project": project["name"] if project else "",
             "prompt": job.prompt,
             "negative_prompt": job.negative_prompt,
             "reproducible_prompt": reproducible(job) if generated else "",
@@ -472,6 +474,7 @@ class Studio:
             raise StudioError(f"internal: component files for {plan.model.name} incomplete")
         job = Job(
             id=self.jobs.new_id(),
+            project=self.current_project(),
             tool="generate",
             prompt=prompt.strip(),
             negative_prompt=negative_prompt or "",
@@ -1023,6 +1026,164 @@ class Studio:
                 n += 1
         return n
 
+    # -- projects: named series of images ----------------------------------------------------
+    #
+    # projects.json in the data dir: [{id, name, description, created_at}]. A job carries the
+    # id of the project it was made in (config "current_project" at the time), or None. The
+    # gallery filters by it, PNG metadata names it, and a project exports as one zip.
+
+    def projects(self) -> list[dict[str, Any]]:
+        counts: dict[str, int] = {}
+        for j in self.jobs.all():
+            if j.project and j.status == "done":
+                counts[j.project] = counts.get(j.project, 0) + 1
+        return [{**p, "count": counts.get(p["id"], 0)} for p in self._read_projects()]
+
+    def project(self, project_id: str) -> dict[str, Any] | None:
+        return next((p for p in self._read_projects() if p["id"] == project_id), None)
+
+    def add_project(self, name: str, description: str = "") -> dict[str, Any]:
+        name = " ".join((name or "").split())
+        if not name:
+            raise StudioError("a project needs a name")
+        if len(name) > 80:
+            raise StudioError("project names are at most 80 characters")
+        items = self._read_projects()
+        if any(p["name"].lower() == name.lower() for p in items):
+            raise StudioError(f"a project called {name!r} already exists")
+        entry = {
+            "id": "prj_" + secrets.token_hex(4),
+            "name": name,
+            "description": (description or "").strip()[:500],
+            "created_at": now_iso(),
+        }
+        items.append(entry)
+        self._write_projects(items)
+        self.set_current_project(entry["id"])
+        return {**entry, "count": 0}
+
+    def update_project(
+        self, project_id: str, name: str | None = None, description: str | None = None
+    ) -> dict[str, Any]:
+        items = self._read_projects()
+        entry = next((p for p in items if p["id"] == project_id), None)
+        if entry is None:
+            raise StudioError(f"no such project {project_id!r}")
+        if name is not None:
+            name = " ".join(name.split())
+            if not name:
+                raise StudioError("a project needs a name")
+            if any(p["name"].lower() == name.lower() and p is not entry for p in items):
+                raise StudioError(f"a project called {name!r} already exists")
+            entry["name"] = name[:80]
+        if description is not None:
+            entry["description"] = description.strip()[:500]
+        self._write_projects(items)
+        return entry
+
+    def remove_project(self, project_id: str) -> dict[str, Any]:
+        """Forget the project; its images stay in the gallery, unfiled."""
+        items = self._read_projects()
+        if not any(p["id"] == project_id for p in items):
+            raise StudioError(f"no such project {project_id!r}")
+        self._write_projects([p for p in items if p["id"] != project_id])
+        moved = 0
+        for j in self.jobs.all(include_deleted=True):
+            if j.project == project_id:
+                j.project = None
+                self.jobs.put(j)
+                moved += 1
+        if self.current_project() == project_id:
+            self.set_current_project(None)
+        return {"removed": project_id, "unfiled": moved}
+
+    def current_project(self) -> str | None:
+        pid = self.settings.config().get("current_project")
+        if not pid:
+            return None
+        return pid if any(p["id"] == pid for p in self._read_projects()) else None
+
+    def set_current_project(self, project_id: str | None) -> dict[str, Any]:
+        if project_id and not any(p["id"] == project_id for p in self._read_projects()):
+            raise StudioError(f"no such project {project_id!r}")
+        cfg = self.settings.config()
+        if project_id:
+            cfg["current_project"] = project_id
+        else:
+            cfg.pop("current_project", None)
+        self.settings.config_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        return {"current_project": project_id or None}
+
+    def set_job_project(self, job_id: str, project_id: str | None) -> dict[str, Any]:
+        job = self.jobs.get(job_id)
+        if job is None:
+            raise StudioError(f"no such job {job_id!r}")
+        if project_id and not any(p["id"] == project_id for p in self._read_projects()):
+            raise StudioError(f"no such project {project_id!r}")
+        job.project = project_id or None
+        self.jobs.put(job)
+        return {"id": job_id, "project": job.project}
+
+    def export_project(self, project_id: str) -> tuple[str, bytes]:
+        """One zip: the finished images, prompts.txt with every image's reproducible prompt,
+        and project.json. The file name is the project's name."""
+        import re
+        import zipfile
+
+        entry = self.project(project_id)
+        if entry is None:
+            raise StudioError(f"no such project {project_id!r}")
+        jobs = [
+            j
+            for j in self.jobs.all()
+            if j.project == project_id and j.status == "done" and j.output_path
+        ]
+        if not jobs:
+            raise StudioError("this project has no finished images yet")
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "-", entry["name"]).strip("-") or "project"
+        buf = io.BytesIO()
+        lines = [f"# {entry['name']}", entry.get("description") or "", ""]
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for n, j in enumerate(jobs, 1):
+                src = Path(j.output_path)
+                if not src.exists():
+                    continue
+                name = f"{n:03d}-{j.id}{src.suffix.lower() or '.png'}"
+                z.write(src, name)
+                text = reproducible(j) if j.tool in ("generate", "variations", "edit") else ""
+                lines.append(f"{name}  ({j.tool}, {j.model} [{j.variant}], seed {j.seed})")
+                lines.append(text or j.prompt or j.caption or "")
+                lines.append("")
+            z.writestr("prompts.txt", "\n".join(lines))
+            z.writestr(
+                "project.json",
+                json.dumps(
+                    {
+                        **entry,
+                        "app": f"Hivemind Image Studio {__version__}",
+                        "images": [j.id for j in jobs],
+                    },
+                    indent=2,
+                ),
+            )
+        return f"{slug}.zip", buf.getvalue()
+
+    def _read_projects(self) -> list[dict[str, Any]]:
+        try:
+            data = json.loads(
+                (self.settings.data_dir / "projects.json").read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            return []
+        return [p for p in data if isinstance(p, dict) and p.get("id") and p.get("name")]
+
+    def _write_projects(self, items: list[dict[str, Any]]) -> None:
+        self.settings.data_dir.mkdir(parents=True, exist_ok=True)
+        path = self.settings.data_dir / "projects.json"
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(items, indent=2), encoding="utf-8")
+        tmp.replace(path)
+
     def set_favorite(self, job_id: str, value: bool) -> dict[str, Any]:
         job = self.jobs.get(job_id)
         if job is None:
@@ -1040,6 +1201,7 @@ class Studio:
             w, h = im.size
         job = Job(
             id=self.jobs.new_id(),
+            project=self.current_project(),
             tool="import",
             prompt=name,
             negative_prompt="",
@@ -1541,6 +1703,7 @@ class Studio:
             basis = "heuristic: a few seconds"
         job = Job(
             id=self.jobs.new_id(),
+            project=self.current_project(),
             tool=tool,
             prompt=f"{tool.replace('_', ' ')} of {source_job or src.name}",
             negative_prompt="",
@@ -1640,6 +1803,7 @@ class Studio:
             "mask_path": job.mask_path,
             "caption": job.caption,
             "favorite": job.favorite,
+            "project": job.project,
             "deleted_at": job.deleted_at,
             "prompt": job.prompt,
             "reproducible_prompt": reproducible(job)
@@ -1844,6 +2008,7 @@ class Studio:
             "auto_caption": bool(cfg.get("auto_caption", False)),
             "auto_caption_ready": self.auto_caption_ready(),
             "pinned_prompts": list(cfg.get("pinned_prompts") or []),
+            "current_project": self.current_project(),
             "remote_enabled": self.settings.remote_enabled,
             "paused": self.jobs.is_paused(),
             "max_memory_gib": self.settings.max_memory_gib,

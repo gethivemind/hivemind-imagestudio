@@ -93,6 +93,7 @@ class Job:
     deleted_at: str | None = None  # soft delete; the file moves to trash/
     strength: float = 0.6  # variations / edit: distance from the source image
     loras: list[list] = field(default_factory=list)  # [[name, weight], ...] from the loras folder
+    project: str | None = None  # id in projects.json; None = not filed in a project
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

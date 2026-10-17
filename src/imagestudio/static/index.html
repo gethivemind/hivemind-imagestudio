@@ -50,6 +50,7 @@
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: 0 0 auto; }
   .dot.busy { background: var(--accent); animation: pulse 1.1s infinite; } .dot.warn { background: var(--warn); } .dot.off { background: var(--muted); }
   @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+  #prjchip.on { border-color: var(--honey); color: var(--honey); }
   .ib { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line); background: var(--surface2); color: var(--ink2); cursor: pointer; }
   .ib:hover { border-color: var(--line2); color: var(--ink); } .ib.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
   .btn { height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
@@ -311,6 +312,7 @@
   <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="var(--honey)"/><circle cx="32" cy="32" r="13" fill="var(--ink)"/><circle cx="32" cy="32" r="6" fill="var(--bg)"/></svg><span>Image Studio <small>by Hivemind</small></span></div>
   <nav class="tabs" id="tabs"><button data-tab="home">Home</button><button data-tab="create" class="active">Create</button><button data-tab="sketch">Sketch</button><button data-tab="gallery">Gallery</button><button data-tab="machine">Settings</button></nav>
   <div class="grow"></div>
+  <span class="chip btn" id="prjchip" title="Project: new images are filed here and the gallery shows only this project. Click to switch, create or export."><span id="prjtext">▣ All work</span></span>
   <span class="chip" id="hwchip"><span class="dot" id="hwdot"></span><span id="hwtext">…</span></span>
   <span class="chip btn" id="actchip" title="downloads and benchmark"><span class="dot off" id="actdot"></span><span id="acttext">idle</span></span>
   <button class="ib" id="keysBtn" title="keyboard shortcuts (?)">?</button>
@@ -445,7 +447,7 @@
   <div class="gbar">
     <input type="text" id="search" placeholder="search prompts…">
     <div class="seg" id="gmode"><button class="active" data-m="all">All</button><button data-m="generate">Generated</button><button data-m="edit">Edits</button><button data-m="variations">Variations</button><button data-m="upscale">Upscaled</button><button data-m="remove_background">Cutouts</button><button data-m="import">Imported</button><button data-m="fav">★ Favourites</button><button data-m="compare">Compare presets</button></div>
-    <span class="muted small" id="gcount"></span><span class="grow"></span><button class="btn sm" id="importBtn">Import image…</button><button class="btn sm" id="cameraBtn" style="display:none">Camera</button><input type="file" id="cameraFile" accept="image/*" capture="environment" hidden><input type="file" id="importFile" accept="image/*" multiple hidden><button class="btn sm ghost" id="trashBtn">Trash</button>
+    <span class="muted small" id="gcount"></span><span class="grow"></span><button class="btn sm" id="importBtn">Import image…</button><button class="btn sm" id="cameraBtn" style="display:none">Camera</button><input type="file" id="cameraFile" accept="image/*" capture="environment" hidden><input type="file" id="importFile" accept="image/*" multiple hidden><button class="btn sm" id="prjExport" style="display:none" title="Download this project's finished images with prompts.txt (every image's reproducible prompt) and project.json">Export project</button><button class="btn sm ghost" id="trashBtn">Trash</button>
   </div>
   <div class="grid" id="grid"></div>
 </section>
@@ -455,7 +457,7 @@
   <div class="lbside">
     <div class="head"><div><h3 id="lbTitle"></h3><div class="sub" id="lbSub"></div><div class="sub lineage" id="lbLineage"></div></div><div style="display:flex;gap:6px"><button class="ib" id="lbStar" title="favourite">★</button><button class="ib" id="lbDel" title="move to trash">🗑</button><button class="ib" id="lbClose" title="close (Esc)">✕</button></div></div>
     <div class="promptbox"><div class="lab"><span>Prompt · reproducible</span><button class="btn sm" id="lbCopy">Copy</button></div><pre id="lbPrompt"></pre></div>
-    <div class="acts"><button class="btn sm" id="lbReuse">Edit in Create</button><button class="btn sm" id="lbRecreate" title="Describe the image with the vision model and open Create with that prompt and this size">Recreate</button><button class="btn sm" id="lbCompare" title="Side-by-side slider against the parent, a child, or a favourite">Compare</button><a class="btn sm" id="lbOpen" target="_blank">Open full size</a></div>
+    <div class="acts"><button class="btn sm" id="lbReuse">Edit in Create</button><button class="btn sm" id="lbRecreate" title="Describe the image with the vision model and open Create with that prompt and this size">Recreate</button><button class="btn sm" id="lbCompare" title="Side-by-side slider against the parent, a child, or a favourite">Compare</button><button class="btn sm" id="lbProject" title="File this image in a project">Project…</button><a class="btn sm" id="lbOpen" target="_blank">Open full size</a></div>
     <div class="row" id="cmpRow" style="display:none;margin-top:6px"><label style="width:auto" class="small muted">against</label><select id="cmpSel" style="flex:1;height:30px"></select><button class="btn sm" id="cmpX">Done</button></div>
     <div class="export" id="imgBox"><div class="lab">Reimagine</div>
       <div class="f"><label>Variations <i class="help" title="Same picture, re-rolled. Strength is how much may change. On 4-step models such as FLUX schnell it works in coarse steps: up to about 0.45 the picture is kept and details change; from about 0.5 the composition is re-invented from the prompt. Measured on real runs, so the defaults sit below the cliff. 0.25 subtle, 0.4 default, 0.5 and above a new picture in the same spirit.">?</i> <span class="muted" id="varV">0.4</span></label><div class="row" style="margin-top:0"><input type="range" id="varStr" min="0.1" max="0.95" step="0.05" value="0.4"><button class="btn sm primary" id="varBtn">Make variations</button></div></div>
@@ -531,6 +533,12 @@
   <p class="muted" id="askText" style="margin:0 0 10px;font-size:13.5px;line-height:1.5"></p>
   <input type="text" id="askInput" style="display:none;width:100%;height:32px;margin-bottom:10px">
   <div class="acts" style="justify-content:flex-end"><button class="btn sm" id="askNo">Cancel</button><button class="btn sm" id="askAlt" style="display:none">Alt</button><button class="btn sm primary" id="askOk">OK</button></div>
+</div></dialog>
+<dialog class="dl" id="prjDlg"><div class="dlg">
+  <div class="head"><h3 id="prjTitle">Projects</h3><button class="ib" id="prjX">✕</button></div>
+  <p class="muted" id="prjHint" style="margin:0 0 10px;font-size:13px;line-height:1.5">A project is a named series: new images are filed in the current one, the gallery shows only that project, every PNG carries its name, and the whole series exports as one zip with its prompts.</p>
+  <div class="hist open" id="prjList" style="position:static;max-height:300px;box-shadow:none;margin-bottom:10px"></div>
+  <div class="row" style="gap:8px"><input type="text" id="prjNew" placeholder="new project name" style="flex:1;height:32px"><button class="btn sm" id="prjAdd">Create</button></div>
 </div></dialog>
 <dialog class="dl keys" id="keysDlg"><div class="dlg">
   <div class="head"><h3>Keyboard shortcuts</h3><button class="ib" id="keysX">✕</button></div>
@@ -798,6 +806,36 @@
     $("prompt").value = r.prompt; if (r.negative_prompt) $("negative").value = r.negative_prompt;
     $("prompt").dispatchEvent(new Event("input")); plan(); $("prompt").focus();
   };
+  // ---- projects: a named series; the header chip shows the current one
+  S.projects = [];
+  async function loadProjects() { const r = await api("/api/projects"); S.projects = r.projects || []; S.cfg.current_project = r.current || null; renderProjectChip(); return r; }
+  function projectName(id) { const p = S.projects.find(x => x.id === id); return p ? p.name : null; }
+  function renderProjectChip() { const cur = S.cfg.current_project; const nm = cur && projectName(cur); $("prjtext").textContent = nm ? `▣ ${nm}` : "▣ All work"; $("prjchip").classList.toggle("on", !!nm); $("prjExport").style.display = nm ? "" : "none"; if (S.tab === "gallery") renderGallery(true); }
+  async function pickProject({ mode = "switch", jobId = null } = {}) {
+    await loadProjects();
+    const d = $("prjDlg"); $("prjTitle").textContent = mode === "assign" ? "File this image in…" : "Projects";
+    $("prjHint").style.display = mode === "assign" ? "none" : "";
+    const sel = mode === "assign" ? (S.jobs.find(j => j.id === jobId) || {}).project || null : S.cfg.current_project;
+    const row = (id, name, meta, canEdit) => `<div class="hrow ${id === sel ? "on" : ""}" data-id="${id || ""}"><span class="tx"><b>${esc(name)}</b>${meta ? ` <span class="muted">· ${esc(meta)}</span>` : ""}</span>${canEdit ? `<button class="pin" data-act="rename" title="rename">✎</button><button class="pin" data-act="remove" title="forget this project (its images stay)">✕</button>` : ""}</div>`;
+    $("prjList").innerHTML = row(null, mode === "assign" ? "No project" : "All work", mode === "assign" ? "" : "everything, unfiltered", false) + S.projects.map(p => row(p.id, p.name, `${p.count} image${p.count === 1 ? "" : "s"}`, true)).join("");
+    $("prjList").querySelectorAll(".hrow").forEach(r => {
+      const id = r.dataset.id || null;
+      r.onclick = async (e) => {
+        const act = e.target.closest("[data-act]")?.dataset.act;
+        if (act === "rename") { const nm = await uiPrompt("New name for this project", projectName(id) || "", { title: "Rename project", ok: "Rename" }); if (!nm) return; const res = await post("/api/projects/update", { id, name: nm }); if (res.error) toast(res.error, 6000); await pickProject({ mode, jobId }); return; }
+        if (act === "remove") { if (!(await uiConfirm(`Forget the project “${esc(projectName(id) || "")}”? Its images stay in the gallery, just unfiled.`, { title: "Forget project", ok: "Forget" }))) return; const res = await post("/api/projects/remove", { id }); if (res.error) toast(res.error, 6000); await pickProject({ mode, jobId }); return; }
+        if (mode === "assign") { const res = await post(`/api/jobs/${jobId}/project`, { project: id }); if (res.error) { toast(res.error, 6000); return; } const j = S.jobs.find(x => x.id === jobId); if (j) j.project = res.project; toast(id ? `Filed in ${projectName(id)}.` : "Removed from its project."); d.close(); await loadProjects(); if (S.lbJob && S.lbJob.id === jobId) openLightbox(jobId); return; }
+        const res = await post("/api/projects/current", { id }); if (res.error) { toast(res.error, 6000); return; } S.cfg.current_project = res.current_project; renderProjectChip(); d.close(); toast(id ? `Working in ${projectName(id)}: new images are filed there and the gallery shows only this project.` : "Showing all work.", 5000);
+      };
+    });
+    $("prjNew").value = ""; d.showModal(); $("prjNew").focus();
+    $("prjAdd").onclick = async () => { const nm = $("prjNew").value.trim(); if (!nm) { $("prjNew").focus(); return; } const res = await post("/api/projects", { name: nm }); if (res.error) { toast(res.error, 6000); return; } if (mode === "assign") { const r2 = await post(`/api/jobs/${jobId}/project`, { project: res.id }); const j = S.jobs.find(x => x.id === jobId); if (j && !r2.error) j.project = res.id; d.close(); await loadProjects(); if (S.lbJob && S.lbJob.id === jobId) openLightbox(jobId); toast(`Created ${res.name} and filed the image there. It is also the current project now.`, 6000); return; } d.close(); await loadProjects(); toast(`Project ${res.name} created and selected: new images are filed there.`, 6000); };
+    $("prjNew").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); $("prjAdd").click(); } };
+  }
+  $("prjchip").onclick = () => pickProject();
+  $("prjX").onclick = () => $("prjDlg").close();
+  $("prjExport").onclick = () => { const cur = S.cfg.current_project; if (!cur) return; const a = document.createElement("a"); a.href = `/api/projects/${cur}/export`; a.download = ""; document.body.appendChild(a); a.click(); a.remove(); toast("Preparing the zip: images, prompts.txt and project.json."); };
+  $("lbProject").onclick = () => { if (S.lbJob) pickProject({ mode: "assign", jobId: S.lbJob.id }); };
   $("histBtn").onclick = (e) => { e.stopPropagation(); const b = $("hist"); if (!b.classList.contains("open")) renderHist(); b.classList.toggle("open"); };
   document.addEventListener("click", (e) => { if (!e.target.closest("#hist, #histBtn")) $("hist").classList.remove("open"); });
 
@@ -845,7 +883,7 @@
   $("gmode").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.gmode = b.dataset.m; document.querySelectorAll("#gmode button").forEach(x => x.classList.toggle("active", x === b)); renderGallery(true); };
   $("search").addEventListener("input", () => renderGallery(true));
   const TAG = { generate: "generated", variations: "variation", edit: "edit", upscale: "upscaled", remove_background: "cutout", import: "imported" };
-  function galleryItems() { const done = S.jobs.filter(j => j.status === "done"); let items = done;
+  function galleryItems() { const cur = S.cfg && S.cfg.current_project; const done = S.jobs.filter(j => j.status === "done" && (!cur || j.project === cur)); let items = done;
     if (S.gmode === "compare") { const by = {}; for (const j of done.filter(x => x.tool === "generate")) if (!by[j.preset]) by[j.preset] = j; items = ["best", "balanced", "fast"].map(p => by[p]).filter(Boolean); }
     else if (S.gmode === "fav") items = done.filter(j => j.favorite);
     else if (S.gmode !== "all") items = done.filter(j => j.tool === S.gmode);
@@ -887,7 +925,7 @@
   function lbStep(d) { const n = S.lbIdx + d; if (n < 0 || n >= S.lbList.length) return; S.lbIdx = n; showLb(); }
   function showLb() {
     const j = S.jobs.find(x => x.id === S.lbList[S.lbIdx]); if (!j) return; S.lbJob = j;
-    vReset(); compareOff(); $("lbImg").src = `/api/image/${j.id}`; $("lbTitle").textContent = j.title; $("lbSub").textContent = `${j.model} [${j.variant}] · ${j.width}×${j.height} · seed ${j.seed} · ${fmtDur(j.total_seconds)}`;
+    vReset(); compareOff(); $("lbImg").src = `/api/image/${j.id}`; $("lbTitle").textContent = j.title; $("lbSub").textContent = `${j.model} [${j.variant}] · ${j.width}×${j.height} · seed ${j.seed} · ${fmtDur(j.total_seconds)}`; $("lbProject").textContent = j.project && projectName(j.project) ? `▣ ${projectName(j.project)}` : "Project…";
     $("lbPrompt").innerHTML = esc(j.reproducible_prompt).replace(/(--\S+ \S+)/g, '<span class="p">$1</span>'); $("lbOpen").href = `/api/image/${j.id}`;
     const rows = [["Preset", j.preset], ["Steps", j.steps], ["Guidance", j.cfg_scale], ["Sampler", j.sampler], ["Negative", j.negative_prompt || "–"], ["Threads", j.threads || "cores"], ["VAE tiling", j.vae_tiling ? "on" : "off"], ["Sampling", fmtDur(j.sampling_seconds)], ["Peak memory", j.peak_rss_gib ? `${j.peak_rss_gib} GiB` : "–"], ["Finished", (j.finished_at || "").replace("T", " ").slice(0, 16)]];
     $("lbKv").innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><span>${esc(v)}</span></div>`).join("");
@@ -1189,7 +1227,7 @@
   document.addEventListener("keyup", (e) => { if (e.key === " " && K.space) { K.space = false; skv.classList.toggle("hand", K.tool === "hand"); } });
   new ResizeObserver(() => { if (S.tab === "sketch") skFit(); }).observe(skv);
   skReset(1024, 1024);
-  loadCaps().then(plan).then(refreshJobs).then(pollTasks).then(() => { renderHome(); if (!S.jobs.length) showTab("home"); });
+  loadCaps().then(plan).then(refreshJobs).then(pollTasks).then(() => { renderHome(); if (!S.jobs.length) showTab("home"); }).then(loadProjects);
   // a phone that has just paired: offer the home-screen icon once (no store, no account)
   if (new URLSearchParams(location.search).get("paired") === "1") { history.replaceState(null, "", "/"); const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent); const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone; if (!standalone) setTimeout(() => ask({ title: "Paired with this studio", text: ios ? "This phone now has its own key. For an app icon: tap Share, then \"Add to Home Screen\". It opens full screen, like an app, and stays paired." : "This phone now has its own key. For an app icon: open the browser menu (⋮) and choose \"Add to Home screen\" or \"Install app\". It opens full screen, like an app, and stays paired.", ok: "Got it", cancel: "Not now" }), 600); }
   setInterval(refreshJobs, 4000);

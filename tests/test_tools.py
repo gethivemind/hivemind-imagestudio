@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 import pytest
 
@@ -208,6 +209,56 @@ def test_describe_returns_text_and_captions_the_source_job(settings: Settings):
             caps["vision_models"][0]["installed"] is True
             and caps["vision_engine"]["available"] is True
         )
+    finally:
+        studio.close()
+
+
+def test_projects_file_new_work_and_export_as_zip(settings: Settings):
+    import io
+    import zipfile
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        assert studio.projects() == [] and studio.current_project() is None
+        loose = studio.generate("a loose image", preset="fast")
+        wait(studio, loose.id)
+        p = studio.add_project("Lighthouse series", "night studies")
+        assert p["name"] == "Lighthouse series" and studio.current_project() == p["id"]
+        with pytest.raises(StudioError, match="already exists"):
+            studio.add_project("lighthouse SERIES")
+        a = studio.generate("lighthouse one", preset="fast")
+        b = studio.generate("lighthouse two", preset="fast")
+        wait(studio, a.id)
+        wait(studio, b.id)
+        assert studio.job_status(a.id)["project"] == p["id"]
+        assert studio.job_status(loose.id)["project"] is None
+        assert studio.projects()[0]["count"] == 2
+        # the PNG remembers the project by name
+        out = Path(studio.job_status(a.id)["output_path"])
+        assert Studio.read_metadata(out)["project"] == "Lighthouse series"
+        # file the loose one in, then export
+        studio.set_job_project(loose.id, p["id"])
+        name, data = studio.export_project(p["id"])
+        assert name == "Lighthouse-series.zip"
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            names = z.namelist()
+            assert "prompts.txt" in names and "project.json" in names
+            assert sum(n.endswith(".png") for n in names) == 3
+            txt = z.read("prompts.txt").decode("utf-8")
+            assert "lighthouse one" in txt and "night studies" in txt
+        # rename, switch off, forget: images stay, unfiled
+        studio.update_project(p["id"], name="Lighthouses")
+        assert studio.project(p["id"])["name"] == "Lighthouses"
+        studio.set_current_project(None)
+        assert studio.current_project() is None
+        c = studio.generate("after switching off", preset="fast")
+        assert studio.job_status(c.id)["project"] is None
+        r = studio.remove_project(p["id"])
+        assert r["unfiled"] == 3 and studio.projects() == []
+        assert studio.job_status(a.id)["project"] is None
+        with pytest.raises(StudioError, match="no such project"):
+            studio.set_current_project("prj_nope")
     finally:
         studio.close()
 

@@ -473,6 +473,63 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
     async def empty_trash(_: Request) -> JSONResponse:
         return JSONResponse({"removed": studio.empty_trash(0)})
 
+    async def projects(_: Request) -> JSONResponse:
+        return JSONResponse({"projects": studio.projects(), "current": studio.current_project()})
+
+    async def project_add(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(
+                studio.add_project(str(body.get("name") or ""), str(body.get("description") or ""))
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def project_update(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(
+                studio.update_project(
+                    str(body.get("id") or ""), _str(body.get("name")), _str(body.get("description"))
+                )
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def project_remove(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(studio.remove_project(str(body.get("id") or "")))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def project_current(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(studio.set_current_project(_str(body.get("id"))))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def project_export(request: Request) -> Response:
+        try:
+            name, data = studio.export_project(request.path_params["project_id"])
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return Response(
+            data,
+            media_type="application/zip",
+            headers={"content-disposition": f'attachment; filename="{name}"'},
+        )
+
+    async def job_project(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(
+                studio.set_job_project(request.path_params["job_id"], _str(body.get("project")))
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     async def favorite(request: Request) -> JSONResponse:
         body = await request.json()
         try:
@@ -726,6 +783,13 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
             Route("/api/jobs/{job_id}", delete_job, methods=["DELETE"]),
             Route("/api/jobs/{job_id}/restore", restore_job, methods=["POST"]),
             Route("/api/jobs/{job_id}/favorite", favorite, methods=["POST"]),
+            Route("/api/jobs/{job_id}/project", job_project, methods=["POST"]),
+            Route("/api/projects", projects),
+            Route("/api/projects", project_add, methods=["POST"]),
+            Route("/api/projects/update", project_update, methods=["POST"]),
+            Route("/api/projects/remove", project_remove, methods=["POST"]),
+            Route("/api/projects/current", project_current, methods=["POST"]),
+            Route("/api/projects/{project_id}/export", project_export),
             Route("/api/jobs/{job_id}/lineage", lineage),
             Route("/api/trash", trash),
             Route("/api/trash/empty", empty_trash, methods=["POST"]),
