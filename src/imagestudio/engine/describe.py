@@ -3,7 +3,8 @@
 The studio downloads the pinned llama.cpp release for this OS (hash-verified) and runs
 ``llama-mtmd-cli`` once per request: the text model plus its multimodal projector, the image,
 and a prompt. Everything stays on the machine. Used for captions, "write a prompt that would
-make this", and alt text.
+make this", and alt text. The same model also runs text-only (``llama-completion`` from the
+same release) as the prompt assistant: a brief in, a finished prompt out.
 """
 # Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
 # SPDX-License-Identifier: Apache-2.0
@@ -68,6 +69,21 @@ class DescribeResult:
     model: str
 
 
+@dataclass
+class TextSpec:
+    """A text-only request: ``system`` sets the task, ``user`` is the input."""
+
+    model_path: Path
+    system: str
+    user: str
+    max_tokens: int = 320
+    temperature: float = 0.4
+    threads: int | None = None
+
+
+TEXT_BINARIES = ("llama-completion", "llama-cli")
+
+
 class DescribeEngine:
     name = "llama.cpp"
 
@@ -97,6 +113,18 @@ class DescribeEngine:
 
     def available(self) -> bool:
         return self.binary() is not None
+
+    def text_binary(self) -> Path | None:
+        """The text-only runner from the same llama.cpp release, next to llama-mtmd-cli."""
+        b = self.binary()
+        if b is None:
+            return None
+        suffix = b.suffix
+        for name in TEXT_BINARIES:
+            p = b.with_name(name + suffix)
+            if p.exists():
+                return p
+        return None
 
     def version(self) -> str | None:
         return f"llama.cpp {LLAMA_TAG}" if self.available() else None
@@ -209,4 +237,65 @@ class DescribeEngine:
         text = text.replace("<|im_end|>", "").strip()
         if not text:
             raise EngineError("the vision model returned no text")
+        return DescribeResult(text=text, seconds=time.monotonic() - t0, model=spec.model_path.stem)
+
+    def complete(self, spec: TextSpec) -> DescribeResult:
+        """Text in, text out, with the same model file the vision tasks use (the language half
+        of a vision-language model is an ordinary instruct model). ChatML is what the Qwen
+        models expect; the chat template inside the GGUF says the same."""
+        b = self.text_binary()
+        if b is None:
+            raise EngineError(
+                "llama.cpp is not installed; run `imagestudio install-engine --vision`"
+            )
+        prompt = (
+            f"<|im_start|>system\n{spec.system.strip()}<|im_end|>\n"
+            f"<|im_start|>user\n{spec.user.strip()}<|im_end|>\n<|im_start|>assistant\n"
+        )
+        threads = spec.threads or int(os.environ.get(ENV_THREADS, "0") or 0)
+        args = [
+            str(b),
+            "-m",
+            str(spec.model_path),
+            "-p",
+            prompt,
+            "-n",
+            str(spec.max_tokens),
+            "--temp",
+            f"{spec.temperature:g}",
+            "-c",
+            "4096",
+            "--repeat-penalty",
+            "1.15",
+            "--repeat-last-n",
+            "128",
+            "-no-cnv",
+            "--no-display-prompt",
+            "-r",
+            "<|im_end|>",
+        ]
+        if threads > 0:
+            args += ["-t", str(threads)]
+        t0 = time.monotonic()
+        try:
+            out = subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=600,
+                check=False,
+                cwd=str(b.parent),
+            )
+        except subprocess.TimeoutExpired as e:
+            raise EngineError("the language model timed out after 10 minutes") from e
+        except OSError as e:
+            raise EngineError(f"could not start {b}: {e}") from e
+        if out.returncode != 0:
+            tail = "\n".join((out.stderr or "").strip().splitlines()[-8:])
+            raise EngineError(f"{b.name} exited with {out.returncode}:\n{tail}")
+        text = _ANSI.sub("", out.stdout or "").replace("<|im_end|>", "").strip()
+        if not text:
+            raise EngineError("the language model returned no text")
         return DescribeResult(text=text, seconds=time.monotonic() - t0, model=spec.model_path.stem)

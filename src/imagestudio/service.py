@@ -60,6 +60,18 @@ from imagestudio.registry import (
 MAX_SEED = 2**31 - 1
 
 
+_ASSIST_SYSTEM = (
+    "You write prompts for a local text-to-image model, {display_name}. Reply with JSON only, "
+    'on one line: {{"prompt": "...", "negative": "...", "notes": "..."}}. '
+    "prompt: {style}. "
+    "negative: a short comma-separated list of what to keep out, or an empty string "
+    "(negative prompts are {negatives} by this model). "
+    "notes: one short sentence on what you assumed or changed, written to the user. "
+    "Keep everything the user asked for; invent only what is needed to make a complete "
+    "picture. Nothing explicit or hateful. No preamble, no markdown."
+)
+
+
 class StudioError(RuntimeError):
     pass
 
@@ -1151,6 +1163,167 @@ class Studio:
             "model": vm.name,
             "task": task,
             "source_job": source_job,
+        }
+
+    # -- prompt assistant: brief to prompt, with the same local language model --------------
+
+    def assist_prompt(
+        self,
+        brief: str,
+        current_prompt: str | None = None,
+        model: str | None = None,
+        vision_model: str | None = None,
+    ) -> dict[str, Any]:
+        """Turn a plain-words brief into a prompt and negative prompt for the model that will
+        paint it (``model``: catalogue name or None for the planner's choice). With
+        ``current_prompt`` the assistant improves that prompt in the direction of the brief
+        instead of starting over. Synchronous. Nothing leaves the
+        machine; the assistant is the local vision-language model running text-only. A minute
+        or more on a CPU, longer when memory is tight (the model is 2.5 GiB)."""
+        import json as _json
+        import re as _re
+
+        from imagestudio.engine.base import EngineError
+        from imagestudio.engine.describe import TextSpec
+
+        brief = (brief or "").strip()
+        if not brief and not (current_prompt or "").strip():
+            raise StudioError("tell the assistant what the image should show")
+        vm = VISION_MODELS.get(vision_model) if vision_model else default_vision_model()
+        if vm is None:
+            raise StudioError(
+                f"unknown vision model {vision_model!r}; one of {', '.join(VISION_MODELS)}"
+            )
+        if not self.describe_engine.available():
+            raise StudioError(
+                "the prompt assistant needs the vision engine (llama.cpp). Install it from "
+                "Settings → Models and engines, or `imagestudio install-engine --vision` "
+                "(about 20 MB)."
+            )
+        if not self.models.vision_installed(vm):
+            raise StudioError(
+                f"the prompt assistant uses {vm.display_name}, which is not downloaded "
+                f"({vm.download_bytes / GIB:.1f} GiB). Install it from Settings → Models and "
+                f"engines, or `imagestudio download-model {vm.name}`."
+            )
+        if self.describe_engine.text_binary() is None:
+            raise StudioError(
+                "this llama.cpp install has no text runner (llama-completion); reinstall the "
+                "vision engine from Settings → Models and engines."
+            )
+        target = self._assist_target(model)
+        system = _ASSIST_SYSTEM.format(**target)
+        if (current_prompt or "").strip():
+            user = f"Current prompt:\n{current_prompt.strip()}\n\n" + (
+                f"Change requested: {brief}" if brief else "Improve this prompt."
+            )
+        else:
+            user = f"Brief: {brief}"
+        try:
+            res = self.describe_engine.complete(
+                TextSpec(
+                    model_path=self.models.path_for(vm.model),
+                    system=system,
+                    user=user,
+                    threads=self.settings.config().get("default_threads") or None,
+                )
+            )
+        except EngineError as e:
+            raise StudioError(str(e)) from e
+        text = res.text.strip()
+        prompt, negative, notes = text, "", ""
+        m = _re.search(r"\{.*\}", text, _re.S)
+        parsed = False
+        if m:
+            try:
+                data = _json.loads(m.group(0))
+                prompt = str(data.get("prompt") or "").strip() or prompt
+                negative = str(data.get("negative") or "").strip()
+                notes = str(data.get("notes") or "").strip()
+                parsed = True
+            except ValueError:
+                parsed = False
+        if not parsed:
+            # the model stopped mid-JSON (token limit or a repetition loop): salvage the
+            # fields that are complete, never show the user raw JSON
+            pm = _re.search(r'"prompt"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
+            nm = _re.search(r'"negative"\s*:\s*"((?:[^"\\]|\\.)*)', text)
+            if pm:
+                prompt = pm.group(1).strip()
+                negative = nm.group(1).strip() if nm else ""
+                notes = "the assistant ran out of words before finishing its notes"
+            elif text.startswith("{"):
+                pm2 = _re.search(r'"prompt"\s*:\s*"(.*)', text, _re.S)
+                prompt = (pm2.group(1) if pm2 else text).rstrip('"').strip()
+                negative = ""
+                notes = "the assistant ran out of words; the prompt was cut short"
+        # small models loop on list items: keep each negative term once, in order
+        if negative:
+            seen: list[str] = []
+            for term in (t.strip() for t in negative.split(",")):
+                if term and term.lower() not in (x.lower() for x in seen):
+                    seen.append(term)
+            negative = ", ".join(seen[:16])
+        if target["negatives"] == "ignored":
+            negative = ""
+        return {
+            "prompt": prompt,
+            "negative_prompt": negative,
+            "notes": notes,
+            "target_model": target["display_name"],
+            "seconds": round(res.seconds, 1),
+            "model": vm.name,
+        }
+
+    def _assist_target(self, model: str | None) -> dict[str, str]:
+        """What the assistant should know about the model that will paint the prompt."""
+        spec = None
+        try:
+            if model and model != "auto":
+                spec = MODELS.get(model)
+                if spec is None:
+                    e = next((c for c in self.custom_models() if c.get("name") == model), None)
+                    if e is not None:
+                        return self._assist_target_for(
+                            str(e.get("family") or "flux"), str(e.get("display_name") or model)
+                        )
+            else:
+                spec = self.plan(None, "best", None, None).model
+        except (StudioError, AttributeError):
+            spec = None
+        fam = getattr(spec, "family", "flux") or "flux"
+        name = getattr(spec, "display_name", None) or "FLUX.1-schnell"
+        return self._assist_target_for(fam, name)
+
+    @staticmethod
+    def _assist_target_for(fam: str, name: str) -> dict[str, str]:
+        if fam.startswith("qwen"):
+            return {
+                "display_name": name,
+                "style": (
+                    "full natural-language sentences; the model reads long descriptions well "
+                    "and can render short text in quotes exactly, so if the brief wants words "
+                    "in the picture, quote them"
+                ),
+                "negatives": "used",
+            }
+        if fam in ("sd15", "sdxl"):
+            return {
+                "display_name": name,
+                "style": (
+                    "comma-separated phrases, most important first, with quality words at the "
+                    "end (highly detailed, sharp focus); keep it under 60 words"
+                ),
+                "negatives": "used",
+            }
+        return {
+            "display_name": name,
+            "style": (
+                "one natural paragraph of plain descriptive sentences, 40 to 80 words; name the "
+                "subject, composition, setting, lighting, medium or style, colours and mood; "
+                "no weighting syntax, no artist names, no camera brands"
+            ),
+            "negatives": "ignored",
         }
 
     def vision_report(self) -> list[dict[str, Any]]:

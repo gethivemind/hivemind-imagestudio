@@ -212,6 +212,85 @@ def test_describe_returns_text_and_captions_the_source_job(settings: Settings):
         studio.close()
 
 
+def test_assist_prompt_writes_for_the_target_model(settings: Settings):
+    from imagestudio.engine.fake import FakeDescribeEngine
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    fake_vision(settings)
+    studio = Studio(
+        settings=settings,
+        engine=FakeEngine(),
+        hardware=laptop(),
+        describe_engine=FakeDescribeEngine(),
+    )
+    try:
+        r = studio.assist_prompt("my cat on a spaceship")
+        assert r["prompt"].startswith("a fake, detailed prompt")
+        assert r["target_model"].startswith("FLUX.1") and r["model"] == "qwen2.5-vl-3b"
+        # FLUX schnell has no guidance: the assistant's negative is dropped on purpose
+        assert r["negative_prompt"] == "" and r["notes"] == "assumed daylight"
+        spec = studio.describe_engine.calls[-1]
+        assert "FLUX.1" in spec.system and "Brief: my cat on a spaceship" in spec.user
+        r2 = studio.assist_prompt("make it night", current_prompt="a cat on a spaceship")
+        spec2 = studio.describe_engine.calls[-1]
+        assert "Current prompt:" in spec2.user and "Change requested: make it night" in spec2.user
+        assert r2["prompt"]
+        # a Qwen-Image target keeps negatives
+        r3 = studio.assist_prompt("a poster that says HELLO", model="qwen-image")
+        assert r3["negative_prompt"] == "blurry, text" and r3["target_model"].startswith("Qwen")
+        with pytest.raises(StudioError, match="tell the assistant"):
+            studio.assist_prompt("")
+    finally:
+        studio.close()
+
+
+def test_assist_prompt_salvages_a_cut_off_answer(settings: Settings):
+    from imagestudio.engine.describe import DescribeResult
+    from imagestudio.engine.fake import FakeDescribeEngine
+
+    class Cut(FakeDescribeEngine):
+        def complete(self, spec):
+            return DescribeResult(
+                text=(
+                    '{"prompt": "A cat on a ship.", '
+                    '"negative": "blurry, dark, Blurry, abstract, abstr'
+                ),
+                seconds=0.1,
+                model="fake",
+            )
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    fake_vision(settings)
+    studio = Studio(
+        settings=settings, engine=FakeEngine(), hardware=laptop(), describe_engine=Cut()
+    )
+    try:
+        r = studio.assist_prompt("x", model="qwen-image")
+        # never raw JSON; duplicates in the negative list collapse; the user is told
+        assert r["prompt"] == "A cat on a ship."
+        assert r["negative_prompt"] == "blurry, dark, abstract, abstr"
+        assert "ran out of words" in r["notes"]
+    finally:
+        studio.close()
+
+
+def test_assist_prompt_explains_what_to_install(settings: Settings):
+    from imagestudio.engine.fake import FakeDescribeEngine
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(
+        settings=settings,
+        engine=FakeEngine(),
+        hardware=laptop(),
+        describe_engine=FakeDescribeEngine(),
+    )
+    try:
+        with pytest.raises(StudioError, match="not downloaded"):
+            studio.assist_prompt("a cat")
+    finally:
+        studio.close()
+
+
 def test_describe_explains_missing_model(settings: Settings):
     from imagestudio.engine.fake import FakeDescribeEngine
 

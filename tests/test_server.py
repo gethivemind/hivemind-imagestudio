@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "variations",
     "edit",
     "describe",
+    "write_prompt",
 }
 
 

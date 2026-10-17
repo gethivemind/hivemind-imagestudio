@@ -312,6 +312,30 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             return _err(e)
 
     @mcp.tool(
+        name="write_prompt",
+        annotations=_hints(idempotent=True),
+        description=(
+            "Turn a plain-words brief into a finished text-to-image prompt (and a negative "
+            "prompt where the target model uses one) with the studio's local language model. "
+            "Use it when the caller's request is vague or short and the image would benefit "
+            "from a concrete description; pass the result to generate(). With current_prompt "
+            "set, the brief is treated as a change request to that prompt. model: the "
+            "catalogue model that will paint (omit for the planner's choice); the wording is "
+            "tuned to it. Synchronous. Needs the vision engine and a "
+            "vision model (see capabilities()); otherwise returns an error that says what to "
+            "install. Takes a minute or more on a CPU; do not call it in a loop. Returns "
+            "{prompt, negative_prompt, notes, target_model, seconds}."
+        ),
+    )
+    def write_prompt(
+        brief: str, current_prompt: str | None = None, model: str | None = None
+    ) -> dict[str, Any]:
+        try:
+            return studio.assist_prompt(brief, current_prompt, model)
+        except StudioError as e:
+            return _err(e)
+
+    @mcp.tool(
         name="upscale",
         annotations=_hints(),
         description=(

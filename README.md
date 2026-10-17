@@ -80,6 +80,15 @@ even at 4-bit and does not fit a 16 GB machine; the studio reports that instead 
 Estimates start from a heuristic (labelled `uncalibrated`) and are replaced by timings from
 real runs on your machine, kept per model variant in `calibration.json`.
 
+**Prompt assistant.** Press ✦ next to the prompt (or `imagestudio assist "my cat on a
+spaceship, movie poster"`, or the MCP tool `write_prompt`) and the local vision-language model,
+running text-only, writes a complete prompt tuned to the model that will paint it: FLUX gets
+plain descriptive sentences and no negative prompt (it ignores them), Qwen-Image gets quoted
+text to render and a negative prompt, SD 1.5 and SDXL get comma-separated phrases. With a
+prompt already typed, the assistant improves it in the direction you give. A minute or so on
+a CPU with free memory, much longer on a laptop that is already full; nothing leaves the
+machine. Needs the vision engine and model that Describe uses.
+
 ## Install
 
 **Windows app:** easiest from the [Microsoft Store](https://apps.microsoft.com/detail/9NJ8PVHV74KZ)
@@ -274,6 +283,7 @@ pinned, hash-checked catalogue.
 | `upscale(image, model?, repeats=1)` | 4× (or 16×) with Real-ESRGAN. |
 | `remove_background(image, model?)` | Transparent PNG with IS-Net or U²-Net. |
 | `describe(image, task="describe", question?, model?)` | Image to text with llama.cpp and Qwen2.5-VL: description, prompt, alt text, tags, or your own question. Synchronous. |
+| `write_prompt(brief, current_prompt?, model?)` | A plain-words brief becomes a prompt (and negative prompt) tuned to the model that will paint it; with `current_prompt`, a change request to that prompt. Synchronous, a minute or more on a CPU. |
 | `plan(...)` | Dry run of generate(): expected time and the load meter. |
 | `job_status(job_id)` | Status, phase, progress, step, ETA, queue position. |
 | `job_result(job_id, as_base64=false)` | Path to the PNG, plus base64 on request. |

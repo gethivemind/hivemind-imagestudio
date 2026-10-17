@@ -8,6 +8,7 @@ from __future__ import annotations
 import struct
 import time
 import zlib
+from pathlib import Path
 
 from imagestudio.engine.base import EngineResult, GenerateSpec, Progress, ProgressFn, UpscaleSpec
 
@@ -111,6 +112,20 @@ class FakeDescribeEngine:
             seconds=0.01,
             model="fake",
         )
+
+    def text_binary(self):
+        return Path("fake-llama-completion")
+
+    def complete(self, spec):
+        from imagestudio.engine.describe import DescribeResult
+
+        self.calls.append(spec)
+        text = (
+            '{"prompt": "a fake, detailed prompt about '
+            + spec.user.splitlines()[-1][:40]
+            + '", "negative": "blurry, text", "notes": "assumed daylight"}'
+        )
+        return DescribeResult(text=text, seconds=0.01, model="fake")
 
 
 class FakeBackgroundEngine:

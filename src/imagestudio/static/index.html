@@ -425,6 +425,7 @@
             <input type="number" class="seed" id="seed" placeholder="seed: random" title="Same prompt, settings and seed reproduce the image; empty = random.">
             <select class="cnt" id="count" title="How many images of this prompt to queue, with consecutive seeds. Same as --n."><option value="1">×1</option><option value="2">×2</option><option value="4">×4</option><option value="8">×8</option></select>
             <button class="ib" id="histBtn" title="Prompt history and pinned prompts">☰</button>
+            <button class="ib" id="assistBtn" title="Prompt assistant: describe what you want in plain words and the local language model writes the prompt. With a prompt already typed, it improves that one.">✦</button>
             <span class="eta" id="eta"><span class="meter"><i id="meterFill"></i></span><span id="etaText">…</span></span>
             <button class="btn primary go" id="go" disabled>Generate</button>
           </div>
@@ -779,6 +780,24 @@
   function renderHist() { const box = $("hist"); const pins = (S.cfg && S.cfg.pinned_prompts) || []; const recent = histItems().filter(t => !pins.includes(t)); const row = (t, pinned) => `<div class="hrow" data-t="${esc(t)}"><span class="tx" title="${esc(t)}">${esc(t)}</span><button class="pin ${pinned ? "on" : ""}" title="${pinned ? "unpin" : "pin"}">★</button></div>`;
     box.innerHTML = (pins.length ? `<div class="hh">Pinned</div>${pins.map(t => row(t, true)).join("")}` : "") + (recent.length ? `<div class="hh">Recent</div>${recent.map(t => row(t, false)).join("")}` : "") || `<div class="muted small" style="padding:10px">No prompts yet. Generate something, or pin a prompt with ★.</div>`;
     box.querySelectorAll(".hrow").forEach(r => { r.onclick = (e) => { if (e.target.closest(".pin")) return; $("prompt").value = r.dataset.t; $("prompt").dispatchEvent(new Event("input")); box.classList.remove("open"); $("prompt").focus(); }; r.querySelector(".pin").onclick = async () => { const t = r.dataset.t; const cur = (S.cfg.pinned_prompts || []); const next = cur.includes(t) ? cur.filter(x => x !== t) : [t, ...cur]; S.cfg = await post("/api/config", { pinned_prompts: next }); renderHist(); }; }); }
+  // prompt assistant: the local vision-language model, text only, nothing leaves the machine
+  $("assistBtn").onclick = async () => {
+    const cur = $("prompt").value.trim(); const c = S.caps || {};
+    const ready = c.vision_engine && c.vision_engine.available && (c.vision_models || []).some(v => v.installed);
+    if (!ready) { const go = await ask({ title: "Prompt assistant", text: "The assistant is the local vision model (Qwen2.5-VL, about 2.5 GiB) running as a language model, so it also powers Describe and Recreate. It is not installed yet. Install it from Settings → Models and engines; nothing leaves this machine.", ok: "Open Settings", cancel: "Not now" }); if (go === true) { showTab("machine"); } return; }
+    const brief = await uiPrompt(cur ? "What should change? Leave empty to just improve the prompt." : "Describe the picture in plain words. The assistant turns it into a full prompt for the model that will paint it.", "", { title: cur ? "Improve this prompt" : "Prompt assistant", ok: cur ? "Improve" : "Write prompt" });
+    if (brief === false || brief === null) return; if (!cur && !String(brief).trim()) return;
+    const b = $("assistBtn"); b.disabled = true; b.textContent = "…"; toast("The language model is writing. The first run also loads it from disk; on a busy laptop this can take minutes.", 8000);
+    const r = await post("/api/assist", { brief: String(brief), current_prompt: cur || null, model: $("model").value });
+    b.disabled = false; b.textContent = "✦";
+    if (r.error) { toast(r.error, 9000); return; }
+    const neg = r.negative_prompt ? `<div class="muted small" style="margin-top:8px">Negative: ${esc(r.negative_prompt)}</div>` : "";
+    const notes = r.notes ? `<div class="muted small" style="margin-top:6px">${esc(r.notes)}</div>` : "";
+    const use = await ask({ title: `Prompt for ${esc(r.target_model)}`, text: `<div style="white-space:pre-wrap;font-size:13.5px">${esc(r.prompt)}</div>${neg}${notes}<div class="muted small" style="margin-top:8px">${esc(r.model)} · ${r.seconds} s · written on this machine</div>`, ok: "Use it", alt: cur ? "Keep mine" : null, cancel: "Discard" });
+    if (use !== true) return;
+    $("prompt").value = r.prompt; if (r.negative_prompt) $("negative").value = r.negative_prompt;
+    $("prompt").dispatchEvent(new Event("input")); plan(); $("prompt").focus();
+  };
   $("histBtn").onclick = (e) => { e.stopPropagation(); const b = $("hist"); if (!b.classList.contains("open")) renderHist(); b.classList.toggle("open"); };
   document.addEventListener("click", (e) => { if (!e.target.closest("#hist, #histBtn")) $("hist").classList.remove("open"); });
 

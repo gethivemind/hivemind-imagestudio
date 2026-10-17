@@ -7,6 +7,9 @@ package on PyPI.
 ## Unreleased
 
 ### Added
+- Prompt assistant (✦ next to the prompt, `imagestudio assist`, MCP `write_prompt`): the local
+  vision-language model runs text-only and turns a plain-words brief into a prompt and
+  negative prompt tuned to the model that will paint it, or improves the prompt already typed.
 - Microsoft Store listing (ID 9NJ8PVHV74KZ) linked from the website and README; raster
   home-screen icons and an "Add to Home Screen" hint for phones after pairing.
 - MCP tools carry annotations (read-only, destructive, idempotent, open-world hints) so

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.routing import Route
@@ -376,12 +377,30 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
     async def describe(request: Request) -> JSONResponse:
         body = await request.json()
         try:
+            # the vision model runs for seconds to minutes: keep the event loop (and the
+            # queue polling) alive meanwhile
             return JSONResponse(
-                studio.describe(
+                await run_in_threadpool(
+                    studio.describe,
                     body.get("image", ""),
                     body.get("task", "describe"),
                     _str(body.get("question")),
                     _str(body.get("model")),
+                )
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    async def assist(request: Request) -> JSONResponse:
+        body = await request.json()
+        try:
+            return JSONResponse(
+                await run_in_threadpool(
+                    studio.assist_prompt,
+                    str(body.get("brief") or ""),
+                    _str(body.get("current_prompt")),
+                    _str(body.get("model")),
+                    _str(body.get("vision_model")),
                 )
             )
         except StudioError as e:
@@ -714,6 +733,7 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
             Route("/api/import-path", import_path, methods=["POST"]),
             Route("/api/loras/import-path", lora_import_path, methods=["POST"]),
             Route("/api/describe", describe, methods=["POST"]),
+            Route("/api/assist", assist, methods=["POST"]),
             Route("/api/vision/download", vision_download, methods=["POST"]),
             Route("/api/engines/download", engine_download, methods=["POST"]),
             Route("/api/uploads/{name}", upload_view),

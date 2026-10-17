@@ -369,6 +369,22 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_assist(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    try:
+        r = studio.assist_prompt(" ".join(args.brief), args.improve, args.model)
+    except StudioError as e:
+        print(f"error: {e}")
+        return 1
+    print(r["prompt"])
+    if r["negative_prompt"]:
+        print(f"--no {r['negative_prompt']}")
+    if r["notes"]:
+        print(f"-- {r['notes']}", file=sys.stderr)
+    print(f"-- for {r['target_model']} · {r['model']} · {r['seconds']} s", file=sys.stderr)
+    return 0
+
+
 def cmd_describe(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
     try:
@@ -476,6 +492,14 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--target-minutes", type=float, default=15.0)
     b.add_argument("--json", action="store_true")
     b.set_defaults(fn=cmd_benchmark)
+
+    asst = sub.add_parser("assist", help="write or improve a prompt with the local language model")
+    asst.add_argument("brief", nargs="+", help="what the image should show, in plain words")
+    asst.add_argument("--improve", help="an existing prompt to change in the brief's direction")
+    asst.add_argument(
+        "--model", help="the catalogue model that will paint (wording is tuned to it)"
+    )
+    asst.set_defaults(fn=cmd_assist)
 
     de = sub.add_parser("describe", help="image to text with the local vision model")
     de.add_argument("image", help="a job id or an image path")
