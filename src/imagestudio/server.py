@@ -355,6 +355,42 @@ def build_server(studio: Studio | None = None) -> FastMCP:
             return _err(e)
 
     @mcp.tool(
+        name="outpaint",
+        annotations=_hints(),
+        description=(
+            "Extend a finished image beyond its edges or change its aspect ratio without "
+            "cropping, and return a job id. Either ratio ('1:1', '4:3', '3:4', '3:2', '2:3', "
+            "'16:9', '9:16': the picture grows, centred, until it has that shape) or fraction "
+            "(0.05-1.0 of the image added on sides: 'all', 'horizontal', 'vertical', 'left', "
+            "'right', 'top', 'bottom'; default 0.25 on all). prompt adds wording for the new "
+            "area; the picture's own prompt is used as the base. The original pixels are kept; "
+            "the result is a larger image (long side at most 2048 px). Use it for 'make this "
+            "wider', 'turn this into a banner', 'show more of the scene'."
+        ),
+    )
+    def outpaint(
+        image: str,
+        ratio: str | None = None,
+        fraction: float | None = None,
+        sides: str = "all",
+        prompt: str = "",
+        preset: str = "best",
+    ) -> dict[str, Any]:
+        try:
+            job = studio.outpaint(image, ratio, fraction, sides, prompt, preset=preset)
+        except StudioError as e:
+            return _err(e)
+        st = studio.job_status(job.id)
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "width": job.width,
+            "height": job.height,
+            "estimate_seconds": round(job.estimate_seconds),
+            "estimate_human": st["eta_human"],
+        }
+
+    @mcp.tool(
         name="transform_image",
         annotations=_hints(),
         description=(

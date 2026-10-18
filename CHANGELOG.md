@@ -7,6 +7,8 @@ package on PyPI.
 ## Unreleased
 
 ### Added
+- Extend the canvas (outpainting): grow an image to a new aspect ratio or add room on any side;
+  the new area is painted to match with masked image-to-image. Viewer, CLI, MCP `outpaint`.
 - Templates on Home and Create: eight starting points that turn a field or two into a full
   prompt, negative prompt and size, with honest notes about text rendering per model.
 - "Turn this into…": fourteen one-click looks plus your saved styles, on one image or a

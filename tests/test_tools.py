@@ -318,6 +318,55 @@ def test_semantic_search_indexes_finished_images_and_finds_duplicates(settings: 
         studio.close()
 
 
+def test_outpaint_grows_the_canvas_and_masks_only_the_new_area(settings: Settings):
+    from PIL import Image
+
+    from imagestudio.engine.fake import tiny_png
+    from imagestudio.outpaint import padding_for_fraction, padding_for_ratio
+
+    assert (
+        padding_for_ratio(512, 512, "16:9").left > 0
+        and padding_for_ratio(512, 512, "16:9").top == 0
+    )
+    assert padding_for_ratio(512, 512, "9:16").top > 0
+    assert not padding_for_ratio(1024, 576, "16:9").any
+    p = padding_for_fraction(400, 200, 0.25, "horizontal")
+    assert (p.left, p.right, p.top, p.bottom) == (100, 100, 0, 0)
+
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        src = settings.data_dir / "square.png"
+        src.write_bytes(tiny_png(512, 512, (200, 40, 40)))
+        job = studio.outpaint(str(src), ratio="16:9", prompt="more coastline")
+        assert job.tool == "edit" and job.mask_path and job.input_path
+        assert (job.width, job.height) == (896, 512)  # 512*16/9 = 910 → snapped to 16
+        assert job.strength == 0.9 and "more coastline" in job.prompt and "seamless" in job.prompt
+        with Image.open(job.mask_path) as m:
+            assert m.size == (896, 512)
+            px = m.convert("L").load()
+            assert px[5, 256] == 255 and px[890, 256] == 255  # new area: paint
+            assert px[448, 256] == 0  # the middle of the original: keep
+        with Image.open(job.input_path) as c:
+            assert c.size == (896, 512) and c.getpixel((448, 256))[0] > 150  # original pasted
+        wait(studio, job.id)
+        wide = settings.data_dir / "wide.png"
+        wide.write_bytes(tiny_png(896, 504))
+        with pytest.raises(StudioError, match="already"):
+            studio.outpaint(str(wide), ratio="16:9")
+        j2 = studio.outpaint(str(src), fraction=0.5, sides="bottom")
+        assert (j2.width, j2.height) == (512, 768)
+        with pytest.raises(StudioError, match="unknown ratio"):
+            studio.outpaint(str(src), ratio="5:1")
+        # huge canvases are scaled to the engine's 2048 limit instead of refused
+        from imagestudio.outpaint import fit_to_engine
+
+        cw, ch, scale = fit_to_engine(2048, 2048, padding_for_ratio(2048, 2048, "16:9"))
+        assert cw == 2048 and ch % 16 == 0 and ch <= 1152 and scale < 1.0
+    finally:
+        studio.close()
+
+
 def test_transforms_apply_a_tuned_look_and_record_it(settings: Settings):
     fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
     studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())

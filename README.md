@@ -80,6 +80,11 @@ even at 4-bit and does not fit a 16 GB machine; the studio reports that instead 
 Estimates start from a heuristic (labelled `uncalibrated`) and are replaced by timings from
 real runs on your machine, kept per model variant in `calibration.json`.
 
+**Extend the canvas (outpainting).** Under Reimagine: pick a shape (16:9, 9:16, 1:1, 4:3, 3:4;
+the picture grows, never crops) or add a quarter on a side. The new area is pre-filled from the
+edges and painted by masked image-to-image to match; the original pixels stay. CLI
+`imagestudio outpaint <image> --ratio 16:9`, MCP `outpaint`.
+
 **Templates.** On Home (and the ▦ button on Create): product shot, social post with text,
 portrait, logo concept, wallpaper at your screen's size, video thumbnail, poster, seamless
 pattern. Fill a field or two; the studio writes the prompt and negative prompt, sets the size
@@ -326,6 +331,7 @@ pinned, hash-checked catalogue.
 | `upscale(image, model?, repeats=1)` | 4× (or 16×) with Real-ESRGAN. |
 | `remove_background(image, model?)` | Transparent PNG with IS-Net or U²-Net. |
 | `describe(image, task="describe", question?, model?)` | Image to text with llama.cpp and Qwen2.5-VL: description, prompt, alt text, tags, or your own question. Synchronous. |
+| `outpaint(image, ratio?, fraction?, sides?, prompt?, preset?)` | Extend the canvas or change the aspect ratio without cropping; the new area is painted to match. |
 | `transform_image(image, transform, strength?, preset?)` | One-click look (sketch, watercolour, pixel art, … or a saved style) on a finished image; ids in `capabilities().transforms`. |
 | `search_images(query, limit=20)` | Gallery images ranked by CLIP similarity to a few words; needs the search model. |
 | `fix_faces(image, strength=0.35, prompt?, model?)` | Detect every face, re-render each at 768 px with image-to-image and blend it back. One render per face. |

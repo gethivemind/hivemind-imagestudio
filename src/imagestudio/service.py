@@ -663,6 +663,81 @@ class Studio:
         composition is kept, from about 0.5 it is re-invented from the prompt (measured)."""
         return self._img2img("variations", image, prompt, strength, None, **kw)
 
+    def outpaint(
+        self,
+        image: str,
+        ratio: str | None = None,
+        fraction: float | None = None,
+        sides: str = "all",
+        prompt: str = "",
+        strength: float = 0.9,
+        preset: str = "best",
+        seed: int | None = None,
+        model: str | None = None,
+    ) -> Job:
+        """Extend a picture beyond its edges (``fraction`` of its size on ``sides``) or grow it
+        to a target ``ratio`` without cropping. The new area is pre-filled from the edges and
+        painted by masked image-to-image at a high strength; the original pixels are kept
+        under the mask with a feathered seam. The result is a new image at the larger size
+        (at most 2048 px on the long side; larger canvases are scaled to fit)."""
+        from imagestudio.outpaint import (
+            Padding,
+            expand,
+            padding_for_fraction,
+            padding_for_ratio,
+        )
+
+        src, source_job = self._resolve_input(image)
+        from PIL import Image
+
+        with Image.open(src) as im:
+            w, h = im.size
+        if ratio:
+            try:
+                pad = padding_for_ratio(w, h, ratio)
+            except ValueError as e:
+                raise StudioError(str(e)) from e
+            if not pad.any:
+                raise StudioError(f"the image is already {ratio}")
+        else:
+            pad = padding_for_fraction(w, h, fraction if fraction is not None else 0.25, sides)
+        if not isinstance(pad, Padding) or not pad.any:
+            raise StudioError("nothing to extend: choose a ratio or a side")
+        if not 0.5 <= strength <= 1.0:
+            raise StudioError("strength must be between 0.5 and 1.0 for outpainting")
+        folder = self.settings.data_dir / "uploads"
+        folder.mkdir(parents=True, exist_ok=True)
+        token = secrets.token_hex(6)
+        canvas = folder / f"out_{token}.png"
+        mask = folder / f"out_{token}-mask.png"
+        cw, ch = expand(src, pad, canvas, mask)
+        base = ""
+        if source_job:
+            j = self.jobs.get(source_job)
+            if j is not None:
+                base = (j.prompt if j.tool != "import" else j.caption or "") or ""
+        base = without_batch_and_seed(base).strip() if base else ""
+        extra = prompt.strip()
+        words = ", ".join(
+            x
+            for x in (base, extra, "extended scene, seamless continuation, consistent lighting")
+            if x
+        )
+        job = self._img2img(
+            "edit",
+            str(canvas),
+            words,
+            strength,
+            str(mask),
+            preset=preset,
+            seed=seed,
+            model=model,
+        )
+        job.source_job = source_job
+        job.message = f"outpaint to {cw}×{ch}"
+        self.jobs.put(job)
+        return job
+
     def transforms(self) -> list[dict[str, Any]]:
         """Built-in looks plus the user's saved styles, for "Turn this into…"."""
         from imagestudio.transforms import as_dicts

@@ -400,6 +400,22 @@ def cmd_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_outpaint(args: argparse.Namespace) -> int:
+    studio = Studio(start_worker=False)
+    try:
+        job = studio.outpaint(
+            args.image, args.ratio, args.fraction, args.sides, args.prompt or "", preset=args.preset
+        )
+    except StudioError as e:
+        print(f"error: {e}")
+        return 1
+    print(
+        f"queued {job.id}: {job.width}×{job.height}, about {human_duration(job.estimate_seconds)}. "
+        "`imagestudio jobs` to follow."
+    )
+    return 0
+
+
 def cmd_transform(args: argparse.Namespace) -> int:
     studio = Studio(start_worker=False)
     try:
@@ -555,6 +571,21 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--target-minutes", type=float, default=15.0)
     b.add_argument("--json", action="store_true")
     b.set_defaults(fn=cmd_benchmark)
+
+    op = sub.add_parser(
+        "outpaint", help="extend an image beyond its edges or change its aspect ratio"
+    )
+    op.add_argument("image", help="a job id or an image path")
+    op.add_argument("--ratio", choices=["1:1", "4:3", "3:4", "3:2", "2:3", "16:9", "9:16"])
+    op.add_argument(
+        "--fraction", type=float, help="grow by this fraction of the image (default 0.25)"
+    )
+    op.add_argument(
+        "--sides", default="all", help="all, horizontal, vertical, left, right, top, bottom"
+    )
+    op.add_argument("--prompt", help="wording for the new area")
+    op.add_argument("--preset", default="best", choices=list(PRESET_NAMES))
+    op.set_defaults(fn=cmd_outpaint)
 
     tr = sub.add_parser(
         "transform", help="turn an image into a look: sketch, watercolour, pixel art…"

@@ -29,6 +29,7 @@ EXPECTED_TOOLS = {
     "fix_faces",
     "search_images",
     "transform_image",
+    "outpaint",
 }
 
 
