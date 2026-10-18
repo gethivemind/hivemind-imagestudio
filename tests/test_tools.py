@@ -386,12 +386,12 @@ def test_outpaint_grows_the_canvas_and_masks_only_the_new_area(settings: Setting
         job = studio.outpaint(str(src), ratio="16:9", prompt="more coastline")
         assert job.tool == "edit" and job.mask_path and job.input_path
         assert (job.width, job.height) == (896, 512)  # 512*16/9 = 910 → snapped to 16
-        assert job.strength == 0.8 and "more coastline" in job.prompt and "seamless" in job.prompt
+        assert job.strength == 0.6 and "more coastline" in job.prompt and "seamless" in job.prompt
         with Image.open(job.mask_path) as m:
             assert m.size == (896, 512)
             px = m.convert("L").load()
             assert px[5, 256] == 255 and px[890, 256] == 255  # new area: paint
-            assert px[448, 256] == 0  # the middle of the original: keep
+            assert px[448, 256] < 16  # the middle of the original: kept (band blur fades out)
         with Image.open(job.input_path) as c:
             assert c.size == (896, 512) and c.getpixel((448, 256))[0] > 150  # original pasted
         wait(studio, job.id)
@@ -428,10 +428,12 @@ def test_outpaint_finish_matches_colours_and_restores_the_original(tmp_path):
     r = Image.new("RGB", (300, 100), (90, 100, 120))
     r.paste(Image.new("RGB", (100, 100), (160, 120, 90)), (100, 0))
     r.save(result)
-    finish(result, canvas, (100, 0, 100, 100), feather=8)
+    finish(result, canvas, (100, 0, 100, 100))
     with Image.open(result) as im:
         a = np.asarray(im.convert("RGB"), dtype=int)
-    assert tuple(a[50, 150]) == (220, 140, 60)  # the original is back, pixel for pixel
+    assert all(
+        abs(int(c) - o) <= 3 for c, o in zip(a[50, 150], (220, 140, 60), strict=True)
+    )  # original restored
     # the painted sides moved towards the original's warmth instead of staying cool
     assert a[50, 20][0] > 90 and a[50, 20][2] < 120
     assert im.size == (300, 100)

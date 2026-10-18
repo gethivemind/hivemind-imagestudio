@@ -724,7 +724,7 @@ class Studio:
         fraction: float | None = None,
         sides: str = "all",
         prompt: str = "",
-        strength: float = 0.8,
+        strength: float = 0.6,
         preset: str = "best",
         seed: int | None = None,
         model: str | None = None,
@@ -757,8 +757,8 @@ class Studio:
             pad = padding_for_fraction(w, h, fraction if fraction is not None else 0.25, sides)
         if not isinstance(pad, Padding) or not pad.any:
             raise StudioError("nothing to extend: choose a ratio or a side")
-        if not 0.5 <= strength <= 1.0:
-            raise StudioError("strength must be between 0.5 and 1.0 for outpainting")
+        if not 0.4 <= strength <= 1.0:
+            raise StudioError("strength must be between 0.4 and 1.0 for outpainting")
         folder = self.settings.data_dir / "uploads"
         folder.mkdir(parents=True, exist_ok=True)
         token = secrets.token_hex(6)

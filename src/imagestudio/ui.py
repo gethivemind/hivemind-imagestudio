@@ -378,7 +378,7 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
                     float(body["fraction"]) if body.get("fraction") not in (None, "") else None,
                     str(body.get("sides") or "all"),
                     body.get("prompt", ""),
-                    float(body.get("strength", 0.8)),
+                    float(body.get("strength", 0.6)),
                     preset=body.get("preset", "best"),
                     seed=body.get("seed") or None,
                     model=_str(body.get("model")),

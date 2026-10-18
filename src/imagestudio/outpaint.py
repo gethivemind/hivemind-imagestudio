@@ -78,10 +78,16 @@ def fit_to_engine(width: int, height: int, pad: Padding) -> tuple[int, int, floa
     return snap16(w * scale), snap16(h * scale), scale
 
 
-def expand(source: Path, pad: Padding, out_image: Path, out_mask: Path, feather: int = 24):
+def expand(source: Path, pad: Padding, out_image: Path, out_mask: Path, overlap: float = 0.25):
     """Write the expanded canvas and its mask. Returns the canvas size and where the original
-    sits on it: (width, height, (x, y, w, h))."""
-    from PIL import Image, ImageFilter, ImageOps
+    sits on it: (width, height, (x, y, w, h)).
+
+    The new area is pre-filled by stretching the nearest edge outward (so a sky gradient keeps
+    its colours instead of starting from grey), and the mask repaints a wide band of the
+    original along each grown side (``overlap`` of the original's size) so the model draws the
+    transition itself; a hard edge is what makes outpaints look pasted."""
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFilter
 
     with Image.open(source) as src:
         im = src.convert("RGB")
@@ -91,42 +97,40 @@ def expand(source: Path, pad: Padding, out_image: Path, out_mask: Path, feather:
         im = im.resize((max(16, int(w * scale)), max(16, int(h * scale))), Image.LANCZOS)
         w, h = im.size
         pad = Padding(*(int(v * scale) for v in (pad.left, pad.top, pad.right, pad.bottom)))
-    # the original sits at the padding offset; whatever rounding left over goes right/bottom
-    x0, y0 = min(pad.left, cw - w), min(pad.top, ch - h)
-    x0, y0 = max(0, x0), max(0, y0)
-    canvas = Image.new("RGB", (cw, ch))
-    # pre-fill: mirror the picture outward in both axes, then blur hard, so the new area
-    # continues the edge colours instead of starting from black
-    big = Image.new("RGB", (cw, ch))
-    tiles_x = range(x0 - w, cw, w) if w else []
-    for ty, flip_y in _mirror_positions(y0, h, ch):
-        for tx, flip_x in _mirror_positions(x0, w, cw):
-            tile = im
-            if flip_x:
-                tile = ImageOps.mirror(tile)
-            if flip_y:
-                tile = ImageOps.flip(tile)
-            big.paste(tile, (tx, ty))
-    del tiles_x
-    canvas.paste(big.filter(ImageFilter.GaussianBlur(max(8, min(w, h) // 20))), (0, 0))
-    canvas.paste(im, (x0, y0))
-    # mask: white = paint, black = keep; feathered into the original only on the sides that
-    # grew, so untouched edges stay exactly as they were
+    x0 = max(0, min(pad.left, cw - w))
+    y0 = max(0, min(pad.top, ch - h))
+    a = np.asarray(im, dtype=np.uint8)
+    # stretch outward: columns first, then rows, so corners take the nearest edge
+    left = np.repeat(a[:, :1, :], x0, axis=1) if x0 else np.zeros((h, 0, 3), np.uint8)
+    right_n = max(0, cw - x0 - w)
+    right = np.repeat(a[:, -1:, :], right_n, axis=1) if right_n else np.zeros((h, 0, 3), np.uint8)
+    row = np.concatenate([left, a, right], axis=1)
+    top = np.repeat(row[:1, :, :], y0, axis=0) if y0 else np.zeros((0, cw, 3), np.uint8)
+    bottom_n = max(0, ch - y0 - h)
+    bottom = (
+        np.repeat(row[-1:, :, :], bottom_n, axis=0) if bottom_n else np.zeros((0, cw, 3), np.uint8)
+    )
+    canvas = Image.fromarray(np.concatenate([top, row, bottom], axis=0))
+    # soften the stretched area a little (streaks become gradients); the original stays sharp
+    soft = canvas.filter(ImageFilter.GaussianBlur(max(4, min(w, h) // 40)))
+    soft.paste(im, (x0, y0))
+    canvas = soft
+    # mask: white = paint. Everything new, plus a band of the original along each grown side.
+    band_x, band_y = int(w * overlap), int(h * overlap)
+    kl = band_x if pad.left else 0
+    kr = band_x if pad.right else 0
+    kt = band_y if pad.top else 0
+    kb = band_y if pad.bottom else 0
     mask = Image.new("L", (cw, ch), 255)
-    inset = max(0, min(max(feather, min(w, h) // 12), w // 4, h // 4))
-    il = inset if pad.left else 0
-    it = inset if pad.top else 0
-    ir = inset if pad.right else 0
-    ib = inset if pad.bottom else 0
-    keep = Image.new("L", (max(1, w - il - ir), max(1, h - it - ib)), 0)
-    mask.paste(keep, (x0 + il, y0 + it))
-    if inset:
-        mask = mask.filter(ImageFilter.GaussianBlur(inset / 2))
-        # the far outside must stay fully white after the blur
-        outer = Image.new("L", (cw, ch), 255)
-        inner_box = Image.new("L", (w, h), 0)
-        outer.paste(inner_box, (x0, y0))
-        mask = Image.composite(outer, mask, outer)
+    keep_w, keep_h = max(1, w - kl - kr), max(1, h - kt - kb)
+    ImageDraw.Draw(mask).rectangle(
+        (x0 + kl, y0 + kt, x0 + kl + keep_w - 1, y0 + kt + keep_h - 1), fill=0
+    )
+    blur = max(2, min(band_x if (kl or kr) else band_y, band_y if (kt or kb) else band_x) // 4)
+    mask = mask.filter(ImageFilter.GaussianBlur(blur))
+    outer = Image.new("L", (cw, ch), 255)
+    outer.paste(Image.new("L", (w, h), 0), (x0, y0))
+    mask = Image.composite(outer, mask, outer)  # the new area is always fully white
     out_image.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out_image, "PNG")
     mask.save(out_mask, "PNG")
@@ -153,11 +157,11 @@ def _mirror_positions(start: int, size: int, limit: int):
 
 
 def finish(
-    result: Path, canvas: Path, region: tuple[int, int, int, int], feather: int = 48
+    result: Path, canvas: Path, region: tuple[int, int, int, int], overlap: float = 0.25
 ) -> None:
-    """After the engine: match the painted canvas's colours to the original region (the model
-    drifts cooler and flatter on the pre-filled area), then put the original pixels back
-    exactly under a wide feathered mask. Rewrites ``result`` in place."""
+    """After the engine: nudge the whole picture's colours towards the original (measured on
+    the kept interior), then restore the original's interior exactly under a soft mask that
+    reaches the band the model repainted. Rewrites ``result`` in place."""
     import numpy as np
     from PIL import Image, ImageDraw, ImageFilter
 
@@ -166,25 +170,24 @@ def finish(
         if r.size != c.size or w < 8 or h < 8:
             return  # not an outpaint result we can finish (e.g. a test engine's stub image)
         out = np.asarray(r.convert("RGB"), dtype=np.float32)
-        orig = np.asarray(c.convert("RGB"), dtype=np.float32)[y : y + h, x : x + w]
-    painted_region = out[y : y + h, x : x + w]
-    # per-channel mean/std transfer: what the model did to the kept area is what it did to
-    # the whole picture, so undo that drift everywhere
-    src_m, src_s = (
-        painted_region.reshape(-1, 3).mean(0),
-        painted_region.reshape(-1, 3).std(0) + 1e-3,
-    )
-    dst_m, dst_s = orig.reshape(-1, 3).mean(0), orig.reshape(-1, 3).std(0) + 1e-3
-    gain = np.clip(dst_s / src_s, 0.6, 1.6)
-    out = np.clip((out - src_m) * gain + dst_m, 0, 255)
+        orig_full = c.convert("RGB")
+        orig = np.asarray(orig_full, dtype=np.float32)[y : y + h, x : x + w]
+    bx, by = int(w * overlap), int(h * overlap)
+    inner = (slice(y + by, y + h - by), slice(x + bx, x + w - bx))
+    painted_inner = out[inner]
+    orig_inner = orig[by : h - by, bx : w - bx]
+    if painted_inner.size and orig_inner.size:
+        src_m = painted_inner.reshape(-1, 3).mean(0)
+        src_s = painted_inner.reshape(-1, 3).std(0) + 1e-3
+        dst_m = orig_inner.reshape(-1, 3).mean(0)
+        dst_s = orig_inner.reshape(-1, 3).std(0) + 1e-3
+        gain = np.clip(dst_s / src_s, 0.7, 1.4)
+        shift = np.clip(dst_m - src_m * gain, -40, 40)
+        out = np.clip(out * gain + shift, 0, 255)
     matched = Image.fromarray(out.astype(np.uint8))
-    with Image.open(canvas) as c:
-        original = c.convert("RGB").crop((x, y, x + w, y + h))
-    inset = max(2, min(max(feather, min(w, h) // 12), w // 4, h // 4))
     mask = Image.new("L", matched.size, 0)
-    ImageDraw.Draw(mask).rectangle((x + inset, y + inset, x + w - inset, y + h - inset), fill=255)
-    mask = mask.filter(ImageFilter.GaussianBlur(inset / 2))
+    ImageDraw.Draw(mask).rectangle((x + bx, y + by, x + w - bx, y + h - by), fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(max(2, min(bx, by) // 2 or 2)))
     full = Image.new("RGB", matched.size)
-    full.paste(original, (x, y))
-    final = Image.composite(full, matched, mask)
-    final.save(result, "PNG")
+    full.paste(orig_full.crop((x, y, x + w, y + h)), (x, y))
+    Image.composite(full, matched, mask).save(result, "PNG")
