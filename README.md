@@ -89,10 +89,17 @@ version in plain words: words added or removed, strength, size, model, seed, loo
 on a project or a selection writes one self-contained HTML file with the pictures and their
 prompts, viewable anywhere without the studio.
 
-**Extend the canvas (outpainting).** Under Reimagine: pick a shape (16:9, 9:16, 1:1, 4:3, 3:4;
-the picture grows, never crops) or add a quarter on a side. The new area is pre-filled from the
-edges and painted by masked image-to-image to match; the original pixels stay. CLI
-`imagestudio outpaint <image> --ratio 16:9`, MCP `outpaint`.
+**Extend the canvas (outpainting), experimental.** Under Reimagine: pick a shape (16:9, 9:16,
+1:1, 4:3, 3:4; the picture grows, never crops) or add a quarter on a side. The new area is
+pre-filled from the edges and painted by masked image-to-image at strength 0.6, with a wide
+band of the original repainted so the join blends; the original's interior is kept exactly.
+Measured on FLUX.1-schnell at the fast preset: a lighthouse widened by a quarter and a portrait
+grown to 16:9 came out as one picture; a portrait grown taller and a flat pixel-art scene did
+not (blurred edges). Scenery and backgrounds work; detailed subjects and vertical growth often
+do not, because a 4-step model cannot inpaint them, and no permissively licensed inpainting
+model exists yet. The new area follows the picture's prompt, so give it a prompt of its own
+when the stored one does not describe the picture. CLI `imagestudio outpaint <image> --ratio
+16:9`, MCP `outpaint`.
 
 **Templates.** On Home (and the ▦ button on Create): product shot, social post with text,
 portrait, logo concept, wallpaper at your screen's size, video thumbnail, poster, seamless

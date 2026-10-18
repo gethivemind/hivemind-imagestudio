@@ -386,7 +386,7 @@ def test_outpaint_grows_the_canvas_and_masks_only_the_new_area(settings: Setting
         job = studio.outpaint(str(src), ratio="16:9", prompt="more coastline")
         assert job.tool == "edit" and job.mask_path and job.input_path
         assert (job.width, job.height) == (896, 512)  # 512*16/9 = 910 → snapped to 16
-        assert job.strength == 0.75 and "more coastline" in job.prompt and "seamless" in job.prompt
+        assert job.strength == 0.6 and "more coastline" in job.prompt and "seamless" in job.prompt
         with Image.open(job.mask_path) as m:
             assert m.size == (896, 512)
             px = m.convert("L").load()
