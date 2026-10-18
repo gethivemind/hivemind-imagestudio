@@ -6,7 +6,7 @@ Use exactly as written or edit freely. Character limits are Partner Center's.
 Image Studio by Hivemind
 
 ## Short description (≤ 200 chars)
-Your own image studio. Create, edit, sketch-to-image, upscale, cut out and describe pictures with free, permissively licensed models, entirely on your PC.
+Your own image studio. Create, edit, extend, restyle, upscale, cut out, repair faces and search pictures with free, permissively licensed models, entirely on your PC.
 
 ## Description (≤ 10,000 chars)
 Image Studio by Hivemind is a complete image studio that runs on your own computer. Nothing is uploaded, nothing is paid for, and there is no account.
@@ -17,6 +17,10 @@ WHAT IT DOES
 • Sketch to image: draw a rough layout, describe it, let the model paint it.
 • Upscale 4× or 16× with Real-ESRGAN. Remove backgrounds to a transparent PNG in seconds.
 • Image to text: captions, alt text, tags, or "write the prompt that would make this", with a local vision model.
+• Start from a template (product shot, social post with text, portrait, logo concept, wallpaper, thumbnail, poster, pattern) or let the prompt assistant turn a few plain words into a full prompt.
+• Turn any picture into a look with one click: pencil sketch, watercolour, oil, anime, pixel art, claymation, film noir and more, or your own saved styles.
+• Extend the canvas (outpainting) to a new shape, and fix faces so eyes and skin come out sharp.
+• Organise work in projects, see every version of an image with what changed, search the gallery by meaning, batch tools on a selection, and export a project as a zip or a one-file web page.
 • Use it from your phone on your own network: scan a QR code, and the full studio is on your phone, including the camera.
 • An MCP server is built in, so AI agents and tools that speak MCP can use the studio too.
 
@@ -38,7 +42,7 @@ Image Studio by Hivemind · made with ♥ by Ratul Roy (royal-programmer).
 Photo & video / Photo editing (or "Multimedia design")
 
 ## Search terms (≤ 7, each ≤ 30 chars)
-image generation; stable diffusion; FLUX; local AI; upscale; background remover; MCP
+image generation; stable diffusion; FLUX; local AI; outpainting; upscale; background remover
 
 ## Copyright and trademark info
 Copyright © 2026 Ratul Roy and the Hivemind contributors. "Hivemind" and "Image Studio by Hivemind" are trademarks of Ratul Roy.

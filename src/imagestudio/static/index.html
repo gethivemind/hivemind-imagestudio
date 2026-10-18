@@ -659,7 +659,7 @@
       { t: "Install the engine", d: "stable-diffusion.cpp, about 30 MB, MIT licence.", done: !!c.engine.available, go: () => showTab("machine") },
       { t: "Download a model", d: "FLUX.1-schnell or Qwen-Image, in the size that fits this machine.", done: hasModel, go: () => showTab("machine") },
       { t: "Run the benchmark", d: "About two minutes. Calibrates the time estimates for this machine.", done: !!c.profile, go: () => showTab("machine") },
-      { t: "Make your first image", d: "Type a prompt on Create and press Generate.", done: made, go: () => showTab("create") },
+      { t: "Make your first image", d: "Pick a template above, or type a prompt on Create and press Generate.", done: made, go: () => showTab("create") },
       ...(c.engine && c.engine.suggestion ? [{ t: "Use the GPU", d: `The Vulkan build renders on this machine's GPU: ${c.engine.suggestion.strength} faster, same quality. Install it and press Use under Settings.`, done: false, go: () => showTab("machine") }] : []),
       { t: "Add tools", d: "Upscaler, background removal, vision model for captions. Optional.", done: (c.tools || []).some(t => t.installed) || (c.vision_models || []).some(v => v.installed), go: () => showTab("machine") },
     ];
