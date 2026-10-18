@@ -79,7 +79,8 @@ def fit_to_engine(width: int, height: int, pad: Padding) -> tuple[int, int, floa
 
 
 def expand(source: Path, pad: Padding, out_image: Path, out_mask: Path, feather: int = 24):
-    """Write the expanded canvas and its mask. Returns (width, height) of the canvas."""
+    """Write the expanded canvas and its mask. Returns the canvas size and where the original
+    sits on it: (width, height, (x, y, w, h))."""
     from PIL import Image, ImageFilter, ImageOps
 
     with Image.open(source) as src:
@@ -109,11 +110,16 @@ def expand(source: Path, pad: Padding, out_image: Path, out_mask: Path, feather:
     del tiles_x
     canvas.paste(big.filter(ImageFilter.GaussianBlur(max(8, min(w, h) // 20))), (0, 0))
     canvas.paste(im, (x0, y0))
-    # mask: white = paint, black = keep; feathered a little into the original
+    # mask: white = paint, black = keep; feathered into the original only on the sides that
+    # grew, so untouched edges stay exactly as they were
     mask = Image.new("L", (cw, ch), 255)
-    inset = max(0, min(feather, w // 4, h // 4))
-    keep = Image.new("L", (max(1, w - 2 * inset), max(1, h - 2 * inset)), 0)
-    mask.paste(keep, (x0 + inset, y0 + inset))
+    inset = max(0, min(max(feather, min(w, h) // 12), w // 4, h // 4))
+    il = inset if pad.left else 0
+    it = inset if pad.top else 0
+    ir = inset if pad.right else 0
+    ib = inset if pad.bottom else 0
+    keep = Image.new("L", (max(1, w - il - ir), max(1, h - it - ib)), 0)
+    mask.paste(keep, (x0 + il, y0 + it))
     if inset:
         mask = mask.filter(ImageFilter.GaussianBlur(inset / 2))
         # the far outside must stay fully white after the blur
@@ -124,7 +130,7 @@ def expand(source: Path, pad: Padding, out_image: Path, out_mask: Path, feather:
     out_image.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out_image, "PNG")
     mask.save(out_mask, "PNG")
-    return cw, ch
+    return cw, ch, (x0, y0, w, h)
 
 
 def _mirror_positions(start: int, size: int, limit: int):
@@ -144,3 +150,41 @@ def _mirror_positions(start: int, size: int, limit: int):
         pos += size
         n += 1
     return out
+
+
+def finish(
+    result: Path, canvas: Path, region: tuple[int, int, int, int], feather: int = 48
+) -> None:
+    """After the engine: match the painted canvas's colours to the original region (the model
+    drifts cooler and flatter on the pre-filled area), then put the original pixels back
+    exactly under a wide feathered mask. Rewrites ``result`` in place."""
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFilter
+
+    x, y, w, h = region
+    with Image.open(result) as r, Image.open(canvas) as c:
+        if r.size != c.size or w < 8 or h < 8:
+            return  # not an outpaint result we can finish (e.g. a test engine's stub image)
+        out = np.asarray(r.convert("RGB"), dtype=np.float32)
+        orig = np.asarray(c.convert("RGB"), dtype=np.float32)[y : y + h, x : x + w]
+    painted_region = out[y : y + h, x : x + w]
+    # per-channel mean/std transfer: what the model did to the kept area is what it did to
+    # the whole picture, so undo that drift everywhere
+    src_m, src_s = (
+        painted_region.reshape(-1, 3).mean(0),
+        painted_region.reshape(-1, 3).std(0) + 1e-3,
+    )
+    dst_m, dst_s = orig.reshape(-1, 3).mean(0), orig.reshape(-1, 3).std(0) + 1e-3
+    gain = np.clip(dst_s / src_s, 0.6, 1.6)
+    out = np.clip((out - src_m) * gain + dst_m, 0, 255)
+    matched = Image.fromarray(out.astype(np.uint8))
+    with Image.open(canvas) as c:
+        original = c.convert("RGB").crop((x, y, x + w, y + h))
+    inset = max(2, min(max(feather, min(w, h) // 12), w // 4, h // 4))
+    mask = Image.new("L", matched.size, 0)
+    ImageDraw.Draw(mask).rectangle((x + inset, y + inset, x + w - inset, y + h - inset), fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(inset / 2))
+    full = Image.new("RGB", matched.size)
+    full.paste(original, (x, y))
+    final = Image.composite(full, matched, mask)
+    final.save(result, "PNG")

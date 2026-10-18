@@ -386,7 +386,7 @@ def test_outpaint_grows_the_canvas_and_masks_only_the_new_area(settings: Setting
         job = studio.outpaint(str(src), ratio="16:9", prompt="more coastline")
         assert job.tool == "edit" and job.mask_path and job.input_path
         assert (job.width, job.height) == (896, 512)  # 512*16/9 = 910 → snapped to 16
-        assert job.strength == 0.9 and "more coastline" in job.prompt and "seamless" in job.prompt
+        assert job.strength == 0.8 and "more coastline" in job.prompt and "seamless" in job.prompt
         with Image.open(job.mask_path) as m:
             assert m.size == (896, 512)
             px = m.convert("L").load()
@@ -410,6 +410,31 @@ def test_outpaint_grows_the_canvas_and_masks_only_the_new_area(settings: Setting
         assert cw == 2048 and ch % 16 == 0 and ch <= 1152 and scale < 1.0
     finally:
         studio.close()
+
+
+def test_outpaint_finish_matches_colours_and_restores_the_original(tmp_path):
+    import numpy as np
+    from PIL import Image
+
+    from imagestudio.outpaint import finish
+
+    canvas = tmp_path / "canvas.png"
+    result = tmp_path / "result.png"
+    # canvas: warm original in the middle of a 300x100 strip
+    c = Image.new("RGB", (300, 100), (120, 120, 120))
+    c.paste(Image.new("RGB", (100, 100), (220, 140, 60)), (100, 0))
+    c.save(canvas)
+    # the model's output: everything cooler and flatter, including the kept area
+    r = Image.new("RGB", (300, 100), (90, 100, 120))
+    r.paste(Image.new("RGB", (100, 100), (160, 120, 90)), (100, 0))
+    r.save(result)
+    finish(result, canvas, (100, 0, 100, 100), feather=8)
+    with Image.open(result) as im:
+        a = np.asarray(im.convert("RGB"), dtype=int)
+    assert tuple(a[50, 150]) == (220, 140, 60)  # the original is back, pixel for pixel
+    # the painted sides moved towards the original's warmth instead of staying cool
+    assert a[50, 20][0] > 90 and a[50, 20][2] < 120
+    assert im.size == (300, 100)
 
 
 def test_transforms_apply_a_tuned_look_and_record_it(settings: Settings):

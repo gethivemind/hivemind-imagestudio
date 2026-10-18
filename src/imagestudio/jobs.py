@@ -662,6 +662,14 @@ class Worker:
             job.status, job.phase, job.error = "failed", "failed", f"{type(e).__name__}: {e}"
         else:
             stop_watch.set()
+            if job.tool == "edit" and job.regions and job.input_path and job.mask_path:
+                # outpainting: colour-match the painted area and put the original back
+                try:
+                    from imagestudio.outpaint import finish
+
+                    finish(result.output, Path(job.input_path), tuple(job.regions[0]))
+                except Exception as e:  # the picture is still usable without it
+                    job.warnings = [*job.warnings, f"seam finishing skipped: {e}"]
             job.status, job.phase = "done", "done"
             job.step = job.total_steps = job.steps
             job.output_path = str(result.output)

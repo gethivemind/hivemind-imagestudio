@@ -724,7 +724,7 @@ class Studio:
         fraction: float | None = None,
         sides: str = "all",
         prompt: str = "",
-        strength: float = 0.9,
+        strength: float = 0.8,
         preset: str = "best",
         seed: int | None = None,
         model: str | None = None,
@@ -764,7 +764,7 @@ class Studio:
         token = secrets.token_hex(6)
         canvas = folder / f"out_{token}.png"
         mask = folder / f"out_{token}-mask.png"
-        cw, ch = expand(src, pad, canvas, mask)
+        cw, ch, placed = expand(src, pad, canvas, mask)
         base = ""
         if source_job:
             j = self.jobs.get(source_job)
@@ -788,6 +788,7 @@ class Studio:
             model=model,
         )
         job.source_job = source_job
+        job.regions = [list(placed)]  # where the original sits: the worker pastes it back
         job.message = f"outpaint to {cw}×{ch}"
         self.jobs.put(job)
         return job
