@@ -80,6 +80,12 @@ even at 4-bit and does not fit a 16 GB machine; the studio reports that instead 
 Estimates start from a heuristic (labelled `uncalibrated`) and are replaced by timings from
 real runs on your machine, kept per model variant in `calibration.json`.
 
+**Versions and web pages.** The viewer shows the whole series an image belongs to (the
+original, its variations, edits, upscales) as a strip, with what changed against the previous
+version in plain words: words added or removed, strength, size, model, seed, look. "Web page"
+on a project or a selection writes one self-contained HTML file with the pictures and their
+prompts, viewable anywhere without the studio.
+
 **Extend the canvas (outpainting).** Under Reimagine: pick a shape (16:9, 9:16, 1:1, 4:3, 3:4;
 the picture grows, never crops) or add a quarter on a side. The new area is pre-filled from the
 edges and painted by masked image-to-image to match; the original pixels stay. CLI

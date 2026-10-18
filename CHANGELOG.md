@@ -7,6 +7,8 @@ package on PyPI.
 ## Unreleased
 
 ### Added
+- Series strip and "what changed" in the viewer; one-file web page export of a project or a
+  selection.
 - Extend the canvas (outpainting): grow an image to a new aspect ratio or add room on any side;
   the new area is painted to match with masked image-to-image. Viewer, CLI, MCP `outpaint`.
 - Templates on Home and Create: eight starting points that turn a field or two into a full

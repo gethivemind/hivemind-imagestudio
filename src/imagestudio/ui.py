@@ -636,6 +636,42 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
             headers={"content-disposition": f'attachment; filename="{name}"'},
         )
 
+    async def series(request: Request) -> JSONResponse:
+        try:
+            return JSONResponse(studio.series(request.path_params["job_id"]))
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=404)
+
+    async def project_export_html(request: Request) -> Response:
+        try:
+            name, data = studio.export_project_html(request.path_params["project_id"])
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return Response(
+            data,
+            media_type="text/html",
+            headers={"content-disposition": f'attachment; filename="{name}"'},
+        )
+
+    async def export_html(request: Request) -> Response:
+        body = await request.json()
+        ids = body.get("ids") or []
+        if not isinstance(ids, list) or len(ids) > 500:
+            return JSONResponse({"error": "ids: a list of up to 500 job ids"}, status_code=400)
+        try:
+            name, data = studio.export_html(
+                [str(i) for i in ids],
+                str(body.get("title") or "Images"),
+                str(body.get("description") or ""),
+            )
+        except StudioError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return Response(
+            data,
+            media_type="text/html",
+            headers={"content-disposition": f'attachment; filename="{name}"'},
+        )
+
     async def export_images(request: Request) -> Response:
         body = await request.json()
         ids = body.get("ids") or []
@@ -932,6 +968,9 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
             Route("/api/projects/current", project_current, methods=["POST"]),
             Route("/api/projects/{project_id}/export", project_export),
             Route("/api/export", export_images, methods=["POST"]),
+            Route("/api/export.html", export_html, methods=["POST"]),
+            Route("/api/jobs/{job_id}/series", series),
+            Route("/api/projects/{project_id}/export.html", project_export_html),
             Route("/api/jobs/{job_id}/lineage", lineage),
             Route("/api/trash", trash),
             Route("/api/trash/empty", empty_trash, methods=["POST"]),

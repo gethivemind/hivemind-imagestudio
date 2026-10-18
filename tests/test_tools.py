@@ -318,6 +318,51 @@ def test_semantic_search_indexes_finished_images_and_finds_duplicates(settings: 
         studio.close()
 
 
+def test_series_and_web_page_export(settings: Settings):
+    fake_install(settings, FLUX_SCHNELL, FLUX_SCHNELL.variant("q5"))
+    fake_tool(settings, "realesrgan-x4plus")
+    studio = Studio(settings=settings, engine=FakeEngine(), hardware=laptop())
+    try:
+        root = studio.generate("a red fox on a log", preset="fast", seed=3)
+        wait(studio, root.id, 30)
+        child = studio.variations(root.id, 0.4, "a red fox on a log at night", preset="fast")
+        wait(studio, child.id, 30)
+        grand = studio.upscale(child.id)
+        wait(studio, grand.id, 30)
+        s = studio.series(grand.id)
+        assert s["root"] == root.id and [m["id"] for m in s["members"]] == [
+            root.id,
+            child.id,
+            grand.id,
+        ]
+        assert s["members"][0]["changes"] == [] and s["members"][2]["current"] is True
+        c1 = s["members"][1]["changes"]
+        assert c1[0].startswith("variation at strength 0.4") and any(
+            "added: at night" in x for x in c1
+        )
+        assert any(x.startswith("seed ") for x in c1)
+        c2 = s["members"][2]["changes"]
+        assert c2[0] == "upscaled" and any(x.startswith("size ") for x in c2)
+        # the same series from the root's point of view
+        assert studio.series(root.id)["members"][0]["current"] is True
+        name, page = studio.export_html([root.id, "job_nope", child.id], "Fox studies", "two takes")
+        html = page.decode("utf-8")
+        assert name == "Fox-studies.html" and html.count("<figure>") == 2
+        assert (
+            "data:image/jpeg;base64," in html
+            and "a red fox on a log" in html
+            and "two takes" in html
+        )
+        p = studio.add_project("Foxes")
+        studio.set_job_project(root.id, p["id"])
+        name2, page2 = studio.export_project_html(p["id"])
+        assert name2 == "Foxes.html" and page2.decode("utf-8").count("<figure>") == 1
+        with pytest.raises(StudioError, match="none of the chosen"):
+            studio.export_html(["job_nope"])
+    finally:
+        studio.close()
+
+
 def test_outpaint_grows_the_canvas_and_masks_only_the_new_area(settings: Settings):
     from PIL import Image
 

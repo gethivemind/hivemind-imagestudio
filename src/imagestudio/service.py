@@ -74,6 +74,60 @@ _ASSIST_SYSTEM = (
 )
 
 
+def _changes(parent: Job, child: Job) -> list[str]:
+    """Plain sentences about what differs between a version and its parent."""
+    out: list[str] = []
+    if child.tool != "generate":
+        label = {
+            "variations": "variation",
+            "edit": "edit",
+            "upscale": "upscaled",
+            "remove_background": "background removed",
+            "fix_faces": "faces fixed",
+        }.get(child.tool, child.tool)
+        out.append(
+            label
+            + (f" at strength {child.strength:g}" if child.tool in ("variations", "edit") else "")
+        )
+    if child.tool not in ("generate", "variations", "edit", "fix_faces"):
+        # tool jobs carry a placeholder prompt ("upscale of job_…"): no wording to compare
+        if (child.width, child.height) != (parent.width, parent.height):
+            out.append(f"size {parent.width}×{parent.height} → {child.width}×{child.height}")
+        return out
+    pw = set(without_batch_and_seed(parent.prompt or "").replace(",", " ").split())
+    cw = set(without_batch_and_seed(child.prompt or "").replace(",", " ").split())
+    added = [
+        w
+        for w in without_batch_and_seed(child.prompt or "").replace(",", " ").split()
+        if w not in pw
+    ]
+    removed = [
+        w
+        for w in without_batch_and_seed(parent.prompt or "").replace(",", " ").split()
+        if w not in cw
+    ]
+    if added:
+        out.append("added: " + " ".join(dict.fromkeys(added))[:160])
+    if removed:
+        out.append("removed: " + " ".join(dict.fromkeys(removed))[:160])
+    if child.negative_prompt != parent.negative_prompt and child.negative_prompt:
+        out.append(f"negative: {child.negative_prompt[:120]}")
+    if (child.width, child.height) != (parent.width, parent.height):
+        out.append(f"size {parent.width}×{parent.height} → {child.width}×{child.height}")
+    if child.model != parent.model and child.tool in ("generate", "variations", "edit"):
+        out.append(f"model {parent.model} → {child.model}")
+    if child.seed != parent.seed and child.tool in ("generate", "variations", "edit"):
+        out.append(f"seed {parent.seed} → {child.seed}")
+    if child.style and child.style != parent.style:
+        out.append(f"look: {child.style}")
+    return out
+
+
+def _gallery_template() -> str:
+    """The one-file web page skeleton (static/gallery-export.html, str.format placeholders)."""
+    return (Path(__file__).parent / "static" / "gallery-export.html").read_text(encoding="utf-8")
+
+
 class StudioError(RuntimeError):
     pass
 
@@ -1749,6 +1803,119 @@ class Studio:
         self._index_later(job)
         self._maybe_auto_caption(job)
         return job
+
+    def series(self, job_id: str) -> dict[str, Any]:
+        """Every version connected to this image (its root, ancestors, siblings and
+        descendants), oldest first, each with what changed against its parent."""
+        jobs = {j.id: j for j in self.jobs.all()}
+        if job_id not in jobs:
+            raise StudioError(f"no such job {job_id!r}")
+        root = jobs[job_id]
+        seen = {root.id}
+        while root.source_job and root.source_job in jobs and root.source_job not in seen:
+            root = jobs[root.source_job]
+            seen.add(root.id)
+        members: list[Job] = []
+        stack = [root]
+        while stack:
+            j = stack.pop()
+            if j in members:
+                continue
+            members.append(j)
+            stack.extend(k for k in jobs.values() if k.source_job == j.id and k not in members)
+        members.sort(key=lambda j: j.created_at)
+        out = []
+        for j in members:
+            parent = jobs.get(j.source_job or "")
+            out.append(
+                {
+                    "id": j.id,
+                    "parent": j.source_job if parent else None,
+                    "tool": j.tool,
+                    "title": job_title(j),
+                    "status": j.status,
+                    "created_at": j.created_at,
+                    "width": j.width,
+                    "height": j.height,
+                    "changes": _changes(parent, j) if parent else [],
+                    "current": j.id == job_id,
+                }
+            )
+        return {"root": root.id, "members": out}
+
+    def export_html(
+        self, job_ids: list[str], title: str = "Images", description: str = ""
+    ) -> tuple[str, bytes]:
+        """One self-contained web page: the pictures (JPEG, long side 1280) with their
+        prompts and settings, viewable anywhere, nothing external."""
+        import base64
+        import html
+        import re
+
+        from PIL import Image
+
+        jobs = [
+            j
+            for jid in job_ids
+            if (j := self.jobs.get(str(jid))) is not None and j.status == "done" and j.output_path
+        ]
+        if not jobs:
+            raise StudioError("none of the chosen images is finished")
+        cards = []
+        for j in jobs:
+            src = Path(j.output_path or "")
+            if not src.exists():
+                continue
+            with Image.open(src) as im:
+                im = im.convert("RGB")
+                scale = min(1.0, 1280 / max(im.size))
+                if scale < 1.0:
+                    im = im.resize((int(im.width * scale), int(im.height * scale)), Image.LANCZOS)
+                buf = io.BytesIO()
+                im.save(buf, "JPEG", quality=88, optimize=True)
+            data = base64.b64encode(buf.getvalue()).decode("ascii")
+            text = reproducible(j) if j.tool in ("generate", "variations", "edit") else ""
+            meta = f"{job_title(j)} · {j.width}×{j.height}" + (
+                f" · {j.model} [{j.variant}]"
+                if j.tool in ("generate", "variations", "edit")
+                else ""
+            )
+            cards.append(
+                '<figure><img src="data:image/jpeg;base64,'
+                + data
+                + '" alt="'
+                + html.escape(j.prompt or j.caption or "")
+                + '">'
+                f'<figcaption><div class="m">{html.escape(meta)}</div>'
+                f"<p>{html.escape(j.prompt or j.caption or '')}</p>"
+                + (f"<pre>{html.escape(text)}</pre>" if text else "")
+                + "</figcaption></figure>"
+            )
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "-", title).strip("-") or "images"
+        page = _gallery_template()
+        for key, val in {
+            "{title}": html.escape(title),
+            "{description}": html.escape(description),
+            "{description_sep}": " · " if description else "",
+            "{count}": str(len(cards)),
+            "{cards}": "\n".join(cards),
+            "{app}": f"Hivemind Image Studio {__version__}",
+        }.items():
+            page = page.replace(key, val)  # plain replace: the CSS has braces of its own
+        return f"{slug}.html", page.encode("utf-8")
+
+    def export_project_html(self, project_id: str) -> tuple[str, bytes]:
+        entry = self.project(project_id)
+        if entry is None:
+            raise StudioError(f"no such project {project_id!r}")
+        ids = [
+            j.id
+            for j in self.jobs.all()
+            if j.project == project_id and j.status == "done" and j.output_path
+        ]
+        if not ids:
+            raise StudioError("this project has no finished images yet")
+        return self.export_html(ids, entry["name"], entry.get("description") or "")
 
     def lineage(self, job_id: str) -> dict[str, Any]:
         jobs = self.jobs.all()

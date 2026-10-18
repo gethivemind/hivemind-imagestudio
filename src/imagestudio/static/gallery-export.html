@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<style>
+:root { --bg:#0f1012; --surface:#17181b; --line:#2a2b31; --ink:#f2f2f0; --muted:#8f9096; }
+@media (prefers-color-scheme: light) { :root { --bg:#f7f6f2; --surface:#fff; --line:#e2e1da; --ink:#1b1b19; --muted:#6b6b68; } }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+.wrap { max-width:1200px; margin:0 auto; padding:28px 20px 60px; } h1 { margin:0 0 4px; font-size:26px; } .sub { color:var(--muted); margin-bottom:22px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+figure { margin:0; background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+figure img { display:block; width:100%; height:auto; cursor:zoom-in; } figure img:fullscreen { object-fit:contain; background:#000; }
+figcaption { padding:10px 12px 12px; } .m { color:var(--muted); font-size:12.5px; margin-bottom:4px; } figcaption p { margin:0; font-size:13.5px; }
+pre { white-space:pre-wrap; word-break:break-word; font:12px/1.45 ui-monospace,Consolas,monospace; color:var(--muted); margin:8px 0 0; }
+footer { margin-top:30px; color:var(--muted); font-size:12.5px; }
+</style></head><body><div class="wrap">
+<h1>{title}</h1><div class="sub">{description}{description_sep}{count} image(s) · every picture carries its full recipe below it</div>
+<div class="grid">
+{cards}
+</div>
+<footer>Made with {app} on the author's own computer. Click a picture to view it full screen.</footer>
+</div><script>document.querySelectorAll("img").forEach(i=>i.onclick=()=>i.requestFullscreen&&i.requestFullscreen());</script></body></html>
