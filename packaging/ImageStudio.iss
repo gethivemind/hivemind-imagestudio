@@ -1,4 +1,4 @@
-; Inno Setup script for Image Studio by Hivemind.
+; Inno Setup script for Presidium Image Studio.
 ; Compiled by the release workflow on windows-latest:
 ;   iscc /DMyAppVersion=0.3.4 /DSourceDir=..\dist\ImageStudio /DOutDir=..\dist packaging\ImageStudio.iss
 ; Installs per user by default (no administrator prompt; %LOCALAPPDATA%\Programs), registers the
@@ -14,9 +14,9 @@
   #define OutDir "..\dist"
 #endif
 
-#define MyAppName "Image Studio by Hivemind"
+#define MyAppName "Presidium Image Studio"
 #define MyAppShort "Image Studio"
-#define MyAppPublisher "Hivemind"
+#define MyAppPublisher "Presidium"
 #define MyAppURL "https://gethivemind.github.io/hivemind-imagestudio/"
 #define MyAppExeName "ImageStudio.exe"
 
@@ -29,8 +29,8 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL=https://github.com/gethivemind/hivemind-imagestudio/issues
 AppUpdatesURL=https://github.com/gethivemind/hivemind-imagestudio/releases
-AppCopyright=Copyright (C) 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
-DefaultDirName={autopf}\Image Studio by Hivemind
+AppCopyright=Copyright (C) 2026 Ratul Roy (royal-programmer) and the Presidium contributors
+DefaultDirName={autopf}\Presidium Image Studio
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest

@@ -5,7 +5,7 @@
 --store    identity from environment variables MSIX_IDENTITY_NAME, MSIX_PUBLISHER,
            MSIX_PUBLISHER_DISPLAY (the values Partner Center shows under Product identity).
            The package is left unsigned: the Store signs it on submission.
---sideload (default) identity Hivemind.ImageStudio / CN=Hivemind Image Studio Dev, signed with
+--sideload (default) identity Hivemind.ImageStudio / CN=Presidium Image Studio Dev, signed with
            a self-signed certificate created on the spot (exported next to the package as
            ImageStudio-dev.cer). To install: double-click the .cer, "Install Certificate",
            Local Machine, "Trusted People"; then double-click the .msix. For testing only.
@@ -13,7 +13,7 @@
 Needs the Windows 10/11 SDK (makeappx.exe, signtool.exe); found automatically.
 """
 
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -66,11 +66,11 @@ def main() -> int:
     if args.store:
         ident = os.environ.get("MSIX_IDENTITY_NAME")
         publisher = os.environ.get("MSIX_PUBLISHER")
-        display = os.environ.get("MSIX_PUBLISHER_DISPLAY", "Hivemind")
+        display = os.environ.get("MSIX_PUBLISHER_DISPLAY", "Presidium")
         if not ident or not publisher:
             sys.exit("--store needs MSIX_IDENTITY_NAME and MSIX_PUBLISHER (from Partner Center)")
     else:
-        ident, publisher, display = "Hivemind.ImageStudio", "CN=Hivemind Image Studio Dev", "Hivemind (dev build)"
+        ident, publisher, display = "Hivemind.ImageStudio", "CN=Presidium Image Studio Dev", "Presidium (dev build)"
 
     staging = DIST / "msix-staging"
     if staging.exists():
@@ -99,7 +99,7 @@ def main() -> int:
         cer = DIST / "ImageStudio-dev.cer"
         pwd = "imagestudio-dev"
         ps = (
-            "$c = New-SelfSignedCertificate -Type Custom -Subject 'CN=Hivemind Image Studio Dev' "
+            "$c = New-SelfSignedCertificate -Type Custom -Subject 'CN=Presidium Image Studio Dev' "
             "-KeyUsage DigitalSignature -FriendlyName 'Image Studio dev signing' "
             "-CertStoreLocation 'Cert:\\CurrentUser\\My' "
             "-TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}'); "

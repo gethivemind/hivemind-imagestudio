@@ -6,7 +6,7 @@ this machine; the two quantised models total about 150 MB.
 The tokenizer is CLIP's byte-level BPE, implemented here from vocab.json and merges.txt so no
 extra dependency is needed."""
 
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

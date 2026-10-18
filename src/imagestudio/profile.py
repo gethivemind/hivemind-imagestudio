@@ -1,7 +1,7 @@
 """The machine profile written by ``imagestudio benchmark``: what this machine measured, and
 the preset it can run within a target time. Like a game's "detect settings": a recommendation
 the user may override, never a cap on what the engine will attempt."""
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

@@ -27,9 +27,8 @@ Listed since 2026-10-16: Store ID **9NJ8PVHV74KZ**, https://apps.microsoft.com/d
 
 ## Steps, once
 
-1. Register at https://developer.microsoft.com/microsoft-store/register (individual account; free). Developer name: **Hivemind** (or your own name with
-   Hivemind as the publisher display name).
-2. Create the app with the name **Image Studio by Hivemind**. Reserving the name is the
+1. Register at https://developer.microsoft.com/microsoft-store/register (individual account; free). Developer name: **Presidium** (the account was opened as Hivemind; the publisher display name can be changed in Account settings).
+2. Create the app with the name **Presidium Image Studio**. Reserving the name is the
    trademark-relevant step: do it early.
 3. Open *Product management → Product identity* and copy the three values:
    `Package/Identity/Name` (looks like `12345Hivemind.ImageStudio`),

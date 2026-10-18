@@ -1,5 +1,5 @@
 """Command line: doctor, install-engine, download-model, generate, jobs, serve."""
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         print(json.dumps(caps, indent=2))
         return 0
     hw = caps["hardware"]
-    print(f"Hivemind Image Studio {__version__}")
+    print(f"Presidium Image Studio {__version__}")
     print(f"Data dir: {caps['paths']['data_dir']}")
     print()
     print("Hardware")
@@ -508,7 +508,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="imagestudio",
-        description="Hivemind Image Studio: free, local, permissively licensed image generation.",
+        description="Presidium Image Studio: free, local, permissively licensed image generation.",
     )
     p.add_argument("--version", action="version", version=f"imagestudio {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)

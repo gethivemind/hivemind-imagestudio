@@ -1,6 +1,6 @@
 """The MCP server. Tool descriptions are written for an AI caller: what it does, when to use
 it, what comes back."""
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def _hints(
     )
 
 
-INSTRUCTIONS = """Hivemind Image Studio: free, local, offline image generation.
+INSTRUCTIONS = """Presidium Image Studio: free, local, offline image generation.
 
 Policy: quality is a setting, never a consequence. generate() defaults to preset "best"
 (full resolution, full steps, the strongest permissively licensed model that fits this

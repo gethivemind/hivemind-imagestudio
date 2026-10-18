@@ -4,7 +4,7 @@ Every file here is pinned by SHA-256 (the Hugging Face LFS object id) and size, 
 model carries its licence. Only permissive licences are listed: FLUX.1-dev, RMBG-2.0 and
 other non-commercial weights are excluded by policy (ADR-051).
 """
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ class ModelSpec:
     description: str
     homepage: str
     components: dict[str, str] = field(default_factory=dict)  # sd.cpp flag -> filename prefix
-    tier: str = "verified"  # verified (Hivemind catalogue, pinned hashes) | custom (your own)
+    tier: str = "verified"  # verified (Presidium catalogue, pinned hashes) | custom (your own)
     note: str = ""
     role: str = "generate"  # generate | edit (takes a reference image; never picked by "auto")
 
@@ -1134,7 +1134,7 @@ def find_llama_asset(platform: str, machine: str) -> EngineAsset | None:
 
 
 LICENCES: tuple[dict[str, str], ...] = (
-    {"component": "Hivemind Image Studio", "licence": "Apache-2.0"},
+    {"component": "Presidium Image Studio", "licence": "Apache-2.0"},
     {"component": "stable-diffusion.cpp (engine)", "licence": "MIT"},
     {"component": "ggml", "licence": "MIT"},
     {"component": "FLUX.1 [schnell] weights (GGUF, city96)", "licence": "Apache-2.0"},

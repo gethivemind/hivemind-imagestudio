@@ -1,6 +1,6 @@
 """The studio's own local web UI: one HTML page plus a small JSON API over the same Studio
 the MCP tools use. Settings panel with a live load meter, the queue, and a gallery."""
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -17,28 +17,6 @@ from starlette.routing import Route
 
 from imagestudio.registry import GIB, MODELS
 from imagestudio.service import Studio, StudioError
-
-
-def _draw_icon(size: int) -> bytes:
-    """The studio mark (hexagon and lens) as a PNG of ``size`` px, same geometry as icon.svg,
-    drawn at 4x and downsampled so the edges are smooth."""
-    import io
-
-    from PIL import Image, ImageDraw
-
-    s = size * 4
-    u = s / 64
-    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.rounded_rectangle((0, 0, s - 1, s - 1), radius=int(14 * u), fill="#0f1012")
-    hexagon = [(32, 6), (54, 19), (54, 45), (32, 58), (10, 45), (10, 19)]
-    d.polygon([(x * u, y * u) for x, y in hexagon], fill="#f0b429")
-    d.ellipse((20 * u, 20 * u, 44 * u, 44 * u), fill="#1b1b19")
-    d.ellipse((26.5 * u, 26.5 * u, 37.5 * u, 37.5 * u), fill="#f7f6f2")
-    out = io.BytesIO()
-    img.resize((size, size), Image.LANCZOS).save(out, "PNG", optimize=True)
-    return out.getvalue()
-
 
 STATIC = Path(__file__).parent / "static"
 
@@ -94,7 +72,7 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
     async def manifest(_: Request) -> JSONResponse:
         return JSONResponse(
             {
-                "name": "Image Studio by Hivemind",
+                "name": "Presidium Image Studio",
                 "short_name": "Image Studio",
                 "start_url": "/",
                 "display": "standalone",
@@ -125,7 +103,9 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
         if size not in (120, 152, 167, 180, 192, 256, 512):
             return JSONResponse({"error": "no such icon"}, status_code=404)
         if size not in _png_icons:
-            _png_icons[size] = _draw_icon(size)
+            from imagestudio.brand import TEAL, mark_png
+
+            _png_icons[size] = mark_png(size, tile=TEAL)
         return Response(
             _png_icons[size],
             media_type="image/png",
@@ -133,13 +113,9 @@ def build_app(studio: Studio, on_remote_change=None) -> Starlette:
         )
 
     async def icon(_: Request) -> Response:
-        return Response(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" h'
-            'eight="64" rx="14" fill="#0f1012"/><path d="M32 6 54 19v26L32 58 10 45V19z" fi'
-            'll="#f0b429"/><circle cx="32" cy="32" r="12" fill="#1b1b19"/><circle cx="32" c'
-            'y="32" r="5.5" fill="#f7f6f2"/></svg>',
-            media_type="image/svg+xml",
-        )
+        from imagestudio.brand import TEAL, mark_svg
+
+        return Response(mark_svg(tile=TEAL), media_type="image/svg+xml")
 
     # -- remote access and pairing (the owner's machine only, except completing a pairing) --
 
@@ -1009,7 +985,7 @@ def serve_ui(host: str | None = None, port: int = 8766, start_worker: bool = Tru
     if host is None:
         host = "0.0.0.0" if studio.settings.remote_enabled else "127.0.0.1"
     mode = "rendering jobs" if studio.worker_active else "submitting to the running worker"
-    print(f"Hivemind Image Studio UI at http://{host}:{port}  ({mode})", flush=True)
+    print(f"Presidium Image Studio UI at http://{host}:{port}  ({mode})", flush=True)
     try:
         uvicorn.run(build_app(studio), host=host, port=port, log_level="warning")
     finally:

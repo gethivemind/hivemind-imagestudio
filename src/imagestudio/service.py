@@ -1,6 +1,6 @@
 """The studio: wires hardware, models, calibration, planner, engine and the job queue.
 Both the MCP server and the CLI talk to this one object."""
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -310,7 +310,7 @@ class Studio:
             )
         project = self.project(job.project) if job.project else None
         info = {
-            "app": f"Hivemind Image Studio {__version__}",
+            "app": f"Presidium Image Studio {__version__}",
             "job": job.id,
             "tool": job.tool,
             "project": project["name"] if project else "",
@@ -1502,7 +1502,7 @@ class Studio:
 
     def export_styles(self) -> dict[str, Any]:
         return {
-            "app": f"Hivemind Image Studio {__version__}",
+            "app": f"Presidium Image Studio {__version__}",
             "kind": "imagestudio-styles",
             "styles": [
                 {"name": s["name"], "text": s["text"], "negative": s.get("negative", "")}
@@ -1711,7 +1711,7 @@ class Studio:
                 json.dumps(
                     {
                         **entry,
-                        "app": f"Hivemind Image Studio {__version__}",
+                        "app": f"Presidium Image Studio {__version__}",
                         "images": [j.id for j in jobs],
                     },
                     indent=2,
@@ -1900,7 +1900,7 @@ class Studio:
             "{description_sep}": " · " if description else "",
             "{count}": str(len(cards)),
             "{cards}": "\n".join(cards),
-            "{app}": f"Hivemind Image Studio {__version__}",
+            "{app}": f"Presidium Image Studio {__version__}",
         }.items():
             page = page.replace(key, val)  # plain replace: the CSS has braces of its own
         return f"{slug}.html", page.encode("utf-8")

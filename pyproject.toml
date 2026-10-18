@@ -6,7 +6,7 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
-authors = [{ name = "Ratul Roy (royal-programmer)" }, { name = "Hivemind" }]
+authors = [{ name = "Ratul Roy (royal-programmer)" }, { name = "Presidium" }]
 maintainers = [{ name = "Ratul Roy (royal-programmer)" }]
 keywords = ["mcp", "image-generation", "stable-diffusion.cpp", "flux", "local"]
 classifiers = [

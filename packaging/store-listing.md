@@ -2,14 +2,14 @@
 
 Use exactly as written or edit freely. Character limits are Partner Center's.
 
-## Product name (reserved)
-Image Studio by Hivemind
+## Product name
+Presidium Image Studio (reserve it under Product management → Manage app names, then make it the listing's display name; the original reservation "Image Studio by Hivemind" stays on the account)
 
 ## Short description (≤ 200 chars)
 Your own image studio. Create, edit, extend, restyle, upscale, cut out, repair faces and search pictures with free, permissively licensed models, entirely on your PC.
 
 ## Description (≤ 10,000 chars)
-Image Studio by Hivemind is a complete image studio that runs on your own computer. Nothing is uploaded, nothing is paid for, and there is no account.
+Presidium Image Studio is a complete image studio that runs on your own computer. Nothing is uploaded, nothing is paid for, and there is no account.
 
 WHAT IT DOES
 • Create images from text with FLUX.1 schnell or Qwen-Image, with a live preview while they render.
@@ -36,7 +36,7 @@ Models are downloaded only when you ask, pinned by SHA-256, and stored in your u
 WHAT TO EXPECT
 A 16 GB laptop without a discrete GPU renders a full-quality image in about an hour on the CPU build and roughly half that with the Vulkan build on integrated graphics; the studio measures this and shows it before each run. A desktop with a discrete GPU takes minutes. The first run downloads about 10 GB of model files with your consent.
 
-Image Studio by Hivemind · made with ♥ by Ratul Roy (royal-programmer).
+Presidium Image Studio · made with ♥ by Ratul Roy (royal-programmer).
 
 ## Category / subcategory
 Photo & video / Photo editing (or "Multimedia design")
@@ -45,7 +45,7 @@ Photo & video / Photo editing (or "Multimedia design")
 image generation; stable diffusion; FLUX; local AI; outpainting; upscale; background remover
 
 ## Copyright and trademark info
-Copyright © 2026 Ratul Roy and the Hivemind contributors. "Hivemind" and "Image Studio by Hivemind" are trademarks of Ratul Roy.
+Copyright © 2026 Ratul Roy and the Presidium contributors. "Presidium" and "Presidium Image Studio" are trademarks of Ratul Roy.
 
 ## Privacy policy URL (required: the app declares the internetClient capability)
 https://gethivemind.github.io/hivemind-imagestudio/privacy.html

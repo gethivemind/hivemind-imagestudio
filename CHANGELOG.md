@@ -6,6 +6,11 @@ package on PyPI.
 
 ## Unreleased
 
+### Changed
+- Renamed to **Presidium Image Studio** with the Presidium mark (six seats around one table,
+  the picture on the table) and the Image Studio teal. The package, command, data folder and
+  Store identity keep their names, so nothing installed breaks; only what you see changes.
+
 ### Added
 - Series strip and "what changed" in the viewer; one-file web page export of a project or a
   selection.

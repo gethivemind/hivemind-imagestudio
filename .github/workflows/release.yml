@@ -1,6 +1,6 @@
 name: Release
 
-# ADR-056 (Hivemind): a tag `vX.Y.Z` builds the wheel and sdist, publishes them to PyPI
+# ADR-056 (Presidium): a tag `vX.Y.Z` builds the wheel and sdist, publishes them to PyPI
 # through Trusted Publishing (no long-lived token anywhere), and attaches them to a GitHub
 # release, together with the desktop app for Windows (installer, portable zip, Store MSIX),
 # macOS (arm64 .app, zipped) and Linux (x86_64 folder, tarball), each with its SHA-256. The
@@ -141,7 +141,7 @@ jobs:
           cd dist
           if [ "$RUNNER_OS" = "macOS" ]; then
             cp ../LICENSE ../NOTICE ../TRADEMARK.md ../packaging/README-LINUX-MACOS.txt .
-            ditto -c -k --sequesterRsrc --keepParent "Image Studio.app" "ImageStudio-$ver-macos-arm64.zip"
+            ditto -c -k --sequesterRsrc --keepParent "Presidium Image Studio.app" "ImageStudio-$ver-macos-arm64.zip"
             zip -q -g "ImageStudio-$ver-macos-arm64.zip" LICENSE NOTICE TRADEMARK.md README-LINUX-MACOS.txt
             shasum -a 256 "ImageStudio-$ver-macos-arm64.zip" > "ImageStudio-$ver-macos-arm64.zip.sha256"
             cat "ImageStudio-$ver-macos-arm64.zip.sha256"

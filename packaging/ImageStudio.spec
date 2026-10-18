@@ -1,7 +1,7 @@
 # PyInstaller spec for the desktop app on Windows, macOS and Linux. Build from the repository
 # root:  pyinstaller packaging/ImageStudio.spec --noconfirm
 # Produces dist/ImageStudio/ (one folder; zip it for distribution) and, on macOS, the
-# "Image Studio.app" bundle next to it. A one-file build was
+# "Presidium Image Studio.app" bundle next to it. A one-file build was
 # rejected on purpose: it unpacks itself into a temp folder on every start, which is slow
 # and looks more suspicious to endpoint protection than a plain folder.
 
@@ -79,11 +79,11 @@ coll = COLLECT(
 if MAC:
     app = BUNDLE(
         coll,
-        name="Image Studio.app",
+        name="Presidium Image Studio.app",
         icon=str(ROOT / "packaging" / "store-assets" / "display-1x1-300.png"),
         bundle_identifier="com.hivemind.imagestudio",
         info_plist={
-            "CFBundleDisplayName": "Image Studio by Hivemind",
+            "CFBundleDisplayName": "Presidium Image Studio",
             "CFBundleShortVersionString": os.environ.get("IMAGESTUDIO_VERSION", "0.0.0"),
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "13.0",

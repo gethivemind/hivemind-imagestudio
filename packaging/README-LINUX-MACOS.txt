@@ -1,4 +1,4 @@
-Image Studio by Hivemind - macOS and Linux builds
+Presidium Image Studio - macOS and Linux builds
 ==================================================
 
 macOS (Apple silicon)

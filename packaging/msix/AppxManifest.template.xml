@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  MSIX manifest for Image Studio by Hivemind (desktop app, full trust).
+  MSIX manifest for Presidium Image Studio (desktop app, full trust).
   packaging/build_msix.py fills the placeholders:
     {{IDENTITY_NAME}}  Partner Center "Package/Identity/Name" (e.g. 12345Hivemind.ImageStudio);
                        a sideload build uses Hivemind.ImageStudio
@@ -19,7 +19,7 @@
   <Identity Name="{{IDENTITY_NAME}}" Publisher="{{PUBLISHER}}" Version="{{VERSION}}" ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Image Studio by Hivemind</DisplayName>
+    <DisplayName>Presidium Image Studio</DisplayName>
     <PublisherDisplayName>{{PUBLISHER_DISPLAY}}</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
     <Description>Free, local image studio: text to image, editing, sketch to image, upscaling, background removal and image to text with permissively licensed models, on your own machine. Quality is a setting, never a consequence.</Description>
@@ -36,7 +36,7 @@
   <Applications>
     <Application Id="ImageStudio" Executable="ImageStudio\ImageStudio.exe" EntryPoint="Windows.FullTrustApplication" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
       <uap:VisualElements
-        DisplayName="Image Studio by Hivemind"
+        DisplayName="Presidium Image Studio"
         Description="Your own image studio. Free, local, honest."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"

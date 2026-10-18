@@ -6,7 +6,7 @@ and a prompt. Everything stays on the machine. Used for captions, "write a promp
 make this", and alt text. The same model also runs text-only (``llama-completion`` from the
 same release) as the prompt assistant: a brief in, a finished prompt out.
 """
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

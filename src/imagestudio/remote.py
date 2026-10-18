@@ -8,7 +8,7 @@ are stored hashed in ``<data>/devices.json`` and can be revoked from Settings. N
 leaves the local network unless the user sets up a VPN of their own.
 """
 
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

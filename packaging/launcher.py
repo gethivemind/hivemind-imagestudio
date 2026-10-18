@@ -14,7 +14,7 @@ Options:  --browser  (use the default browser instead of a window)
           cli …  (run the command line, e.g. ImageStudio.exe cli doctor)
 """
 
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from pathlib import Path
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("IMAGESTUDIO_PORT", "8766"))
 CONTROL_PORT = PORT + 1  # single-instance handshake
-TITLE = "Image Studio by Hivemind"
+TITLE = "Presidium Image Studio"
 WEBVIEW2_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 # the tray icon needs a GUI loop of its own; on macOS that loop and the window's are the same
 # main thread, so the tray is Windows-only. Linux runs in the browser (see the docstring).
@@ -360,7 +360,7 @@ class App:
                 else Image.new("RGB", (64, 64), "#f0b429")
             )
             menu = pystray.Menu(
-                pystray.MenuItem("Open Image Studio", lambda: self.focus(), default=True),
+                pystray.MenuItem("Open Presidium Image Studio", lambda: self.focus(), default=True),
                 pystray.MenuItem("Open in browser", lambda: self.open_in_browser()),
                 pystray.MenuItem(
                     lambda item: (

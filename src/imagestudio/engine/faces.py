@@ -3,7 +3,7 @@ the "fix faces" tool. The detector finds faces; the fix itself is ordinary image
 each face crop at a higher resolution, pasted back under a feathered mask. Everything runs on
 this machine; the model is 1.5 MB."""
 
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

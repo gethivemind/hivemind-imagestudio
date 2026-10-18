@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Image Studio by Hivemind</title>
+<title>Presidium Image Studio</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon-180.png">
@@ -17,7 +17,7 @@
 <style>
   :root {
     --bg: #f4f3ef; --surface: #ffffff; --surface2: #f8f7f4; --ink: #1b1b19; --ink2: #4b4a46; --muted: #7a7873; --line: #e4e2dc; --line2: #d6d4cd;
-    --accent: #2f6fed; --on-accent: #fff; --honey: #f0b429; --ok: #2e8b57; --warn: #c98a12; --bad: #c8463c;
+    --accent: #2f6fed; --on-accent: #fff; --honey: #149A78; --ok: #2e8b57; --warn: #c98a12; --bad: #c8463c;
     --track: #e7e5df; --r: 12px; --r-lg: 18px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --shadow: 0 1px 2px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.10); --shadow-lg: 0 24px 64px rgba(0,0,0,.28);
     --rail: 360px; --qrail: 300px; --top: 52px;
@@ -316,7 +316,7 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="var(--honey)"/><circle cx="32" cy="32" r="13" fill="var(--ink)"/><circle cx="32" cy="32" r="6" fill="var(--bg)"/></svg><span>Image Studio <small>by Hivemind</small></span></div>
+  <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="53.1" cy="18.2" r="3.6" fill="var(--honey)"/><circle cx="58.3" cy="41" r="3.6" fill="var(--honey)"/><circle cx="43.7" cy="59.3" r="3.6" fill="var(--honey)"/><circle cx="20.3" cy="59.3" r="3.6" fill="var(--honey)"/><circle cx="5.7" cy="41" r="3.6" fill="var(--honey)"/><circle cx="10.9" cy="18.2" r="3.6" fill="var(--honey)"/><circle cx="32" cy="8" r="5.5" fill="var(--honey)"/><rect x="21" y="26" width="22" height="18" rx="3" fill="none" stroke="var(--honey)" stroke-width="3"/><path d="M23 42 L30 34 L34 38 L37 35 L41 40" fill="none" stroke="var(--honey)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="37" cy="31" r="1.8" fill="var(--honey)"/></svg><span>Presidium <small>Image Studio</small></span></div>
   <nav class="tabs" id="tabs"><button data-tab="home">Home</button><button data-tab="create" class="active">Create</button><button data-tab="sketch">Sketch</button><button data-tab="gallery">Gallery</button><button data-tab="machine">Settings</button></nav>
   <div class="grow"></div>
   <span class="chip btn" id="prjchip" title="Project: new images are filed here and the gallery shows only this project. Click to switch, create or export."><span id="prjtext">▣ All work</span></span>
@@ -332,7 +332,7 @@
   <div class="guide" id="guide"></div>
   <div class="tplwrap"><div class="tplhead"><span>Start from a template</span><span class="muted small">fill a field or two, the studio writes the prompt and picks the size</span></div><div class="tpls" id="tpls"></div></div>
   <div class="cards" id="cards"></div>
-  <div class="credit">Image Studio by Hivemind · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener">Ratul Roy (royal-programmer)</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio" target="_blank" rel="noopener">source</a> · Apache-2.0</div>
+  <div class="credit">Presidium Image Studio · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener">Ratul Roy (royal-programmer)</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio" target="_blank" rel="noopener">source</a> · Apache-2.0</div>
 </section>
 <section class="view" id="sketch">
   <div class="skstage" id="skstage">
@@ -1122,7 +1122,7 @@
     const cfg = await api("/api/config"); S.cfg = cfg; $("cfgOver").checked = cfg.allow_over_budget; $("cfgOver").disabled = cfg.allow_over_budget_from_env; $("cfgPreview").checked = cfg.live_preview; $("cfgCaption").checked = !!cfg.auto_caption; $("cfgNotify").checked = notifyOn(); $("cfgCaptionNote").textContent = cfg.auto_caption_ready ? "" : "Needs llama.cpp and a vision model (Models and engines above)."; $("cfgThreads").value = cfg.default_threads ?? ""; $("cfgMem").value = cfg.max_memory_gib ?? ""; $("memLimitNote").textContent = `Hard cap on the memory budget in GiB. Automatic budget on this machine: ${cfg.memory_budget_auto_gib} GiB${cfg.max_memory_gib ? ` · currently capped to ${cfg.memory_budget_gib} GiB` : ""}. Lower it to keep the machine usable while rendering; jobs above it are refused unless over-budget runs are unlocked.`; $("cfgPath").textContent = cfg.config_file + (cfg.allow_over_budget_from_env ? " · over-budget set by environment variable" : "");
     if (c.profile) renderProfile(c.profile);
     let appInfo = null; if (inApp()) { try { appInfo = await window.pywebview.api.app_info(); } catch (e) {} }
-    $("aboutPanel").innerHTML = (appInfo ? `<div style="margin-bottom:8px">${esc(appInfo.label || "Desktop app")} · <a data-applog style="color:var(--accent);cursor:pointer">show log file</a> · <a data-appbrowser style="color:var(--accent);cursor:pointer">open in browser</a></div>` : "") + `<b>Image Studio by Hivemind</b> ${esc(c.studio_version)} · Apache-2.0 · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener" style="color:var(--accent)">Ratul Roy (royal-programmer)</a><br>${esc(c.policy.quality)}<br><span class="muted">"Hivemind" and "Image Studio by Hivemind" are trademarks; the code is free under Apache-2.0, the name is not. See <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADEMARK.md" target="_blank" rel="noopener" style="color:var(--accent)">TRADEMARK.md</a>.</span><br><br>` + (c.licences || []).map(l => `${esc(l.component)}: ${esc(l.licence)}`).join("<br>") + `<br><br>Excluded by policy: ${(c.excluded_by_policy || []).map(e => esc(e.model)).join(", ")}.<br><br><b>MCP command</b> for Claude, Cursor or VS Code: <span class="mono">${esc(appInfo && appInfo.exe ? `"${appInfo.exe}" cli serve` : "imagestudio serve")}</span> · <a href="https://gethivemind.github.io/hivemind-imagestudio/mcp.html" target="_blank" rel="noopener" style="color:var(--accent)">how to connect an agent</a>`;
+    $("aboutPanel").innerHTML = (appInfo ? `<div style="margin-bottom:8px">${esc(appInfo.label || "Desktop app")} · <a data-applog style="color:var(--accent);cursor:pointer">show log file</a> · <a data-appbrowser style="color:var(--accent);cursor:pointer">open in browser</a></div>` : "") + `<b>Presidium Image Studio</b> ${esc(c.studio_version)} · Apache-2.0 · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener" style="color:var(--accent)">Ratul Roy (royal-programmer)</a><br>${esc(c.policy.quality)}<br><span class="muted">"Presidium" and "Presidium Image Studio" are trademarks; the code is free under Apache-2.0, the name is not. See <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADEMARK.md" target="_blank" rel="noopener" style="color:var(--accent)">TRADEMARK.md</a>.</span><br><br>` + (c.licences || []).map(l => `${esc(l.component)}: ${esc(l.licence)}`).join("<br>") + `<br><br>Excluded by policy: ${(c.excluded_by_policy || []).map(e => esc(e.model)).join(", ")}.<br><br><b>MCP command</b> for Claude, Cursor or VS Code: <span class="mono">${esc(appInfo && appInfo.exe ? `"${appInfo.exe}" cli serve` : "imagestudio serve")}</span> · <a href="https://gethivemind.github.io/hivemind-imagestudio/mcp.html" target="_blank" rel="noopener" style="color:var(--accent)">how to connect an agent</a>`;
     renderTasks(); loadMemory();
   }
   async function renderCustomPanel() {

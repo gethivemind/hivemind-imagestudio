@@ -5,7 +5,7 @@ partial file exists. On completion the SHA-256 is checked against the pinned val
 file is moved into place; a mismatch deletes the file and raises. Nothing here runs unless the
 caller has already obtained consent (``--yes`` on the CLI or ``consent=True`` on the tool).
 """
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

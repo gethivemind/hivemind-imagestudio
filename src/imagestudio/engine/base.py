@@ -1,6 +1,6 @@
 """The engine interface. stable-diffusion.cpp is the first implementation; ComfyUI can be
 added later behind the same protocol."""
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

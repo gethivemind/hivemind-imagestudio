@@ -1,4 +1,4 @@
-Image Studio by Hivemind - Windows app
+Presidium Image Studio - Windows app
 ======================================
 
 1. Unzip this folder anywhere (for example C:\Apps\ImageStudio).

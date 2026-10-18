@@ -6,7 +6,7 @@ average per model variant) and stored in ``calibration.json`` in the data dir. U
 first run completes, a heuristic from the core count seeds the estimate and the ETA is
 labelled ``uncalibrated``.
 """
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

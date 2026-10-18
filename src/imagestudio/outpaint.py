@@ -3,7 +3,7 @@ existing masked image-to-image path. The new area is pre-filled by mirroring and
 nearest edge so the model starts from the right colours, and the mask is feathered a little
 into the original so the seam blends. Pure Pillow; the engine does the painting."""
 
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

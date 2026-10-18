@@ -3,7 +3,7 @@
 Every job is a JSON file under ``jobs/`` and every finished image a PNG under ``out/``, so
 nothing is lost when the server stops. On start, jobs that were running are re-queued.
 """
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations

@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Image Studio by Hivemind</title>
+<title>Presidium Image Studio</title>
 <meta name="description" content="A free, local image studio and MCP server. Text to image, editing, sketch to image, upscaling, background removal and image to text with permissively licensed models, on your own machine. Quality is a setting, never a consequence.">
-<meta property="og:title" content="Image Studio by Hivemind">
+<meta property="og:title" content="Presidium Image Studio">
 <meta property="og:description" content="Free, local, permissively licensed. Quality is a setting, never a consequence.">
 <meta property="og:image" content="https://gethivemind.github.io/hivemind-imagestudio/assets/shot-create.png">
 <meta property="og:type" content="website">
@@ -13,9 +13,9 @@
 <style>
   :root {
     --bg: #0f1012; --surface: #17181b; --surface2: #1f2024; --line: #2a2b31; --ink: #f2f2f0; --ink2: #c9c9c4; --muted: #8f9096;
-    --accent: #7aa6ff; --honey: #f0b429; --ok: #52c17c; --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --accent: #22B48C; --honey: #149A78; --ok: #52c17c; --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
   }
-  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f7f6f2; --surface: #ffffff; --surface2: #f0efe9; --line: #e2e1da; --ink: #1b1b19; --ink2: #3a3a37; --muted: #6b6b68; --accent: #2f6fed; --ok: #2e8b57; } }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f7f6f2; --surface: #ffffff; --surface2: #f0efe9; --line: #e2e1da; --ink: #1b1b19; --ink2: #3a3a37; --muted: #6b6b68; --accent: #149A78; --ok: #2e8b57; } }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; } section, .hero { scroll-margin-top: 72px; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
@@ -26,7 +26,7 @@
   header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 58px; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.2px; text-decoration: none; color: var(--ink); }
   .brand svg { width: 28px; height: 28px; }
-  .brand small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .brand small { font-weight: 400; color: var(--ink2); font-size: inherit; margin-left: 4px; }
   nav a { color: var(--ink2); text-decoration: none; margin-left: 18px; font-size: 14px; }
   nav a:hover { color: var(--accent); }
   .hero { padding: 72px 0 36px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 36px; align-items: center; }
@@ -75,7 +75,7 @@
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <a class="brand" href="#"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 56 18v28L32 60 8 46V18z" fill="#f0b429"/><circle cx="32" cy="32" r="13" fill="#1b1b19"/><circle cx="32" cy="32" r="6" fill="#f7f6f2"/></svg>Image Studio <small>by Hivemind</small></a>
+  <a class="brand" href="#"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="53.1" cy="18.2" r="3.6" fill="#149A78"/><circle cx="58.3" cy="41" r="3.6" fill="#149A78"/><circle cx="43.7" cy="59.3" r="3.6" fill="#149A78"/><circle cx="20.3" cy="59.3" r="3.6" fill="#149A78"/><circle cx="5.7" cy="41" r="3.6" fill="#149A78"/><circle cx="10.9" cy="18.2" r="3.6" fill="#149A78"/><circle cx="32" cy="8" r="5.5" fill="#149A78"/><rect x="21" y="26" width="22" height="18" rx="3" fill="none" stroke="#149A78" stroke-width="3"/><path d="M23 42 L30 34 L34 38 L37 35 L41 40" fill="none" stroke="#149A78" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="37" cy="31" r="1.8" fill="#149A78"/></svg>Presidium <small>Image Studio</small></a>
   <nav><a href="#features">Features</a><a href="#policy">Policy</a><a href="#numbers">Numbers</a><a href="#install">Install</a><a href="#licences">Licences</a><a href="mcp.html">Agents</a><a href="https://github.com/gethivemind/hivemind-imagestudio" target="_blank" rel="noopener">GitHub</a></nav>
 </div></header>
 
@@ -107,7 +107,7 @@
 
   <section id="features">
     <h2>One studio, every step</h2>
-    <p class="sub">A local web app, a command line, and an MCP server for Hivemind or any other agent that speaks MCP. Same engine, same policy.</p>
+    <p class="sub">A local web app, a command line, and an MCP server for Presidium or any other agent that speaks MCP. Same engine, same policy.</p>
     <div class="grid">
       <div class="card"><div class="ic">✦</div><h3>Create</h3><p>Prompt parameters Midjourney-style: <code>--seed 7 --size 1024x768 --preset fast --n 4 --lora inkstyle:0.8</code>. Live preview while it renders. A load meter that shows the machine's limit and an explicit unlock past it.</p></div>
       <div class="card"><div class="ic">✎</div><h3>Edit and Variations</h3><p>Change a picture by instruction with Qwen-Image-Edit, repaint only a painted mask, remove an object, or re-roll at a chosen distance. Strength defaults sit below the measured cliff on fast models.</p></div>
@@ -169,14 +169,14 @@ imagestudio download-model flux-schnell --yes</pre><p class="note">Or do the sam
     <div class="grid">
       <div class="card"><h3>Code: Apache-2.0</h3><p>Use it, fork it, ship it, in products and at work. Keep the NOTICE file and the author lines, as the licence asks.</p></div>
       <div class="card"><h3>Models and engines</h3><p>stable-diffusion.cpp and llama.cpp are MIT. FLUX.1 schnell, Qwen-Image, Qwen-Image-Edit, their encoders and the vision models are Apache-2.0. Real-ESRGAN is BSD-3-Clause; IS-Net and U²-Net are Apache-2.0.</p></div>
-      <div class="card"><h3>Name: a trademark</h3><p>"Hivemind", "Image Studio by Hivemind" and the logo identify the official project. Forks are welcome under their own name and may say "based on Hivemind Image Studio". The policy is in <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADEMARK.md" target="_blank" rel="noopener">TRADEMARK.md</a>.</p></div>
+      <div class="card"><h3>Name: a trademark</h3><p>"Presidium", "Presidium Image Studio" and the logo identify the official project. Forks are welcome under their own name and may say "based on Presidium Image Studio". The policy is in <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/TRADEMARK.md" target="_blank" rel="noopener">TRADEMARK.md</a>.</p></div>
     </div>
   </section>
 </main>
 
 <footer><div class="wrap">
-  <div class="credit">Image Studio by Hivemind · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener">Ratul Roy (royal-programmer)</a></div>
-  <div><a href="https://github.com/gethivemind/hivemind-imagestudio" target="_blank" rel="noopener">Source</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio/issues" target="_blank" rel="noopener">Issues</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/CITATION.cff" target="_blank" rel="noopener">Cite</a> · <a href="privacy.html">Privacy</a> · © 2026 Ratul Roy and the Hivemind contributors</div>
+  <div class="credit">Presidium Image Studio · made with ♥ by <a href="https://github.com/royal-programmer" target="_blank" rel="noopener">Ratul Roy (royal-programmer)</a></div>
+  <div><a href="https://github.com/gethivemind/hivemind-imagestudio" target="_blank" rel="noopener">Source</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio/issues" target="_blank" rel="noopener">Issues</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a> · <a href="https://github.com/gethivemind/hivemind-imagestudio/blob/main/CITATION.cff" target="_blank" rel="noopener">Cite</a> · <a href="privacy.html">Privacy</a> · © 2026 Ratul Roy and the Presidium contributors</div>
 </div></footer>
 </body>
 </html>

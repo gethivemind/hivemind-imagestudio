@@ -4,7 +4,7 @@ strength chosen for the model's measured cliff (on 4-step FLUX, up to about 0.45
 composition; a medium change like pencil sketch needs about 0.5, a full re-draw like pixel art
 about 0.6). The user's saved styles join the list at the default strength."""
 
-# Copyright 2026 Ratul Roy (royal-programmer) and the Hivemind contributors
+# Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
