@@ -724,7 +724,7 @@ class Studio:
         fraction: float | None = None,
         sides: str = "all",
         prompt: str = "",
-        strength: float = 0.6,
+        strength: float = 0.75,
         preset: str = "best",
         seed: int | None = None,
         model: str | None = None,

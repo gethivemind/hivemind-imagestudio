@@ -87,7 +87,7 @@ def expand(source: Path, pad: Padding, out_image: Path, out_mask: Path, overlap:
     original along each grown side (``overlap`` of the original's size) so the model draws the
     transition itself; a hard edge is what makes outpaints look pasted."""
     import numpy as np
-    from PIL import Image, ImageDraw, ImageFilter
+    from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
     with Image.open(source) as src:
         im = src.convert("RGB")
@@ -110,11 +110,23 @@ def expand(source: Path, pad: Padding, out_image: Path, out_mask: Path, overlap:
     bottom = (
         np.repeat(row[-1:, :, :], bottom_n, axis=0) if bottom_n else np.zeros((0, cw, 3), np.uint8)
     )
-    canvas = Image.fromarray(np.concatenate([top, row, bottom], axis=0))
-    # soften the stretched area a little (streaks become gradients); the original stays sharp
-    soft = canvas.filter(ImageFilter.GaussianBlur(max(4, min(w, h) // 40)))
-    soft.paste(im, (x0, y0))
-    canvas = soft
+    stretched = Image.fromarray(np.concatenate([top, row, bottom], axis=0))
+    # the stretch carries the right colours but no structure, and at a moderate strength the
+    # model keeps smears as smears; mirrored content gives it real shapes to repaint. Blend
+    # the two (colour from the stretch, structure from the mirror), soften, keep the original
+    mirrored = Image.new("RGB", (cw, ch))
+    for ty, flip_y in _mirror_positions(y0, h, ch):
+        for tx, flip_x in _mirror_positions(x0, w, cw):
+            tile = im
+            if flip_x:
+                tile = ImageOps.mirror(tile)
+            if flip_y:
+                tile = ImageOps.flip(tile)
+            mirrored.paste(tile, (tx, ty))
+    canvas = Image.blend(stretched, mirrored, 0.5).filter(
+        ImageFilter.GaussianBlur(max(3, min(w, h) // 64))
+    )
+    canvas.paste(im, (x0, y0))
     # mask: white = paint. Everything new, plus a band of the original along each grown side.
     band_x, band_y = int(w * overlap), int(h * overlap)
     kl = band_x if pad.left else 0
