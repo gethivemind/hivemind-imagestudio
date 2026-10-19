@@ -2,4 +2,4 @@
 # Copyright 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 # SPDX-License-Identifier: Apache-2.0
 
-__version__ = "0.3.8"
+__version__ = "0.3.9"

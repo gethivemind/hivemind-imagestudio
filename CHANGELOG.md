@@ -4,7 +4,7 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
-## Unreleased
+## 0.3.9 — 2026-10-19
 
 ### Changed
 - Renamed to **Presidium Image Studio** with the Presidium mark (six seats around one table,
