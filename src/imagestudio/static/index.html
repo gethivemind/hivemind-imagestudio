@@ -1059,7 +1059,7 @@
     const fill = (sel, list) => { sel.innerHTML = ""; for (const t of list) { const o = document.createElement("option"); o.value = t.name; o.textContent = `${t.display_name}${t.installed ? "" : " · " + t.size_gib + " GiB download"}`; if (t.default) o.selected = true; sel.appendChild(o); } };
     fill($("upModel"), up); fill($("bgModel"), bg);
     const bgOk = S.caps.background_engine && S.caps.background_engine.available;
-    $("toolsNote").textContent = bgOk ? "Results appear as new items in the gallery and the queue." : "Background removal needs onnxruntime (pip install 'hivemind-imagestudio[bg]').";
+    $("toolsNote").textContent = bgOk ? "Results appear as new items in the gallery and the queue." : "Background removal needs onnxruntime (pip install 'presidium-imagestudio[bg]').";
     $("bgBtn").disabled = !bgOk;
   }
   async function runTool(tool, body) {

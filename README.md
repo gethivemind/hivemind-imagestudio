@@ -1,6 +1,6 @@
 # Presidium Image Studio
 
-**Website:** https://presidiumdev.github.io/presidium-imagestudio/ · **PyPI:** https://pypi.org/project/hivemind-imagestudio/ · **Releases:** https://github.com/presidiumdev/presidium-imagestudio/releases
+**Website:** https://presidiumdev.github.io/presidium-imagestudio/ · **PyPI:** https://pypi.org/project/presidium-imagestudio/ · **Releases:** https://github.com/presidiumdev/presidium-imagestudio/releases
 
 A free, local image studio and MCP server with permissively licensed models: text to image,
 editing, sketch to image, one-click looks, outpainting, face repair, upscaling, background
@@ -180,12 +180,12 @@ unpack and run `ImageStudio`, which opens the studio in your browser. Details in
 **Everywhere else** (and for the MCP server and CLI), requires Python 3.11+.
 
 ```bash
-pipx install hivemind-imagestudio
+pipx install presidium-imagestudio   # earlier releases were hivemind-imagestudio; that name still installs this package
 ```
 
-or with pip or uv (`pip install hivemind-imagestudio`, `uv tool install hivemind-imagestudio`).
+or with pip or uv (`pip install presidium-imagestudio`, `uv tool install presidium-imagestudio`).
 Background removal needs ONNX Runtime, which is one extra: `pipx install
-"hivemind-imagestudio[bg]"`. Everything else works without it.
+"presidium-imagestudio[bg]"`. Everything else works without it.
 The GitHub Releases of this repository and the `hivemind-imagestudio` package on PyPI are
 the official builds (see NOTICE and TRADEMARK.md). Inside Presidium, Settings → Tools
 installs and connects it for you.

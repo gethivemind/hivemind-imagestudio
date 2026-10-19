@@ -35,4 +35,4 @@ Command line (both)
 ./ImageStudio cli doctor
 ./ImageStudio cli generate "a lighthouse at dusk" --preset best
 
-Prefer Python?  pipx install hivemind-imagestudio   then   imagestudio ui
+Prefer Python?  pipx install presidium-imagestudio   then   imagestudio ui

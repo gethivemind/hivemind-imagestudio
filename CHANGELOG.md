@@ -4,6 +4,14 @@ All notable changes to Hivemind Image Studio. The format follows Keep a Changelo
 follow semantic versioning. Official builds: GitHub Releases and the `hivemind-imagestudio`
 package on PyPI.
 
+## 0.3.10 — 2026-10-19
+
+### Changed
+- The Python package is now `presidium-imagestudio` (`pipx install presidium-imagestudio`). The old
+  name `hivemind-imagestudio` stays on PyPI as a shim that installs the new package, so existing
+  installs keep upgrading. Module, command and data folder are unchanged; `presidium-imagestudio`
+  is also available as a command.
+
 ## 0.3.9 — 2026-10-19
 
 ### Changed

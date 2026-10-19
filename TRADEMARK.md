@@ -11,7 +11,8 @@ the Apache License says so explicitly.
   and **Hivemind Image Studio**; those names remain ours)
 - the Presidium mark (six seats around one table, the chair at the head) and the Image Studio
   tile with the picture on the table
-- the package name **hivemind-imagestudio** on PyPI and the executable name **ImageStudio**
+- the package names **presidium-imagestudio** and **hivemind-imagestudio** on PyPI and the executable
+  name **ImageStudio**
 
 These are trademarks of Ratul Roy (GitHub: royal-programmer), creator of Presidium. They are
 not registered marks yet; unregistered marks are still protected against passing off and

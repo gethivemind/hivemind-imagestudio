@@ -1383,7 +1383,7 @@ class Studio:
     def _search_missing(self) -> str:
         sm = self.search_model()
         if not self.search_engine.available():
-            return "semantic search needs onnxruntime: pip install 'hivemind-imagestudio[bg]'"
+            return "semantic search needs onnxruntime: pip install 'presidium-imagestudio[bg]'"
         return (
             f"semantic search needs {sm.display_name} ({sm.download_bytes / 1e6:.0f} MB, "
             f"{sm.licence}); install it from Settings → Models and engines or "
@@ -2390,7 +2390,7 @@ class Studio:
             raise StudioError("the image engine (stable-diffusion.cpp) is not installed")
         if tool == "remove_background" and not self.background_engine.available():
             raise StudioError(
-                "background removal needs onnxruntime: pip install 'hivemind-imagestudio[bg]'"
+                "background removal needs onnxruntime: pip install 'presidium-imagestudio[bg]'"
             )
         src, source_job = self._resolve_input(image)
         from PIL import Image
@@ -2466,7 +2466,7 @@ class Studio:
             )
         if not self.face_detector.available():
             raise StudioError(
-                "face detection needs onnxruntime: pip install 'hivemind-imagestudio[bg]'"
+                "face detection needs onnxruntime: pip install 'presidium-imagestudio[bg]'"
             )
         if not self.engine.available():
             raise StudioError("the image engine (stable-diffusion.cpp) is not installed")

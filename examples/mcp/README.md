@@ -12,7 +12,7 @@ quality is a setting, never a consequence; estimates are measured; nothing is up
 | VS Code (Copilot agent mode) | `vscode.mcp.json` | `.vscode/mcp.json` |
 | Windows app instead of pip | `windows-app.json` | the installed `ImageStudio.exe cli serve` is the same server |
 
-The command must be on PATH: `pipx install hivemind-imagestudio` puts `imagestudio` there.
+The command must be on PATH: `pipx install presidium-imagestudio` puts `imagestudio` there.
 
 ## A typical agent flow
 

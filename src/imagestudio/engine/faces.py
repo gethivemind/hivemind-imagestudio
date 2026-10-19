@@ -23,7 +23,7 @@ def _ensure_runtime():
     except ImportError as e:  # pragma: no cover - depends on the environment
         raise EngineError(
             "face detection needs onnxruntime, numpy and Pillow: "
-            "pip install 'hivemind-imagestudio[bg]'"
+            "pip install 'presidium-imagestudio[bg]'"
         ) from e
     return np, ort, Image
 

@@ -1,0 +1,23 @@
+[project]
+name = "hivemind-imagestudio"
+version = "0.3.10"
+description = "Moved: this package is now presidium-imagestudio. Installing it installs the new package."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [{ name = "Ratul Roy (royal-programmer)" }, { name = "Presidium" }]
+dependencies = ["presidium-imagestudio[bg]==0.3.10"]
+
+[project.optional-dependencies]
+bg = ["presidium-imagestudio[bg]==0.3.10"]
+
+[project.urls]
+Homepage = "https://github.com/presidiumdev/presidium-imagestudio"
+"New package" = "https://pypi.org/project/presidium-imagestudio/"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hivemind_imagestudio"]

@@ -1,6 +1,6 @@
 [project]
-name = "hivemind-imagestudio"
-version = "0.3.9"
+name = "presidium-imagestudio"
+version = "0.3.10"
 description = "Free, local, permissively licensed image MCP server. Quality is a setting, never a consequence."
 readme = "README.md"
 license = "Apache-2.0"
@@ -43,6 +43,7 @@ app = ["pywebview>=5", "pystray>=0.19"]  # the windowed desktop app (packaging/l
 
 [project.scripts]
 imagestudio = "imagestudio.cli:main"
+presidium-imagestudio = "imagestudio.cli:main"
 
 [build-system]
 requires = ["hatchling"]

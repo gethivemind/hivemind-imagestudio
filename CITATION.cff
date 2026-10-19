@@ -8,7 +8,7 @@ authors:
     alias: royal-programmer
 repository-code: "https://github.com/presidiumdev/presidium-imagestudio"
 license: Apache-2.0
-version: 0.3.9
+version: 0.3.10
 date-released: 2026-10-19
 abstract: >-
   A free, local image studio and MCP server: text-to-image, editing, sketch-to-image,
