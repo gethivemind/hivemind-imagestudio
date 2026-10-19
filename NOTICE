@@ -12,7 +12,7 @@ derived service "Presidium" or "Presidium Image Studio", or present it as offici
 "A fork of Presidium Image Studio" is fine.
 
 Official channel. GitHub Releases of presidiumdev/presidium-imagestudio, the Microsoft Store
-listing, and the PyPI package presidium-imagestudio (hivemind-imagestudio is a shim that installs
-it) are the official builds; anything else is unverified.
+listing, and the PyPI package presidium-imagestudio are the official builds; anything else is
+unverified. The earlier PyPI name hivemind-imagestudio is retired.
 
 Third-party components keep their own licences; see the Licences table in README.md.

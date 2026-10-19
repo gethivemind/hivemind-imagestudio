@@ -180,7 +180,7 @@ unpack and run `ImageStudio`, which opens the studio in your browser. Details in
 **Everywhere else** (and for the MCP server and CLI), requires Python 3.11+.
 
 ```bash
-pipx install presidium-imagestudio   # earlier releases were hivemind-imagestudio; that name still installs this package
+pipx install presidium-imagestudio   # earlier releases were published as hivemind-imagestudio
 ```
 
 or with pip or uv (`pip install presidium-imagestudio`, `uv tool install presidium-imagestudio`).
