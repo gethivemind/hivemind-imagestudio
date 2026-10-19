@@ -31,4 +31,4 @@ ImageStudio.exe cli generate "a lighthouse at dusk" --preset best
 ImageStudio.exe cli --help
 
 Licence: Apache-2.0 (LICENSE, NOTICE). The name and logo are trademarks (TRADEMARK.md).
-Made with love by Ratul Roy (royal-programmer). https://gethivemind.github.io/hivemind-imagestudio/
+Made with love by Ratul Roy (royal-programmer). https://presidiumdev.github.io/presidium-imagestudio/

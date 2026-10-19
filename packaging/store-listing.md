@@ -48,13 +48,13 @@ image generation; stable diffusion; FLUX; local AI; outpainting; upscale; backgr
 Copyright © 2026 Ratul Roy and the Presidium contributors. "Presidium" and "Presidium Image Studio" are trademarks of Ratul Roy.
 
 ## Privacy policy URL (required: the app declares the internetClient capability)
-https://gethivemind.github.io/hivemind-imagestudio/privacy.html
+https://presidiumdev.github.io/presidium-imagestudio/privacy.html
 
 ## Website
-https://gethivemind.github.io/hivemind-imagestudio/
+https://presidiumdev.github.io/presidium-imagestudio/
 
 ## Support contact
-https://github.com/gethivemind/hivemind-imagestudio/issues
+https://github.com/presidiumdev/presidium-imagestudio/issues
 
 ## Screenshots (desktop, PNG, 1440×900, in site/assets)
 shot-create.png · shot-gallery.png · shot-viewer.png · shot-sketch.png · shot-settings.png

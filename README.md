@@ -1,6 +1,6 @@
 # Presidium Image Studio
 
-**Website:** https://gethivemind.github.io/hivemind-imagestudio/ · **PyPI:** https://pypi.org/project/hivemind-imagestudio/ · **Releases:** https://github.com/gethivemind/hivemind-imagestudio/releases
+**Website:** https://presidiumdev.github.io/presidium-imagestudio/ · **PyPI:** https://pypi.org/project/hivemind-imagestudio/ · **Releases:** https://github.com/presidiumdev/presidium-imagestudio/releases
 
 A free, local image studio and MCP server with permissively licensed models: text to image,
 editing, sketch to image, one-click looks, outpainting, face repair, upscaling, background
@@ -160,7 +160,7 @@ machine. Needs the vision engine and model that Describe uses.
 **Windows app:** easiest from the [Microsoft Store](https://apps.microsoft.com/detail/9NJ8PVHV74KZ)
 (signed by Microsoft, no SmartScreen warning, automatic updates; `winget install 9NJ8PVHV74KZ -s msstore`
 works too). Or download `ImageStudio-<version>-Setup.exe` from the
-[latest release](https://github.com/gethivemind/hivemind-imagestudio/releases/latest) and run it:
+[latest release](https://github.com/presidiumdev/presidium-imagestudio/releases/latest) and run it:
 Start menu entry, search, Pin to Start, uninstall from Settings → Apps, optional desktop
 shortcut and start-at-sign-in. No administrator rights needed. Prefer portable? The
 `…-windows-x64.zip` is the same app: unzip, run `ImageStudio.exe`. The studio opens in a window of its own (WebView2, part of Windows 10
@@ -364,7 +364,7 @@ pinned, hash-checked catalogue.
 Tool descriptions are written for an AI caller: what the tool does, when to use it, what
 comes back, and how often to poll. Ready-made client configs (Claude Desktop, Claude Code,
 Cursor, VS Code) and a typical agent flow: [`examples/mcp`](examples/mcp/README.md) and the
-[For agents](https://gethivemind.github.io/hivemind-imagestudio/mcp.html) page. The Windows
+[For agents](https://presidiumdev.github.io/presidium-imagestudio/mcp.html) page. The Windows
 app is the same server: `ImageStudio.exe cli serve` (Settings → About shows the exact path).
 
 ### `generate` parameters

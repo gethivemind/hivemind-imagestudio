@@ -17,7 +17,7 @@
 #define MyAppName "Presidium Image Studio"
 #define MyAppShort "Image Studio"
 #define MyAppPublisher "Presidium"
-#define MyAppURL "https://gethivemind.github.io/hivemind-imagestudio/"
+#define MyAppURL "https://presidiumdev.github.io/presidium-imagestudio/"
 #define MyAppExeName "ImageStudio.exe"
 
 [Setup]
@@ -27,8 +27,8 @@ AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
-AppSupportURL=https://github.com/gethivemind/hivemind-imagestudio/issues
-AppUpdatesURL=https://github.com/gethivemind/hivemind-imagestudio/releases
+AppSupportURL=https://github.com/presidiumdev/presidium-imagestudio/issues
+AppUpdatesURL=https://github.com/presidiumdev/presidium-imagestudio/releases
 AppCopyright=Copyright (C) 2026 Ratul Roy (royal-programmer) and the Presidium contributors
 DefaultDirName={autopf}\Presidium Image Studio
 DefaultGroupName={#MyAppName}
